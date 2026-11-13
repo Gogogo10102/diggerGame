@@ -153,3 +153,13 @@ export function fxText(fx) {
   }).join(", ");
 }
 
+// ---- 간판 로고 ----
+// 간판 글자는 글꼴에 따라 모양이 바뀌지 않도록 그림으로 박아 둡니다: public/assets/signs/*.png (tools/make-signs.py 로 만듦)
+// 처음엔 1x1 빈 그림이고, PNG를 불러오면 이 캔버스에 덮어써짐. 못 불러오면 draw.ts 가 글자로 대신 그림
+export const SIGN_IMG = {
+  garage: sprite(1, 1, () => {}), shop: sprite(1, 1, () => {}), craft: sprite(1, 1, () => {}),
+  furnace: sprite(1, 1, () => {}), mine: sprite(1, 1, () => {}),
+};
+// 마을 창 탭 이름도 그림으로 (signs/tab_<탭>_<on|off>.png). 1배로 그림
+export const TAB_IMG = {};
+for (const k of ["shop", "craft", "furnace", "sell"]) for (const st of ["on", "off"]) TAB_IMG[k + "_" + st] = sprite(1, 1, () => {});

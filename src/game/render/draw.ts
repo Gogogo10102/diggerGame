@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { fxText, plinthLow, plinthTop } from "../art/buildings.ts";
+import { SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, itemIcon } from "../art/itemIcons.ts";
 import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, getMiner, grassTiles, hardTiles, hv, stoneTiles, sunImg } from "../art/sprites.ts";
 import { BUILD_COLS, H, HH, LAYERS, MINE_COL, SURF, T, TILE, W, layerOf } from "../core/config.ts";
@@ -186,9 +186,9 @@ export function draw() {
       ctx.drawImage(S.shopImg, bx1, bY, bW, bH);
       ctx.drawImage(S.itemShopImg, bx2, bY, bW, bH);
       ctx.drawImage(S.craftShopImg, bx3, bY, bW, bH);
-      txt("정비소", bx1 + bW / 2, bY + 56, "#ffd34d", 14, "center");
-      txt("아이템 상점", bx2 + bW / 2, bY + 48, "#8fd3ff", 14, "center");
-      txt("제작소", bx3 + bW / 2, bY + 64, "#7cff6b", 14, "center");
+      drawSign(SIGN_IMG.garage, bx1 + bW / 2, bY + 60, "정비소", "#ffd34d");
+      drawSign(SIGN_IMG.shop, bx2 + bW / 2, bY + 54, "상점", "#8fd3ff");
+      drawSign(SIGN_IMG.craft, bx3 + bW / 2, bY + 70, "제작소", "#7cff6b");
       // 굴뚝 연기 / 용광로 불빛
       const smoke = (x, y, col) => {
         for (let i = 0; i < 4; i++) {
@@ -216,17 +216,20 @@ export function draw() {
           ctx.fillStyle = "#fff3a8"; ctx.fillRect(bx4 + 106 + (((S.animT * 30) | 0) % 22), bY + 110, 2, 4);
         }
         smoke(bx4 + 100, bY - 2, busy ? "#8a90a0" : "#c9ced8");
-        txt("용광로", bx4 + fW / 2, bY + 31, "#ffb066", 14, "center");
+        drawSign(SIGN_IMG.furnace, bx4 + fW / 2, bY + 38, "용광로", "#ffb066");
       }
       // 광산 입구 표지판
       const sx = MINE_COL * T + 8 - camX, sy = SURF * T - camY;
       ctx.fillStyle = "#14151f"; ctx.fillRect(sx + 18, sy - 50, 8, 50);
       ctx.fillStyle = "#8a5a3c"; ctx.fillRect(sx + 20, sy - 50, 4, 50);
-      ctx.fillStyle = "#14151f"; ctx.fillRect(sx - 4, sy - 66, 74, 30);
-      ctx.fillStyle = "#c08a5c"; ctx.fillRect(sx - 2, sy - 64, 70, 26);
-      ctx.fillStyle = "#e0a874"; ctx.fillRect(sx - 2, sy - 64, 70, 3);
-      ctx.fillStyle = "#8a5a3c"; ctx.fillRect(sx - 2, sy - 41, 70, 3);
-      txt("광산 ▼", sx + 33, sy - 58, "#3a2414", 14, "center");
+      if (SIGN_IMG.mine.width > 1) drawSign(SIGN_IMG.mine, sx + 44, sy - 52);
+      else {                                                       // 로고 PNG가 없을 때만 예전 나무판 + 글자
+        ctx.fillStyle = "#14151f"; ctx.fillRect(sx - 4, sy - 66, 74, 30);
+        ctx.fillStyle = "#c08a5c"; ctx.fillRect(sx - 2, sy - 64, 70, 26);
+        ctx.fillStyle = "#e0a874"; ctx.fillRect(sx - 2, sy - 64, 70, 3);
+        ctx.fillStyle = "#8a5a3c"; ctx.fillRect(sx - 2, sy - 41, 70, 3);
+        txt("광산 ▼", sx + 33, sy - 58, "#3a2414", 14, "center");
+      }
       smoke(bx3 + 32, bY + 10, "#9aa0b4");
       ctx.globalAlpha = 0.16 + 0.1 * Math.sin(S.animT * 9) + 0.05 * Math.sin(S.animT * 23);
       ctx.fillStyle = "#ffb040"; ctx.fillRect(bx3 + 28, bY + 80, 48, 40);
@@ -531,6 +534,14 @@ export function drawHUD(vw, vh, depth) {
     ctx.globalAlpha = 1;
     txt(helpStr, 28, hy + 10, "#c9cfe6", 12);
   }
+}
+
+// 간판 로고: 그림 1픽셀 = 건물 도트 1픽셀이라 2배로 그림. (cx, cy) 가운데 기준. 그림이 없으면 글자로 대신
+export function drawSign(img, cx, cy, label, col) {
+  if (img.width > 1) {
+    const w = img.width * 2, h = img.height * 2;
+    ctx.drawImage(img, Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
+  } else if (label) txt(label, cx, cy - 8, col, 16, "center");
 }
 
 // 마을 창(상점·제작·용광로·판매)은 render/townUI.ts 에서 그립니다.

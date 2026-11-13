@@ -8,7 +8,7 @@
 // =====================================================================
 import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg } from "./sprites.ts";
 import { ITEM_ICON } from "./itemIcons.ts";
-import { plinthTop, plinthLow } from "./buildings.ts";
+import { SIGN_IMG, TAB_IMG, plinthTop, plinthLow } from "./buildings.ts";
 import { barIcon, furnaceImg } from "../systems/furnace.ts";
 import { oreDrop } from "../systems/drops.ts";
 import { S } from "../core/state.ts";
@@ -36,6 +36,8 @@ export function assetTable() {
   t["buildings/item_shop.png"] = () => S.itemShopImg;
   t["buildings/workshop.png"] = () => S.craftShopImg;
   t["buildings/furnace.png"] = () => furnaceImg;
+  for (const k in SIGN_IMG) t["signs/" + k + ".png"] = () => SIGN_IMG[k];
+  for (const k in TAB_IMG) t["signs/tab_" + k + ".png"] = () => TAB_IMG[k];
   t["sky/sun.png"] = () => sunImg;
   t["sky/cloud.png"] = () => cloudImg;
   return t;
