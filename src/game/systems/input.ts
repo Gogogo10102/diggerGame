@@ -1,15 +1,13 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../core/stats.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { ICON } from "../art/sprites.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { SHOP_PER, cycleZoom, say } from "../core/stats.ts";
 import { HOT } from "../data/consumables.ts";
 import { CATS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
-import { ctx, txt } from "../render/util.ts";
 import { saveNow } from "../save/account.ts";
-import { openFurnace } from "./furnace.ts";
+import { BAR_KEYS, furnaceAct, openFurnace } from "./furnace.ts";
 import { SELL_COLS, SELL_KEYS, buyItem, craftItem, openCraft, sellItem, sellStash } from "./town.ts";
 import { useConsumable } from "./update.ts";
 import { openQuests } from "../ui/dom.ts";
@@ -22,10 +20,23 @@ import { hideOv, openAccountScreen } from "../ui/overlay.ts";
 export const keys = {};
 addEventListener("keydown", (e) => {
   if (S.state === "account") return;                  // 계정 화면: 입력칸에 타이핑
-  if (S.state === "menu") { if (S.furnaceOpen && townKey(e)) return; if ((e.code === "Escape" || (e.code === "KeyI" && S.invOpen) || (e.code === "KeyE" && S.furnaceOpen)) && !e.repeat) closeMenu(); return; }
+  if (S.state === "menu") { if ((e.code === "Escape" || (e.code === "KeyI" && S.invOpen)) && !e.repeat) closeMenu(); return; }
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
   if (S.state === "title") { openAccountScreen(); return; }
-  if ((S.state === "shop" || S.state === "craft") && townKey(e)) return;
+  if ((S.state === "shop" || S.state === "craft" || S.state === "furnace") && townKey(e)) return;
+  if (S.state === "furnace") {                          // 용광로 창 조작: ↑↓ 고르기 · 1/5/Enter 넣기 · U 강화 · Backspace 비우기
+    const len = BAR_KEYS.length;
+    if (e.code === "Escape" || e.code === "KeyE") { if (!e.repeat) closeShop(); return; }
+    if (e.repeat && !/^Arrow|^Key[WS]$/.test(e.code)) return;
+    if (e.code === "ArrowUp" || e.code === "KeyW") S.furnaceSel = (S.furnaceSel + len - 1) % len;
+    else if (e.code === "ArrowDown" || e.code === "KeyS") S.furnaceSel = (S.furnaceSel + 1) % len;
+    else if (e.code === "Digit1") furnaceAct("smelt", 1);
+    else if (e.code === "Digit5") furnaceAct("smelt", 5);
+    else if (e.code === "Enter" || e.code === "Space") furnaceAct("smelt", Infinity);
+    else if (e.code === "KeyU") furnaceAct("up");
+    else if (e.code === "Backspace" || e.code === "Delete") furnaceAct("clear");
+    return;
+  }
   if (S.state === "shop") {                             // 상점 메뉴 조작
     const n = CATS.length, len = CATS[S.shopTab].ids.length;
     if (e.code === "Escape" || e.code === "KeyE") { if (!e.repeat) closeShop(); return; }
@@ -151,12 +162,27 @@ stage.addEventListener("pointerdown", (e) => {
     if (!hit(S.shopRect)) closeShop();                 // 패널 바깥을 탭하면 닫기
     return;
   }
+  if (S.state === "furnace") {                         // 용광로 창: 탭 처리
+    for (const b of shopBtn) {
+      if (!hit(b)) continue;
+      if (b.act === "town") switchTown(b.arg);
+      else if (b.act === "fsel") S.furnaceSel = b.i;
+      else if (b.act === "smelt") furnaceAct("smelt", b.arg);
+      else if (b.act === "fup") furnaceAct("up");
+      else if (b.act === "fclear") furnaceAct("clear");
+      else if (b.act === "close") closeShop();
+      return;
+    }
+    if (!hit(S.shopRect)) closeShop();
+    return;
+  }
   if (S.state === "shop") {                            // 상점 메뉴: 탭 처리
     for (const b of shopBtn) {
       if (!hit(b)) continue;
       if (b.act === "town") switchTown(b.arg);
       else if (b.act === "tab") { S.shopTab = b.arg; S.shopSel = 0; }
-      else if (b.act === "buy") { S.shopSel = b.i; buyItem(b.arg); }
+      else if (b.act === "sel") S.shopSel = b.i;              // 줄을 누르면 고르기, 아래 [구매] 버튼으로 사기
+      else if (b.act === "buy") buyItem(b.arg);
       else if (b.act === "page") {
         const np = Math.max(0, Math.min(Math.ceil(CATS[S.shopTab].ids.length / SHOP_PER) - 1, Math.floor(S.shopSel / SHOP_PER) + b.arg));
         S.shopSel = np * SHOP_PER;
@@ -203,30 +229,16 @@ export function stashCargo() {
 export function townActive() {
   if (S.state === "shop") return "shop";
   if (S.state === "craft") return S.craftTab === RECIPE_CATS.length ? "sell" : "craft";
-  if (S.state === "menu" && S.furnaceOpen) return "furnace";
+  if (S.state === "furnace") return "furnace";
   return null;
 }
 export function switchTown(k) {
-  if (S.state === "menu") { hideOv(); S.furnaceOpen = false; }
+  if (S.state === "menu") hideOv();
   S.stick = null; touch.l = touch.r = touch.u = touch.d = false;
   if (k === "shop") { S.state = "shop"; S.shopSel = 0; }
   else if (k === "craft") { stashCargo(); S.state = "craft"; if (S.craftTab >= RECIPE_CATS.length) S.craftTab = 0; S.craftSel = 0; }
   else if (k === "sell") { stashCargo(); S.state = "craft"; S.craftTab = RECIPE_CATS.length; }
   else if (k === "furnace") openFurnace();
-}
-// 캔버스 창 위에 공용 탭을 그림 (상점/제작/판매 창에서 사용)
-export function drawTownNav(x, y, w) {
-  const act = townActive(), n = TOWN.length, tw = Math.floor((w - (n - 1) * 6) / n), th = 40;
-  TOWN.forEach(([k, label, ic], i) => {
-    const tx = x + i * (tw + 6), on = k === act;
-    ctx.fillStyle = "#14151f"; ctx.fillRect(tx, y, tw, th);
-    ctx.fillStyle = on ? "#ffd34d" : "#3a3f5e"; ctx.fillRect(tx + 3, y + 3, tw - 6, th - 6);
-    ctx.fillStyle = on ? "#fff3a8" : "#4a5070"; ctx.fillRect(tx + 3, y + 3, tw - 6, 3);
-    ctx.drawImage(ICON[ic], tx + 8, y + 8, 24, 24);
-    txt(label, tx + 38, y + 13, on ? "#14151f" : "#c9cfe6", 14);
-    shopBtn.push({ x: tx, y, w: tw, h: th, act: "town", arg: k });
-  });
-  if (!S.usedTouch) txt("[ ] 키로 이동", x + w, y - 16, "#9aa3c8", 12, "right");
 }
 export function townKey(e) {                                       // [ / ] 로 마을 창 탭 이동
   if (e.code !== "BracketLeft" && e.code !== "BracketRight") return false;

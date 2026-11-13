@@ -25,9 +25,11 @@ function boot(path, opts = {}) {
   const html = fs.readFileSync(path, "utf8");
   const code = html.match(/<script>([\s\S]*)<\/script>/)[1];
 
+  let drawn = [];                                     // 이번 프레임에 캔버스에 쓴 글자들 (마을 창 확인용)
   const mkCtx = () => new Proxy({}, {
     get: (t, k) => {
-      if (k === "measureText") return () => ({ width: 50 });
+      if (k === "measureText") return (s) => ({ width: String(s).length * 8 });
+      if (k === "fillText") return (s) => { drawn.push(String(s)); };
       if (k === "createImageData") return (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h * 4)) });
       if (k === "createLinearGradient" || k === "createRadialGradient") return () => ({ addColorStop() {} });
       if (k in t) return t[k];
@@ -75,7 +77,7 @@ function boot(path, opts = {}) {
     keyup: (c) => handlers.keyup({ code: c }),
     ptr: (type, x, y, id = 1) =>
       canvasHandlers[type]({ pointerId: id, pointerType: "touch", clientX: x, clientY: y, preventDefault() {} }),
-    frame: () => { now += 16.7; const f = rafCb; rafCb = null; f(now); },
+    frame: () => { now += 16.7; drawn = []; const f = rafCb; rafCb = null; f(now); },
     run: (n) => { for (let i = 0; i < n; i++) t.frame(); },
     tick: async (n = 4) => { for (let i = 0; i < n; i++) await new Promise((r) => setImmediate(r)); },
     all: () => walk(body),
@@ -87,6 +89,13 @@ function boot(path, opts = {}) {
       const r = b.click(); if (r && r.then) await r; await t.tick();
     },
     texts: () => walk(body).map((n) => n._text).filter(Boolean),
+    canvasTexts: () => drawn.slice(),
+    // 캔버스 창의 버튼(shopBtn)을 동작 이름으로 찾아 가운데를 누름
+    tapAct: (act, arg) => {
+      const b = vm.runInContext("shopBtn", sandbox).find((q) => q.act === act && (arg === undefined || JSON.stringify(q.arg) === JSON.stringify(arg) || q.i === arg));
+      if (!b) throw new Error("캔버스 버튼을 못 찾음: " + act + " " + JSON.stringify(arg));
+      t.ptr("pointerdown", b.x + b.w / 2, b.y + b.h / 2);
+    },
   };
   return t;
 }

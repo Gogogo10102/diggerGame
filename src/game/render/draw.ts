@@ -12,13 +12,14 @@ import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
-import { FONT, ctx, cv, gg, gridCv, icon, keycap, lg, lightCv, panel, pbar, txt } from "./util.ts";
+import { ctx, cv, gg, gridCv, icon, keycap, lg, lightCv, panel, pbar, setFont, txt } from "./util.ts";
 import { WARN_TIME } from "../systems/cave.ts";
 import { DEBRIS_T, debrisT, dust } from "../systems/collapseFx.ts";
 import { drawDrops } from "../systems/drops.ts";
 import { chunks, floatT, solidTile } from "../systems/floating.ts";
 import { BARS, furnaceImg, matHave, matIcon, matName } from "../systems/furnace.ts";
-import { STICK_R, U_, drawTownNav, shopBtn, touch } from "../systems/input.ts";
+import { STICK_R, U_, shopBtn, touch } from "../systems/input.ts";
+import { drawCraftModal, drawFurnaceModal, drawShopModal, fitText } from "./townUI.ts";
 import { SELL_COLS, SELL_KEYS, stashValue, unitPrice } from "../systems/town.ts";
 import { ov } from "../ui/overlay.ts";
 
@@ -387,6 +388,7 @@ export function draw() {
   drawStick();
   if (S.state === "shop") drawShopModal(SW, SH);
   if (S.state === "craft") drawCraftModal(SW, SH);
+  if (S.state === "furnace") drawFurnaceModal(SW, SH);
   if (S.state === "title") drawTitle(SW, SH);
 }
 
@@ -496,14 +498,14 @@ export function drawHUD(vw, vh, depth) {
   const helpStr = S.usedTouch
     ? "드래그로 조작 · 아래 슬롯: 소모품 · 오른쪽 위: 가방/업적/메뉴"
     : "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-8 소모품 · I 가방 · Q 업적 · Z 확대 · H 도움말";
-  ctx.font = "12px " + FONT;
+  setFont(12);
   const helpW = Math.ceil(ctx.measureText(helpStr).width) + 32;
   const helpUp = helpOn && 12 + helpW > S.hotLeft - 8;      // 슬롯과 겹치면 도움말을 슬롯 위로 올리고, 안내창도 같이 올림
   const helpLift = helpUp ? 44 : 0;
   if ((S.nearItems || S.nearCraft || S.nearFurnace || S.nearGarage) && S.state === "play" && P.dead <= 0) {
     const nm = S.nearItems ? "아이템 상점 열기" : S.nearCraft ? "제작소 열기" : S.nearFurnace ? "용광로 열기" : "창고 · 판매 열기";
     const label = S.usedTouch ? nm : "[E] " + nm;
-    ctx.font = "14px " + FONT;
+    setFont(16);
     const pw = Math.ceil(ctx.measureText(label).width) + 56, ph = 48;
     const px = Math.floor((vw - pw) / 2), py = vh - 124 - helpLift;
     S.promptBtn = { x: px, y: py, w: pw, h: ph };
@@ -513,7 +515,7 @@ export function drawHUD(vw, vh, depth) {
 
   // 토스트
   if (S.msgT > 0 && S.state === "play") {
-    ctx.font = "14px " + FONT;
+    setFont(16);
     const w = Math.ceil(ctx.measureText(S.msg).width) + 48;
     const ty = vh - 126 - helpLift - (S.promptBtn ? 56 : 0);
     panel((vw - w) / 2, ty, w, 44);
@@ -531,257 +533,7 @@ export function drawHUD(vw, vh, depth) {
   }
 }
 
-// 아이템 상점 메뉴 (전체 화면 모달, 열려 있는 동안 게임은 일시정지)
-export function drawShopModal(vw, vh) {
-  ctx.fillStyle = "rgba(14,15,23,0.72)"; ctx.fillRect(0, 0, vw, vh);
-  const w = Math.min(580, vw - 16), h = Math.min(380, vh - 16 - 50);
-  const x = Math.floor((vw - w) / 2), y = Math.floor((vh - h) / 2) + 25;
-  S.shopRect = { x, y: y - 50, w, h: h + 50 };
-  drawTownNav(x, y - 48, w);
-  panel(x, y, w, h);
-
-  // 머리글: 보유 금액 / 제목 / 닫기
-  icon(ICON.coin, x + 14, y + 8);
-  txt("$" + P.money, x + 52, y + 17, "#ffd34d", 14);
-  txt("상점 - " + CATS[S.shopTab].name, x + w / 2, y + 17, "#fff", 14, "center");
-  const cx = x + w - 44, cy = y + 10;
-  ctx.fillStyle = "#14151f"; ctx.fillRect(cx, cy, 30, 30);
-  ctx.fillStyle = "#c0392b"; ctx.fillRect(cx + 2, cy + 2, 26, 26);
-  ctx.fillStyle = "#e74c3c"; ctx.fillRect(cx + 2, cy + 2, 26, 12);
-  txt("X", cx + 15, cy + 8, "#fff", 14, "center");
-  shopBtn.push({ x: cx, y: cy, w: 30, h: 30, act: "close" });
-
-  // 분류 탭
-  const n = CATS.length, tw = Math.floor((w - 24) / n), ty = y + 52, th = 44;
-  for (let i = 0; i < n; i++) {
-    const tx = x + 12 + i * tw, sel = i === S.shopTab;
-    ctx.fillStyle = "#14151f"; ctx.fillRect(tx, ty, tw - 2, th);
-    ctx.fillStyle = sel ? "#4a5280" : "#23263a"; ctx.fillRect(tx + 2, ty + 2, tw - 6, th - 4);
-    if (sel) { ctx.fillStyle = "#ffd34d"; ctx.fillRect(tx + 2, ty + th - 5, tw - 6, 3); }
-    ctx.globalAlpha = sel ? 1 : 0.6;
-    ctx.drawImage(ICON[CATS[i].icon], tx + Math.floor((tw - 2 - 32) / 2), ty + 5, 32, 32);
-    ctx.globalAlpha = 1;
-    shopBtn.push({ x: tx, y: ty, w: tw - 2, h: th, act: "tab", arg: i });
-  }
-
-  // 아이템 목록 (한 쪽에 4개, 8개면 2쪽)
-  const cat = CATS[S.shopTab];
-  const len = cat.ids.length, pages = Math.ceil(len / SHOP_PER), page = Math.floor(S.shopSel / SHOP_PER);
-  const rowsY = ty + th + 8;
-  const rowH = Math.max(38, Math.min(52, Math.floor((h - (rowsY - y) - 54 - 30) / SHOP_PER)));
-  const inner = rowH - 4;
-  for (let k = 0; k < SHOP_PER; k++) {
-    const i = page * SHOP_PER + k;
-    if (i >= len) break;
-    const id = cat.ids[i], it = ITEMS[id], ry = rowsY + k * rowH;
-    const owned = !it.cons && !!P.items[id];
-    const locked = !it.cons && !owned && !!it.req && !P.items[it.req];
-    ctx.fillStyle = i === S.shopSel ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.05)";
-    ctx.fillRect(x + 10, ry, w - 20, inner);
-    if (i === S.shopSel) { ctx.fillStyle = "#ffd34d"; ctx.fillRect(x + 10, ry, 3, inner); }
-    keycap(x + 18, ry + Math.floor((inner - 26) / 2), String(k + 1));
-    ctx.globalAlpha = locked ? 0.35 : 1;
-    icon(itemIcon(id), x + 54, ry + Math.floor((inner - 32) / 2));
-    ctx.globalAlpha = 1;
-    txt(fitText(it.name, w - 190), x + 96, ry + Math.floor(inner / 2) - 16, locked ? "#7a82a6" : "#fff", 14);
-    txt(fitText(locked ? "필요: " + ITEMS[it.req].name : (it.cons ? it.desc : fxText(it.fx)), w - 190), x + 96, ry + Math.floor(inner / 2) + 2,
-      locked ? "#7a82a6" : "#9aa3c8", 14);
-    if (it.cons) {
-      txt("$" + it.cost, x + w - 22, ry + Math.floor(inner / 2) - 16, P.money >= it.cost ? "#7cff6b" : "#ff6b6b", 14, "right");
-      txt("보유 " + (P.inv[id] || 0), x + w - 22, ry + Math.floor(inner / 2) + 2, "#8fd3ff", 14, "right");
-    } else {
-      const sy = ry + Math.floor(inner / 2) - 7;
-      if (owned) txt("보유", x + w - 22, sy, "#8fd3ff", 14, "right");
-      else if (locked) txt("잠김", x + w - 22, sy, "#7a82a6", 14, "right");
-      else txt("$" + it.cost, x + w - 22, sy, P.money >= it.cost ? "#7cff6b" : "#ff6b6b", 14, "right");
-    }
-    shopBtn.push({ x: x + 10, y: ry, w: w - 20, h: inner, act: "buy", arg: id, i });
-  }
-
-  // 쪽 넘기기 + 안내 메시지 + 현재 능력치
-  const fy = y + h - 54;
-  if (pages > 1) {
-    const nb = (bx, label, dir, on) => {
-      ctx.fillStyle = "#14151f"; ctx.fillRect(bx, fy - 28, 44, 26);
-      ctx.fillStyle = on ? "#4a5280" : "#23263a"; ctx.fillRect(bx + 2, fy - 26, 40, 22);
-      txt(label, bx + 22, fy - 23, on ? "#fff" : "#5a6080", 14, "center");
-      shopBtn.push({ x: bx, y: fy - 28, w: 44, h: 26, act: "page", arg: dir });
-    };
-    nb(x + 12, "<", -1, page > 0);
-    txt((page + 1) + "/" + pages, x + 80, fy - 23, "#9aa3c8", 14, "center");
-    nb(x + 100, ">", 1, page < pages - 1);
-  }
-  if (S.msgT > 0) txt(fitText(S.msg, w - 190), x + w - 14, fy - 23, "#ffd34d", 14, "right");
-  drawStatsBox(x, fy, w);
-}
-
-// 글자가 칸보다 길면 … 으로 줄임
-export function fitText(s, maxW) {
-  ctx.font = "14px " + FONT;
-  if (ctx.measureText(s).width <= maxW) return s;
-  while (s.length > 1 && ctx.measureText(s + "…").width > maxW) s = s.slice(0, -1);
-  return s + "…";
-}
-// 모달 아래쪽 능력치 표 (아이템 상점/제작소 공용)
-export function drawStatsBox(x, fy, w) {
-  ctx.fillStyle = "#14151f"; ctx.fillRect(x + 10, fy, w - 20, 44);
-  ctx.fillStyle = "#1b1d2c"; ctx.fillRect(x + 12, fy + 2, w - 24, 40);
-  const stats = [
-    ["채굴", "x" + STAT.drill.toFixed(1)], ["연료", String(STAT.fuel)], ["화물", String(STAT.cargo)],
-    ["판매", "x" + STAT.sell.toFixed(2)], ["행운", "+" + Math.round(STAT.lucky * 100) + "%"],
-    ["추진", "x" + STAT.thrust.toFixed(1)], ["이동", "x" + STAT.speed.toFixed(1)], ["시야", (VIS_BASE * STAT.light).toFixed(1) + "칸"],
-    ["소모", "x" + STAT.eff.toFixed(2)],
-  ];
-  const cw = Math.floor((w - 24) / 5);
-  stats.forEach((st, i) => {
-    const sx = x + 16 + (i % 5) * cw, sy = fy + 5 + Math.floor(i / 5) * 18;
-    txt(st[0], sx, sy, "#9aa3c8", 14);
-    txt(st[1], sx + cw - 4, sy, "#fff", 14, "right");
-  });
-}
-
-// 제작소 메뉴 (전체 화면 모달, 열려 있는 동안 게임은 일시정지)
-export function drawCraftModal(vw, vh) {
-  ctx.fillStyle = "rgba(14,15,23,0.72)"; ctx.fillRect(0, 0, vw, vh);
-  const w = Math.min(580, vw - 16), h = Math.min(450, vh - 16 - 50);
-  const x = Math.floor((vw - w) / 2), y = Math.floor((vh - h) / 2) + 25;
-  S.shopRect = { x, y: y - 50, w, h: h + 50 };
-  drawTownNav(x, y - 48, w);
-  panel(x, y, w, h);
-  const onSell = S.craftTab === RECIPE_CATS.length, nTabs = onSell ? 0 : RECIPE_CATS.length;
-  const compact = h < 400;
-
-  // 머리글: 보유 금액 / 제목(안내 메시지가 있으면 대신 표시) / 닫기
-  icon(ICON.coin, x + 14, y + 8);
-  txt("$" + P.money, x + 52, y + 17, "#ffd34d", 14);
-  const title = S.msgT > 0 ? S.msg : onSell ? "창고 · 판매" : "제작소 - " + RECIPE_CATS[S.craftTab].name + " 제작 트리";
-  txt(fitText(title, w - 176), x + w / 2, y + 17, S.msgT > 0 ? "#ffd34d" : "#fff", 14, "center");
-  const cx = x + w - 44, cy = y + 10;
-  ctx.fillStyle = "#14151f"; ctx.fillRect(cx, cy, 30, 30);
-  ctx.fillStyle = "#c0392b"; ctx.fillRect(cx + 2, cy + 2, 26, 26);
-  ctx.fillStyle = "#e74c3c"; ctx.fillRect(cx + 2, cy + 2, 26, 12);
-  txt("X", cx + 15, cy + 8, "#fff", 14, "center");
-  shopBtn.push({ x: cx, y: cy, w: 30, h: 30, act: "close" });
-
-  // 분류 탭 (제작 트리 분류)
-  const tw = Math.floor((w - 24) / Math.max(1, nTabs)), ty = y + 48, th = onSell ? 0 : compact ? 36 : 44;
-  for (let i = 0; i < nTabs; i++) {
-    const tx = x + 12 + i * tw, sel = i === S.craftTab;
-    ctx.fillStyle = "#14151f"; ctx.fillRect(tx, ty, tw - 2, th);
-    ctx.fillStyle = sel ? "#4a5280" : "#23263a"; ctx.fillRect(tx + 2, ty + 2, tw - 6, th - 4);
-    if (sel) { ctx.fillStyle = "#ffd34d"; ctx.fillRect(tx + 2, ty + th - 5, tw - 6, 3); }
-    ctx.globalAlpha = sel ? 1 : 0.6;
-    const isz = compact ? 26 : 32;
-    ctx.drawImage(ICON[RECIPE_CATS[i].icon], tx + Math.floor((tw - 2 - isz) / 2), ty + Math.floor((th - 4 - isz) / 2) + 1, isz, isz);
-    ctx.globalAlpha = 1;
-    shopBtn.push({ x: tx, y: ty, w: tw - 2, h: th, act: "tab", arg: i });
-  }
-
-  const areaY = onSell ? y + 50 : ty + th + 8;
-  const detH = compact ? 100 : 132;
-  const dy = y + h - 8 - detH;                                  // 아래쪽 상세 영역
-  ctx.fillStyle = "#14151f"; ctx.fillRect(x + 10, dy, w - 20, detH);
-  ctx.fillStyle = "#1b1d2c"; ctx.fillRect(x + 12, dy + 2, w - 24, detH - 4);
-  const bw = 96, bh = 44, bx = x + w - 22 - bw, by = dy + detH - bh - 8;
-
-  if (onSell) {
-    // 창고: 원석 9종 + 주괴 5종을 골라서 판매 (1개 / 10개 / 전부)
-    const cols = SELL_COLS, rowsN = Math.ceil(SELL_KEYS.length / cols);
-    const cw = Math.floor((w - 24) / cols), chh = Math.max(34, Math.min(52, Math.floor((dy - areaY - 4) / rowsN)));
-    SELL_KEYS.forEach((k, i) => {
-      const px = x + 12 + (i % cols) * cw, py = areaY + Math.floor(i / cols) * chh;
-      const n = matHave(k), sel = i === S.sellSel, isB = !!BARS[k];
-      ctx.fillStyle = sel ? "rgba(255,255,255,0.18)" : isB ? "rgba(255,170,90,0.08)" : "rgba(255,255,255,0.06)"; ctx.fillRect(px + 2, py, cw - 4, chh - 4);
-      if (sel) { ctx.fillStyle = "#ffd34d"; ctx.fillRect(px + 2, py, 3, chh - 4); }
-      ctx.globalAlpha = n > 0 ? 1 : 0.35;
-      const isz = chh >= 44 ? 32 : 24;
-      ctx.drawImage(matIcon(k), px + 7, py + Math.floor((chh - 4 - isz) / 2), isz, isz);
-      txt("x" + n, px + 12 + isz, py + Math.max(1, Math.floor((chh - 4) / 2) - 14), n > 0 ? "#fff" : "#7a82a6", 12);
-      txt("$" + unitPrice(k), px + 12 + isz, py + Math.floor((chh - 4) / 2) + 1, n > 0 ? "#ffd34d" : "#7a82a6", 12);
-      ctx.globalAlpha = 1;
-      shopBtn.push({ x: px, y: py, w: cw, h: chh, act: "sellsel", i });
-    });
-    const id = SELL_KEYS[Math.min(S.sellSel, SELL_KEYS.length - 1)], have = matHave(id), unit = unitPrice(id);
-    const extra = BARS[id] ? " · 원석 2개+석탄으로 팔 때보다 비쌈" : "";
-    txt(fitText(matName(id) + " (보유 " + have + "개 · 개당 $" + unit + ")" + extra, w - 52), x + 22, dy + 8, "#fff", 14);
-    txt("원석 전체 $" + stashValue() + " · 주괴는 하나씩 골라서 판매", x + 22, dy + 28, "#9aa3c8", 12);
-    const sb = (bx0, by0, bw0, label, sub, can, act, arg) => {
-      ctx.fillStyle = "#14151f"; ctx.fillRect(bx0, by0, bw0, bh);
-      ctx.fillStyle = can ? "#3fbf55" : "#3a3f58"; ctx.fillRect(bx0 + 3, by0 + 3, bw0 - 6, bh - 6);
-      ctx.fillStyle = can ? "#7cff6b" : "#4a5070"; ctx.fillRect(bx0 + 3, by0 + 3, bw0 - 6, 4);
-      txt(label, bx0 + bw0 / 2, by0 + 7, "#fff", 14, "center");
-      txt(sub, bx0 + bw0 / 2, by0 + 24, can ? "#fff" : "#9aa3c8", 14, "center");
-      shopBtn.push({ x: bx0, y: by0, w: bw0, h: bh, act, arg });
-    };
-    const s1 = 70, gap = 6, left = x + 22;
-    sb(left, by, s1, "1개", "$" + unit, have >= 1, "sell", [id, 1]);
-    sb(left + (s1 + gap), by, s1, "10개", "$" + unit * Math.min(10, have), have >= 1, "sell", [id, 10]);
-    sb(left + 2 * (s1 + gap), by, s1, "전부", "$" + unit * have, have >= 1, "sell", [id, Infinity]);
-    const tot = stashValue();
-    sb(bx - 30, by, bw + 30, "원석 모두", "$" + tot, tot > 0, "sellall");
-    return;
-  }
-
-  // 제작 트리
-  const cat = RECIPE_CATS[S.craftTab];
-  const stat = (id) => {
-    const it = ITEMS[id];
-    const owned = !!P.items[id];
-    const locked = !owned && !!it.req && !P.items[it.req];
-    const mats = Object.keys(it.mats).every((m) => matHave(m) >= it.mats[m]);
-    return { owned, locked, mats, can: !owned && !locked && mats && P.money >= it.cost };
-  };
-  const treeH = dy - areaY - 6, rowsN = Math.max(3, cat.rows);
-  const rowH = Math.floor(treeH / rowsN), nb = Math.max(30, Math.min(52, rowH - 6));
-  const colW = cat.cols > 1 ? Math.min(150, Math.floor((w - 40 - nb) / (cat.cols - 1))) : 0;
-  const treeW = nb + colW * (cat.cols - 1), ox = x + Math.floor((w - treeW) / 2), oy = areaY + Math.floor((treeH - rowH * cat.rows) / 2);
-  const pos = {};
-  cat.nodes.forEach((n) => { pos[n.id] = { x: ox + n.col * colW, y: oy + n.row * rowH + Math.floor((rowH - nb) / 2) }; });
-  // 연결선
-  for (const n of cat.nodes) {
-    if (!n.req) continue;
-    const a = pos[n.req], b = pos[n.id], mx = Math.floor((a.x + nb + b.x) / 2);
-    ctx.fillStyle = P.items[n.req] ? "#8fd3ff" : "#4a5070";
-    ctx.fillRect(a.x + nb, a.y + (nb >> 1) - 1, mx - a.x - nb + 1, 3);
-    ctx.fillRect(mx, Math.min(a.y, b.y) + (nb >> 1) - 1, 3, Math.abs(a.y - b.y) + 3);
-    ctx.fillRect(mx, b.y + (nb >> 1) - 1, b.x - mx, 3);
-  }
-  // 노드
-  for (const n of cat.nodes) {
-    const id = n.id, st = stat(id), p0 = pos[id], sel = n.i === S.craftSel;
-    ctx.fillStyle = sel ? "#ffffff" : "#14151f"; ctx.fillRect(p0.x - 2, p0.y - 2, nb + 4, nb + 4);
-    ctx.fillStyle = st.owned ? "#2f6b45" : st.locked ? "#23263a" : st.can ? "#6b5a1e" : "#4a3a44"; ctx.fillRect(p0.x, p0.y, nb, nb);
-    ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fillRect(p0.x, p0.y, nb, 3);
-    ctx.globalAlpha = st.locked ? 0.35 : 1;
-    const isz = nb - 10;
-    ctx.drawImage(itemIcon(id), p0.x + ((nb - isz) >> 1), p0.y + ((nb - isz) >> 1), isz, isz);
-    ctx.globalAlpha = 1;
-    if (st.owned) { ctx.fillStyle = "#7cff6b"; ctx.fillRect(p0.x + nb - 12, p0.y + 3, 3, 3); ctx.fillRect(p0.x + nb - 9, p0.y + 6, 3, 3); ctx.fillRect(p0.x + nb - 6, p0.y + 1, 3, 5); }
-    else if (st.can) { ctx.fillStyle = "#ffd34d"; ctx.fillRect(p0.x + nb - 8, p0.y + 3, 5, 5); }
-    else if (st.locked) { ctx.fillStyle = "#9aa3c8"; ctx.fillRect(p0.x + nb - 10, p0.y + 7, 7, 5); ctx.fillRect(p0.x + nb - 9, p0.y + 3, 5, 5); ctx.fillStyle = "#23263a"; ctx.fillRect(p0.x + nb - 8, p0.y + 5, 3, 2); }
-    shopBtn.push({ x: p0.x - 4, y: p0.y - 4, w: nb + 8, h: nb + 8, act: "node", i: n.i });
-  }
-
-  // 선택한 장비의 상세: 효과 + 재료 + 제작 버튼
-  const id = cat.ids[S.craftSel], it = ITEMS[id], st = stat(id);
-  txt(fitText(it.name + (st.owned ? "  (보유)" : ""), w - 52), x + 22, dy + 6, "#fff", 14);
-  txt(fitText(fxText(it.fx), w - 52), x + 22, dy + 24, "#9aa3c8", 14);
-  if (st.locked) txt(fitText("먼저 제작: " + ITEMS[it.req].name, w - 52), x + 22, dy + 42, "#ff9a90", 14);
-  let mx = x + 22;
-  for (const m in it.mats) {
-    const have = matHave(m), need = it.mats[m];
-    ctx.drawImage(matIcon(m), mx, by + 4, 32, 32);
-    txt(have + "/" + need, mx + 36, by + 13, have >= need ? "#7cff6b" : "#ff6b6b", 14);
-    mx += 82;
-  }
-  ctx.fillStyle = "#14151f"; ctx.fillRect(bx, by, bw, bh);
-  ctx.fillStyle = st.can ? "#3fbf55" : "#3a3f58"; ctx.fillRect(bx + 3, by + 3, bw - 6, bh - 6);
-  ctx.fillStyle = st.can ? "#7cff6b" : "#4a5070"; ctx.fillRect(bx + 3, by + 3, bw - 6, 4);
-  txt(st.owned ? "보유" : st.locked ? "잠김" : "제작", bx + bw / 2, by + 7, "#fff", 14, "center");
-  if (!st.owned) txt("$" + it.cost, bx + bw / 2, by + 24, P.money >= it.cost ? "#fff" : "#ff9a90", 14, "center");
-  shopBtn.push({ x: bx, y: by, w: bw, h: bh, act: "craft", arg: id });
-}
-
+// 마을 창(상점·제작·용광로·판매)은 render/townUI.ts 에서 그립니다.
 
 // 도트 느낌 원 (4px 단위)
 export function pcircle(cx, cy, r, col) {

@@ -16,14 +16,24 @@ export function resize() {
   cv.width = Math.max(1, innerWidth || document.documentElement.clientWidth || 1); cv.height = Math.max(1, innerHeight || document.documentElement.clientHeight || 1);
 }
 addEventListener("resize", resize); resize();
-try { document.fonts.load("14px Galmuri14"); } catch (e) {}
+// ---- 글꼴 ----
+// 도트 글꼴은 "설계한 크기의 정수배"로 써야 픽셀이 또렷합니다. 그래서 크기를 세 단계로만 씁니다.
+//   작은 글씨 12px  → 갈무리11 (12px 설계)
+//   기본 글씨 16px  → Neo둥근모 (16px 설계)
+//   큰 글씨 32/48px → Neo둥근모 2배/3배
+// txt()에 다른 크기를 넘겨도 가장 가까운 단계로 맞춰집니다(14 → 16, 28 → 32 …).
+export const FONT_M = "'NeoDunggeunmo','Galmuri11','Apple SD Gothic Neo','Malgun Gothic',monospace";
+export const FONT_S = "'Galmuri11','NeoDunggeunmo','Apple SD Gothic Neo','Malgun Gothic',monospace";
+export const FONT = FONT_M;                                    // 예전 코드 호환용
+export function fontPx(size) { return !size ? 16 : size <= 12 ? 12 : size < 24 ? 16 : size < 40 ? 32 : 48; }
+export function setFont(size) { const px = fontPx(size); ctx.font = px + "px " + (px === 12 ? FONT_S : FONT_M); return px; }
+try { document.fonts.load("16px NeoDunggeunmo"); document.fonts.load("12px Galmuri11"); } catch (e) {}
 
-export const FONT = "'Galmuri14','Galmuri11','Malgun Gothic',monospace";
 export function txt(s, x, y, col, size, align, shadow) {
-  size = size || 14; align = align || "left";
-  ctx.font = size + "px " + FONT;
+  align = align || "left";
+  size = setFont(size);
   ctx.textAlign = align; ctx.textBaseline = "top";
-  const o = size >= 28 ? 2 : 1;
+  const o = size >= 32 ? 2 : 1;
   ctx.fillStyle = shadow || "#14151f"; ctx.fillText(s, Math.round(x) + o, Math.round(y) + o);
   ctx.fillStyle = col || "#fff"; ctx.fillText(s, Math.round(x), Math.round(y));
 }
