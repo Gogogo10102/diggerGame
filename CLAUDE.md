@@ -81,6 +81,8 @@ docs/                  plan.md decisions.md
   (`src/game/art/assets.ts` 의 `assetTable()` 이 경로 ↔ 그림 연결표).
 - 그림 수정: PNG 를 편집기(Aseprite, Piskel 등)로 고쳐 같은 경로에 저장 → 새로고침. 크기는 바뀌어도 됨.
 - 새 그림 추가: PNG 저장 → `assetTable()` 에 경로 한 줄 → `npm run assets:manifest`.
+  manifest.json 에는 파일마다 내용 지문이 있어서, 그림을 고치면 주소(`?v=지문`)가 바뀌어 브라우저가 예전 그림을 쓰지 않습니다.
+  그림을 고친 뒤에도 `npm run assets:manifest` 를 돌리세요(`npm run build` 는 자동으로 돌림).
 - 경로 규칙: `ores/icon/<광물id>.png`(인벤토리 아이콘), `ores/world/<id>_<변형>.png`(땅속 광물),
   `ores/drop/<id>.png`(바닥에 떨어진 것), `bars/<cu|fe|ag|au|mi>.png`(주괴), `items/<아이템id>.png`,
   `ui/icon/<이름>.png`, `tiles/...`, `buildings/...`, `sky/...`,

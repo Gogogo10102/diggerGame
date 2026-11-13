@@ -63,11 +63,13 @@ export async function loadAssets() {
     list = await r.json();
   } catch (e) { return 0; }                                            // 파일이 없으면 코드로 그린 그림 그대로 사용
   const table = assetTable();
+  // 목록 형식: { files: { 경로: 지문 } } (예전 형식: [경로, ...]). 지문을 주소 뒤에 붙여 예전 그림 캐시를 피함
+  const entries = Array.isArray(list) ? list.map((p) => [p, ""]) : Object.entries((list && list.files) || {});
   let n = 0;
-  await Promise.all(list.map(async (path) => {
+  await Promise.all(entries.map(async ([path, ver]) => {
     const get = table[path];
     if (!get) return;
-    try { const img = await loadImage("assets/" + path); const cv = get(); if (cv) { applyImage(cv, img); n++; } }
+    try { const img = await loadImage("assets/" + path + (ver ? "?v=" + ver : "")); const cv = get(); if (cv) { applyImage(cv, img); n++; } }
     catch (e) { console.warn("그림 파일을 못 읽었어요:", path); }
   }));
   return n;
