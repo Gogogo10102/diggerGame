@@ -339,14 +339,11 @@ async function login(t, name) {
   const sv16 = JSON.parse(await t9.ev("JSON.stringify(snapshot())"));
   ok(sv16.stones === 1 && typeof sv16.seen === "string" && sv16.player.inv.fuel_l === 2, "저장에 stones/seen/inv 포함");
   const old16 = JSON.parse(JSON.stringify(sv16)); delete old16.stones; delete old16.seen; delete old16.player.inv;
-  const wl = t9.ev("(() => { const w = []; for (let r = SURF + 9; r < SURF + 60; r++) for (let c = 1; c < W - 1; c++) if (tiles[r*W+c] === 12) w.push(1); return w.length; })()");
-  t9.ev("tiles.fill(1, " + 6 * 32 + ")"); 
-  old16.world = t9.ev("encodeWorld()");
   t9.ev("tiles[(SURF+40)*W+5] = 0");
   old16.world = t9.ev("encodeWorld()");
   t9.ev("applyAccount(" + JSON.stringify(old16) + ")");
-  ok(t9.ev("tiles.some((v) => v === 12)"), "돌 없던 예전 저장 → 불러올 때 돌 추가");
-  ok(t9.ev("seen[(SURF+40)*W+5]") === 1, "예전 저장은 이미 뚫린 곳을 본 칸으로 처리");
+  ok(t9.ev("tiles.some((v) => v === 12)"), "불러온 월드에 돌 있음");
+  ok(t9.ev("tiles[(SURF+40)*W+5]") === 0 && t9.ev("seen[(SURF+40)*W+5]") === 1, "seen 없는 저장은 뚫린 곳을 본 칸으로 처리");
   ok(t9.ev("Object.keys(P.inv).length") === 0, "inv 없는 저장도 정상");
   const bad16 = JSON.parse(JSON.stringify(sv16)); bad16.player.inv = { fuel_s: 9999, dyn_s: -5, hack: 3 }; bad16.seen = "###";
   t9.ev("applyAccount(" + JSON.stringify(bad16) + ")");
@@ -457,17 +454,17 @@ async function login(t, name) {
   ok(t20.ev("(() => { const c = 8; return !collide(P.x, P.y); })()"), "플레이어는 갇히지 않고 움직일 수 있는 상태");
   // 재생
   far(); setup(5, 7);
-  t20.ev("(() => { for (let k = 0; k < 300; k++) { const c = 2 + (k % 28), r = SURF + 120 + ((k / 28) | 0); tiles[r*W+c] = 1; rub[r*W+c] = 1; regenT[r*W+c] = 0; } })()");
+  t20.ev("(() => { for (let k = 0; k < 300; k++) { const c = 2 + (k % 28), r = SURF + 120 + ((k / 28) | 0); tiles[r*W+c] = 1; setRub(r*W+c, 1); regenT[r*W+c] = 0; } })()");
   scans(1);
   const ores = t20.ev("(() => { let n = 0; for (let k = 0; k < 300; k++) { const c = 2 + (k % 28), r = SURF + 120 + ((k / 28) | 0); if (tiles[r*W+c] > 1 && tiles[r*W+c] < 12) n++; } return n; })()");
   ok(ores > 60 && ores < 190, "재생 시간이 되면 일부(약 40%)가 광물로 변함 (" + ores + "/300)");
   ok(t20.ev("rub.reduce((a, v) => a + v, 0)") === 0 || t20.ev("(() => { let n = 0; for (let i = 0; i < rub.length; i++) n += rub[i]; return n; })()") < 5, "재생 처리된 칸은 표시 해제");
-  t20.ev("tiles[(SURF+100)*W+5] = 0; rub[(SURF+100)*W+5] = 1; regenT[(SURF+100)*W+5] = 999"); scans(1);
+  t20.ev("tiles[(SURF+100)*W+5] = 0; setRub((SURF+100)*W+5, 1); regenT[(SURF+100)*W+5] = 999"); scans(1);
   ok(t20.ev("rub[(SURF+100)*W+5]") === 0, "다시 파낸 칸은 재생 표시 해제");
-  t20.ev("tiles[(SURF+101)*W+5] = 12; rub[(SURF+101)*W+5] = 1; regenT[(SURF+101)*W+5] = 0"); scans(1);
+  t20.ev("tiles[(SURF+101)*W+5] = 12; setRub((SURF+101)*W+5, 1); regenT[(SURF+101)*W+5] = 0"); scans(1);
   ok(t20.ev("tiles[(SURF+101)*W+5]") === 12, "돌로 채워진 칸은 광물로 안 변함");
   // 저장/복원
-  t20.ev("tiles[(SURF+110)*W+7] = 1; rub[(SURF+110)*W+7] = 1");
+  t20.ev("tiles[(SURF+110)*W+7] = 1; setRub((SURF+110)*W+7, 1)");
   await t20.ev("saveNow(true)"); await t20.tick();
   const sv19 = JSON.parse(await t20.ev("JSON.stringify(snapshot())"));
   ok(typeof sv19.rub === "string" && sv19.stats.collapses >= 1, "저장에 재생 표시 + 붕괴 횟수 포함");
@@ -857,6 +854,53 @@ async function login(t, name) {
   ok(t33.ev("(() => { for (let c = MINE_COL; c <= 26; c++) if (tiles[SURF*W + c] === 13) return false; return true; })()") && t33.ev("tiles[SURF*W + 3]") === 13, "옛 기초석 정리, 건물 아래는 유지");
   t33.ev("spawnDrop(5, 4 * T, (SURF - 1) * T, 1)"); t33.run(30);
   ok(t33.ev("state") === "play", "작아진 떨어진 아이템 그리기 정상");
+
+  console.log("[27] 큰 맵(다가가면 생성) / 저장 / 깊은 지층 / 미니맵");
+  const t40 = boot(path, { w: 1000, h: 640 }); t40.run(5); await login(t40, "Big"); t40.run(10);
+  ok(t40.ev("W") >= 384 && t40.ev("H") >= 2400, "맵 크기 " + t40.ev("W") + " x " + t40.ev("H"));
+  ok(t40.ev("isGen(5, 100)") && !t40.ev("isGen(300, 2000)"), "처음엔 마을 근처만 만들어 둠");
+  // 같은 시드면 어떤 순서로 만들어도 같은 모양
+  const chunkStr = (cx, cy) => t40.ev("(() => { let s = ''; for (let r = " + cy + " * CH; r < " + cy + " * CH + CH; r++) for (let c = " + cx + " * CH; c < " + cx + " * CH + CH; c++) s += String.fromCharCode(65 + tiles[r*W+c]); return s; })()");
+  t40.ev("genChunk(5, 40); genChunk(6, 40)");
+  const a40 = chunkStr(5, 40), b40 = chunkStr(6, 40);
+  t40.ev("genWorld(acct.seed); genChunk(6, 41); genChunk(6, 40); genChunk(5, 40)");
+  ok(chunkStr(5, 40) === a40 && chunkStr(6, 40) === b40, "구역 생성은 순서와 상관없이 같은 결과(이어진 광맥 포함)");
+  ok(t40.ev("(() => { const n = {}; for (let r = 40 * CH; r < 41 * CH; r++) for (let c = 5 * CH; c < 7 * CH; c++) n[tiles[r*W+c]] = 1; return !!(n[1] && (n[5] || n[10] || n[11] || n[9]) && n[12]); })()"), "깊은 구역에도 흙·희귀 광물·돌");
+  // 멀리 이동하면 그 근처가 생기고, 허공으로 떨어지지 않음
+  t40.ev("ensureAround(300, SURF + 1500); P.x = 300 * T + 16; P.y = (SURF + 1500) * T + 16; tiles[(SURF+1500)*W+300] = 0; P.vx = P.vy = 0; P.fuel = 1e9; graceT = 99");
+  t40.run(30);
+  ok(t40.ev("isGen(300, SURF + 1500) && isGen(300 + 60, SURF + 1500 + 60)") && t40.ev("P.y") < t40.ev("(SURF + 1504) * T"), "멀리 가면 주변 구역 생성, 허공으로 안 떨어짐");
+  ok(t40.ev("Math.abs(Math.floor(P.x / T) - 300)") <= 1, "먼저 만든 뒤 판 칸은 덮어쓰이지 않음");
+  ok(t40.ev("layerOf(1500)") === 6 && t40.ev("LAYERS.length") === 8, "깊이 1500m = 고대 화석층 (지층 8개)");
+  ok(t40.ev("hardOf(1, H - 3) / hardOf(1, SURF)") < 10 && t40.ev("hardOf(1, SURF + 401) > hardOf(1, SURF + 399)"), "깊어도 경도가 끝없이 커지지 않음");
+  // 저장: 바뀐 칸만 → 다시 불러오면 같은 모양
+  t40.ev("tiles[(SURF+1500)*W+301] = 0; tiles[(SURF+1501)*W+301] = 14");
+  const before40 = chunkStr(9, 47);
+  await t40.ev("saveNow(true)"); await t40.tick();
+  const sv40 = JSON.parse(t40.ev("JSON.stringify(snapshot())"));
+  ok(sv40.worldV === 2 && sv40.world.length < 200000, "새 저장 형식, 크기 " + sv40.world.length + "자");
+  t40.ev("genWorld(1)");
+  t40.ev("applyAccount(" + JSON.stringify(sv40) + ")");
+  ok(t40.ev("tiles[(SURF+1500)*W+301]") === 0 && t40.ev("tiles[(SURF+1501)*W+301]") === 14 && chunkStr(9, 47) === before40, "불러오면 판 칸·지지대·나머지 모양 그대로");
+  ok(t40.ev("Math.floor(P.x / T)") === Math.floor(sv40.player.x / 32) && Math.abs(t40.ev("P.y") - sv40.player.y) < 1 && t40.ev("P.y") > t40.ev("(SURF + 1400) * T"), "불러오면 깊은 곳 그 자리에서 시작 (" + Math.floor(sv40.player.y / 32) + "행)");
+  // 미니맵 / 큰 지도
+  t40.run(2);
+  ok(t40.ev("!!miniBtn"), "미니맵 표시");
+  t40.key("KeyM"); t40.run(1);
+  ok(t40.ev("state") === "map" && t40.canvasTexts().includes("지도"), "M: 큰 지도 열림(게임 멈춤)");
+  const si40 = t40.ev("mapView.si");
+  t40.tapAct("mzoom", 1); t40.run(1);
+  ok(t40.ev("mapView.si") === Math.min(si40 + 1, 5), "+ 버튼 확대");
+  const cx40 = t40.ev("mapView.cx");
+  t40.ptr("pointerdown", 500, 400); t40.ptr("pointermove", 400, 400); t40.ptr("pointerup", 400, 400);
+  ok(t40.ev("mapView.cx") > cx40, "드래그로 지도 이동");
+  t40.key("Escape"); t40.run(1);
+  ok(t40.ev("state") === "play", "Esc로 지도 닫힘");
+  t40.run(1);
+  t40.ptr("pointerdown", t40.ev("miniBtn.x + 10"), t40.ev("miniBtn.y + 10")); t40.run(1);
+  ok(t40.ev("state") === "map", "미니맵을 누르면 큰 지도");
+  t40.key("KeyM"); t40.run(1);
+  ok(t40.ev("mapColor(300, SURF + 1500)") !== t40.ev("MAP_UNSEEN") && t40.ev("mapColor(300, SURF + 2200)") === t40.ev("MAP_UNSEEN"), "지도는 본 칸만 색칠");
 
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });

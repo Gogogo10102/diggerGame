@@ -4,7 +4,7 @@ import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, HW, LAYERS, MINE_COL, ORE_C
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bombs, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, say, spawn, updateFx } from "../core/stats.ts";
-import { hardOf, seen, solid, tiles } from "../core/world.ts";
+import { ensureAround, hardOf, seen, solid, tiles } from "../core/world.ts";
 import { CONS, visR } from "../data/consumables.ts";
 import { checkQuests, onMined } from "../data/progress.ts";
 import { saveNow } from "../save/account.ts";
@@ -108,6 +108,7 @@ export function collide(x, y) {
 }
 
 export function update(dt) {
+  ensureAround(Math.floor(P.x / T), Math.floor(P.y / T));        // 플레이어 근처 땅을 아직 안 만들었으면 지금 만듦
   S.animT += dt;
   S.playT += dt;
   if (S.acct) { S.acct.playTime += dt; S.saveT += dt; if (S.saveT >= 15) saveNow(true, true); }   // 15초마다 자동 저장

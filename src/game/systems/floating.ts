@@ -4,7 +4,7 @@ import { H, HH, HW, SURF, T, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { floaters, maxFuel, spawn } from "../core/stats.ts";
-import { regenT, rub, seen, tiles, warn } from "../core/world.ts";
+import { ensureRect, isGen, regenT, rub, seen, setRub, tiles, warn } from "../core/world.ts";
 import { saveNow } from "../save/account.ts";
 import { REGEN_MAX, REGEN_MIN } from "./cave.ts";
 import { spawnDust } from "./collapseFx.ts";
@@ -18,19 +18,35 @@ export const chunks = [];                             // 떨어지는 덩어리 
 S.floatScanT = 0;
 export const anchorTile = (v) => v === 7 || v === 13;
 export const solidTile = (v) => v !== 0 && v !== 14 && v !== 15;
-export const _stack = new Int32Array(W * H), _vis = new Uint8Array(W * H);
+// 맵이 커서 플레이어 주변 창(가로 ±64, 세로 ±48칸)만 계산. 창 가장자리에 닿은 땅은 바깥과 이어진 것으로 봄
+export const FLOAT_WIN = { c: 64, r: 48 };
+export const _stack = new Int32Array((FLOAT_WIN.c * 2 + 1) * (FLOAT_WIN.r * 2 + 1)), _vis = new Uint8Array((FLOAT_WIN.c * 2 + 1) * (FLOAT_WIN.r * 2 + 1));
 export function scanFloating(dt) {
-  _vis.fill(0);
+  const pc = Math.floor(P.x / T), pr = Math.floor(P.y / T);
+  const c0 = Math.max(0, pc - FLOAT_WIN.c), c1 = Math.min(W - 1, pc + FLOAT_WIN.c);
+  const r0 = Math.max(SURF, pr - FLOAT_WIN.r), r1 = Math.min(H - 1, pr + FLOAT_WIN.r);
+  const ww = c1 - c0 + 1, wh = r1 - r0 + 1;
+  if (ww <= 0 || wh <= 0) return;
+  ensureRect(c0, r0, c1, r1);                                           // 아직 안 만든 땅(빈칸 0)을 공중으로 착각하지 않게
+  _vis.fill(0, 0, ww * wh);
   let sp = 0;
-  for (let i = 0; i < tiles.length; i++) if (anchorTile(tiles[i])) { _vis[i] = 1; _stack[sp++] = i; }
+  const L = (c, r) => (r - r0) * ww + (c - c0);                         // 창 안 번호
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+    const v = tiles[r * W + c];
+    const edge = (c === c0 && c0 > 0) || (c === c1 && c1 < W - 1) || (r === r0 && r0 > SURF) || (r === r1 && r1 < H - 1);
+    if (anchorTile(v) || (edge && solidTile(v))) { const k = L(c, r); _vis[k] = 1; _stack[sp++] = k; }
+  }
   while (sp > 0) {
-    const i = _stack[--sp], c = i % W, r = (i / W) | 0;
-    const nb = [c > 0 ? i - 1 : -1, c < W - 1 ? i + 1 : -1, r > SURF ? i - W : -1, r < H - 1 ? i + W : -1];
-    for (let k = 0; k < 4; k++) { const j = nb[k]; if (j >= 0 && !_vis[j] && solidTile(tiles[j])) { _vis[j] = 1; _stack[sp++] = j; } }
+    const k = _stack[--sp], c = c0 + (k % ww), r = r0 + ((k / ww) | 0);
+    if (c > c0) { const j = k - 1; if (!_vis[j] && solidTile(tiles[r * W + c - 1])) { _vis[j] = 1; _stack[sp++] = j; } }
+    if (c < c1) { const j = k + 1; if (!_vis[j] && solidTile(tiles[r * W + c + 1])) { _vis[j] = 1; _stack[sp++] = j; } }
+    if (r > r0 && r > SURF) { const j = k - ww; if (!_vis[j] && solidTile(tiles[(r - 1) * W + c])) { _vis[j] = 1; _stack[sp++] = j; } }
+    if (r < r1) { const j = k + ww; if (!_vis[j] && solidTile(tiles[(r + 1) * W + c])) { _vis[j] = 1; _stack[sp++] = j; } }
   }
   const out = [];
-  for (let i = SURF * W; i < tiles.length; i++) {
-    if (!_vis[i] && solidTile(tiles[i])) { out.push(i); floatT[i] += dt; }
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+    const i = r * W + c;
+    if (!_vis[L(c, r)] && solidTile(tiles[i])) { out.push(i); floatT[i] += dt; }
     else if (floatT[i] !== 0) floatT[i] = 0;
   }
   if (!out.length) return;
@@ -41,8 +57,10 @@ export function scanFloating(dt) {
     const comp = [s]; seenI.add(s);
     for (let q = 0; q < comp.length; q++) {
       const i = comp[q], c = i % W, r = (i / W) | 0;
-      for (const j of [c > 0 ? i - 1 : -1, c < W - 1 ? i + 1 : -1, r > SURF ? i - W : -1, r < H - 1 ? i + W : -1]) {
-        if (j >= 0 && !seenI.has(j) && !_vis[j] && solidTile(tiles[j])) { seenI.add(j); comp.push(j); }
+      for (const [cc, rr] of [[c - 1, r], [c + 1, r], [c, r - 1], [c, r + 1]]) {
+        if (cc < c0 || cc > c1 || rr < r0 || rr > r1 || rr < SURF) continue;
+        const j = rr * W + cc;
+        if (!seenI.has(j) && !_vis[L(cc, rr)] && solidTile(tiles[j])) { seenI.add(j); comp.push(j); }
       }
     }
     let t = 0;
@@ -52,7 +70,7 @@ export function scanFloating(dt) {
 }
 export function makeChunk(comp) {
   const cells = comp.map((i) => ({ c: i % W, r: (i / W) | 0, id: tiles[i], rub: rub[i] }));
-  for (const i of comp) { tiles[i] = 0; rub[i] = 0; floatT[i] = 0; warn[i] = 0; }
+  for (const i of comp) { tiles[i] = 0; setRub(i, 0); floatT[i] = 0; warn[i] = 0; }
   chunks.push({ cells, off: 0, frac: 0, vy: 0, hit: false });
   const cx = cells[0].c * T, cy = cells[0].r * T;
   for (let k = 0; k < 6; k++) spawn(cx + Math.random() * T, cy + Math.random() * T, (Math.random() - 0.5) * 60, 10, 0.5, "#a8826e", 4, 600);
@@ -61,6 +79,7 @@ export function chunkBlockedAt(ch, off) {
   for (const k of ch.cells) {
     const r = k.r + off;
     if (r >= H) return true;
+    if (!isGen(k.c, r)) ensureRect(k.c, r, k.c, r);                  // 깊은 굴로 떨어지면 아래 구역을 그때 만듦
     const v = tiles[r * W + k.c];
     if (solidTile(v)) return true;
   }
@@ -73,7 +92,7 @@ export function landChunk(ch, off) {
     const r = k.r + off, i = r * W + k.c;
     for (let n = 0; n < 3; n++) spawn((k.c + Math.random()) * T, (r + 1) * T - 2, (Math.random() - 0.5) * 70, -20 - Math.random() * 40, 0.4, "#8d6a4a", 3, 500);
     if (P.dead <= 0 && k.c >= pc0 && k.c <= pc1 && r >= pr0 && r <= pr1) continue;   // 플레이어 칸은 비워 둠
-    tiles[i] = k.id; rub[i] = k.rub; seen[i] = 1;
+    tiles[i] = k.id; setRub(i, k.rub); seen[i] = 1;
     if (k.rub) regenT[i] = REGEN_MIN + Math.random() * (REGEN_MAX - REGEN_MIN);
   }
   spawnDust((ch.cells[0].c + 0.5) * T, (ch.cells[0].r + off + 1) * T - 2, Math.min(8, 2 + (ch.cells.length >> 1)), Math.min(T * 4, ch.cells.length * 6));

@@ -55,7 +55,7 @@ const BTN_COL = {
   plain: ["#4a5280", "#6b7399", "#ffffff"], danger: ["#b8392e", "#ff7a6b", "#ffffff"],
   off: ["#353a52", "#454b68", "#7a82a6"],
 };
-export function uiBtn(x, y, w, h, label, sub, kind, on, act, arg) {
+export function uiBtn(x: number, y: number, w: number, h: number, label: string, sub: string | null, kind: string, on: boolean, act?: string | null, arg?: any) {
   const c = BTN_COL[on ? kind : "off"], noSh = c[2] === "#14151f" ? "rgba(0,0,0,0)" : undefined;
   ctx.fillStyle = TC.ink; ctx.fillRect(x, y, w, h);
   ctx.fillStyle = c[0]; ctx.fillRect(x + 3, y + 3, w - 6, h - 6);

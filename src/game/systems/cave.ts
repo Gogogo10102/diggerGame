@@ -5,7 +5,7 @@ import { H, HH, HW, ORE_COL, SURF, T, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { floaters, maxFuel, say, spawn } from "../core/stats.ts";
-import { ORE_GEN, oreProb, regenT, rub, seen, tiles, warn } from "../core/world.ts";
+import { ORE_GEN, ensureRect, oreProb, regenT, rub, rubSet, seen, setRub, tiles, warn } from "../core/world.ts";
 import { CONS } from "../data/consumables.ts";
 import { saveNow } from "../save/account.ts";
 import { spawnDust, startDebris } from "./collapseFx.ts";
@@ -30,10 +30,12 @@ export const strongCeil = (v) => v === 7 || v === 12 || v === 13 || v === 16;
 export function scanCave(dt) {
   const pr = Math.floor(P.y / T), pc = Math.floor(P.x / T);
   const rLo = Math.max(SURF + 1, pr - 40), rHi = Math.min(H - 3, pr + 40);
+  const cLo = Math.max(1, pc - 64), cHi = Math.min(W - 2, pc + 64);    // 맵이 넓어서 플레이어 주변 열만 계산
+  ensureRect(cLo - 1, rLo - 1, cHi + 1, rHi + 1);                       // 아직 안 만든 땅(빈칸 0)을 굴로 착각하지 않게
   const held = new Uint8Array(W), runs = [];
   for (let r = rLo; r <= rHi; r++) {
-    held.fill(0);
-    for (let c = 1; c < W - 1; c++) {
+    held.fill(0, cLo - 1, cHi + 2);
+    for (let c = cLo; c <= cHi; c++) {
       const v = tiles[r * W + c];
       if (v === 14) held[c] = 1;
       else if (v === 15) { held[c] = 1; held[c - 1] = 1; held[c + 1] = 1; }
@@ -43,20 +45,20 @@ export function scanCave(dt) {
       if (c0 >= 0 && c1 - c0 + 1 > MAXSPAN) runs.push({ r, c0, c1, t: 0 });
       c0 = -1;
     };
-    for (let c = 1; c < W - 1; c++) {
+    for (let c = cLo; c <= cHi; c++) {
       const v = tiles[r * W + c], ct = tiles[(r - 1) * W + c];
       const air = v === 0 || isSup(v);
       const weak = ct !== 0 && !isSup(ct) && !strongCeil(ct);     // 무너질 수 있는 천장(흙/광물)
       if (air && !held[c] && weak) { if (c0 < 0) c0 = c; } else flush(c - 1);
     }
-    flush(W - 2);
+    flush(cHi);
   }
   // 칸별 불안정 누적 시간
-  unstMark.fill(0);
+  for (let r = rLo; r <= rHi; r++) unstMark.fill(0, r * W + cLo, r * W + cHi + 1);
   for (const u of runs) for (let c = u.c0; c <= u.c1; c++) unstMark[u.r * W + c] = 1;
   const grace = S.graceT > 0;
   if (grace) S.graceT -= dt;
-  for (let r = rLo; r <= rHi; r++) for (let c = 1; c < W - 1; c++) {
+  for (let r = rLo; r <= rHi; r++) for (let c = cLo; c <= cHi; c++) {
     const i = r * W + c;
     if (unstMark[i] && !grace) warn[i] += dt; else if (warn[i] !== 0) warn[i] = 0;
   }
@@ -67,9 +69,9 @@ export function scanCave(dt) {
   if (S.cavWarn > 0 && S.warnMsgT <= 0) { say("지반이 흔들려요! 지지대를 설치하세요"); S.warnMsgT = 10; }
   for (const u of runs.slice()) if (u.t >= WARN_TIME) collapseRun(u);
   // 무너진 자리의 광물 재생
-  for (let i = 0; i < rub.length; i++) {
-    if (!rub[i]) continue;
-    if (tiles[i] === 0 || isSup(tiles[i])) { rub[i] = 0; continue; }    // 다시 파냈으면 해제
+  for (const i of rubSet) {
+    if (!rub[i]) { rubSet.delete(i); continue; }
+    if (tiles[i] === 0 || isSup(tiles[i])) { setRub(i, 0); continue; }   // 다시 파냈으면 해제
     regenT[i] -= dt;
     if (regenT[i] <= 0) regenTile(i);
   }
@@ -87,7 +89,7 @@ export function collapseRun(u) {
     for (let k = 0; k < 4; k++) spawn((c + Math.random()) * T, (u.r + Math.random()) * T, (Math.random() - 0.5) * 120, 20 + Math.random() * 120, 0.5 + Math.random() * 0.4, ["#a8826e", "#6b4a2f", "#8d92a8"][(Math.random() * 3) | 0], 5, 700);
     if (P.dead <= 0 && c >= pc0 && c <= pc1 && u.r >= pr0 && u.r <= pr1) continue;   // 플레이어가 서 있는 칸은 비워 둠
     tiles[i] = Math.random() < stoneP ? 12 : 1;
-    rub[i] = 1; seen[i] = 1; startDebris(i);
+    setRub(i, 1); seen[i] = 1; startDebris(i);
     spawnDust((c + 0.5) * T, u.r * T + 4, 2, T);
     regenT[i] = REGEN_MIN + Math.random() * (REGEN_MAX - REGEN_MIN);
   }
@@ -111,7 +113,7 @@ export function rollOre(d) {
   return 0;
 }
 export function regenTile(i) {
-  rub[i] = 0;
+  setRub(i, 0);
   if (tiles[i] !== 1 || Math.random() >= REGEN_ORE_CHANCE) return;
   const r = (i / W) | 0, c = i % W, id = rollOre(r - SURF);
   if (!id) return;

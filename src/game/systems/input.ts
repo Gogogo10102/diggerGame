@@ -13,6 +13,7 @@ import { useConsumable } from "./update.ts";
 import { openQuests } from "../ui/dom.ts";
 import { closeMenu, openInventory, openMenu } from "../ui/menu.ts";
 import { hideOv, openAccountScreen } from "../ui/overlay.ts";
+import { mapKey, mapPointerDown, mapPointerMove, mapPointerUp, mapZoom, openMap } from "../render/minimap.ts";
 
 // =====================================================================
 //  입력
@@ -21,6 +22,7 @@ export const keys = {};
 addEventListener("keydown", (e) => {
   if (S.state === "account") return;                  // 계정 화면: 입력칸에 타이핑
   if (S.state === "menu") { if ((e.code === "Escape" || (e.code === "KeyI" && S.invOpen)) && !e.repeat) closeMenu(); return; }
+  if (S.state === "map") { if (/^Arrow|Space/.test(e.code)) e.preventDefault(); mapKey(e); return; }   // 큰 지도
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
   if (S.state === "title") { openAccountScreen(); return; }
   if ((S.state === "shop" || S.state === "craft" || S.state === "furnace") && townKey(e)) return;
@@ -91,6 +93,7 @@ addEventListener("keydown", (e) => {
   if (e.code === "Escape") { if (!e.repeat) openMenu(); return; }
   if (e.code === "KeyI") { if (!e.repeat) openInventory(); return; }
   if (e.code === "KeyQ") { if (!e.repeat) openQuests(); return; }
+  if (e.code === "KeyM") { if (!e.repeat) openMap(); return; }
   keys[e.code] = true;
   if (e.code === "KeyH") { S.showHelp = !S.showHelp; S.helpPinned = S.showHelp; }
   if (e.code === "KeyE" && !e.repeat && P.dead <= 0) { if (S.nearItems) openShop(); else if (S.nearCraft) openCraft(); else if (S.nearFurnace) openFurnace(); }
@@ -110,7 +113,7 @@ S.stick = null;              // {id, ox, oy, x, y}
 S.usedTouch = false;
 try { S.usedTouch = matchMedia("(pointer: coarse)").matches; } catch (e) {}
 S.hotBtns = []; S.hotLeft = 1e9;
-export const shopBtn = []; S.promptBtn = null; S.shopRect = { x: 0, y: 0, w: 0, h: 0 }; S.menuBtn = null; S.bagBtn = null; S.questBtn = null; S.invOpen = false; S.helpPinned = false;            // 상점 버튼 영역 (draw에서 채움)
+export const shopBtn: any[] = []; S.promptBtn = null; S.shopRect = { x: 0, y: 0, w: 0, h: 0 }; S.menuBtn = null; S.bagBtn = null; S.questBtn = null; S.invOpen = false; S.helpPinned = false;            // 상점 버튼 영역 (draw에서 채움)
 export const stage = document.getElementById("c");
 
 export function updateStick() {
@@ -146,6 +149,7 @@ stage.addEventListener("pointerdown", (e) => {
   if (S.state === "account" || S.state === "menu") return;
   const x = e.clientX, y = e.clientY;
   const hit = (b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+  if (S.state === "map") { mapPointerDown(x, y, e.pointerId); return; }
   if (S.state === "craft") {                           // 제작소 메뉴: 탭 처리
     for (const b of shopBtn) {
       if (!hit(b)) continue;
@@ -197,6 +201,7 @@ stage.addEventListener("pointerdown", (e) => {
   if (S.menuBtn && hit(S.menuBtn)) { openMenu(); return; }
   if (S.bagBtn && hit(S.bagBtn)) { openInventory(); return; }
   if (S.questBtn && hit(S.questBtn)) { openQuests(); return; }                      // 메뉴 버튼
+  if (S.miniBtn && hit(S.miniBtn)) { openMap(); return; }                            // 미니맵 → 큰 지도
   for (const b of S.hotBtns) if (hit(b)) { if (P.dead <= 0) useConsumable(b.id); return; }   // 소모품 슬롯
   if (S.stick) return;
   S.stick = { id: e.pointerId, ox: x, oy: y, x, y };
@@ -204,12 +209,14 @@ stage.addEventListener("pointerdown", (e) => {
   updateStick();
 });
 stage.addEventListener("pointermove", (e) => {
+  if (S.state === "map") { mapPointerMove(e.clientX, e.clientY, e.pointerId); return; }
   if (!S.stick || e.pointerId !== S.stick.id) return;
   S.stick.x = e.clientX; S.stick.y = e.clientY;
   updateStick();
 });
-stage.addEventListener("pointerup", endStick);
-stage.addEventListener("pointercancel", endStick);
+stage.addEventListener("pointerup", (e) => { mapPointerUp(e.pointerId); endStick(e); });
+stage.addEventListener("pointercancel", (e) => { mapPointerUp(e.pointerId); endStick(e); });
+stage.addEventListener("wheel", (e) => { if (S.state === "map") { e.preventDefault(); mapZoom(e.deltaY < 0 ? 1 : -1); } }, { passive: false });
 addEventListener("contextmenu", (e) => e.preventDefault());
 
 export const L_ = () => keys.ArrowLeft || keys.KeyA || touch.l;

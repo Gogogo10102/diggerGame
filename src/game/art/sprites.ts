@@ -11,6 +11,7 @@ import { cv } from "../render/util.ts";
 //  픽셀 스프라이트 (전부 코드로 생성 → 나중에 PNG로 교체 가능)
 // =====================================================================
 export const art = mulberry32(99);
+export const artBase = art;
 export function sprite(w, h, fn) {
   const cv = document.createElement("canvas");
   cv.width = w; cv.height = h;
@@ -26,7 +27,10 @@ export const mixC = (a, b, t) => { const A = hexRgb(a), B = hexRgb(b); return "#
 export const hv = (c, r) => (Math.imul(c + 11, 73856093) ^ Math.imul(r + 7, 19349663)) >>> 0;
 // 흙 타일 (지층별 8종 변형, 이음매가 보이지 않게 가장자리를 감싸서 그림)
 export const DIRT_VAR = 8;
+// 깊은 지층(5번째부터)은 따로 쓰는 난수로 그림 → 기존 지층·광물 그림의 모양(난수 순서)이 바뀌지 않음
+export const artDeep = mulberry32(4242);
 export const dirtTiles = LAYERS.map((L, li) => Array.from({ length: DIRT_VAR }, () => sprite(16, 16, (p) => {
+  const art = li < 4 ? artBase : artDeep;
   const w = (x, y, ww, hh, c) => { for (const dx of [0, -16]) for (const dy of [0, -16]) p(x + dx, y + dy, ww, hh, c); };
   const rn = (n) => (art() * n) | 0;
   const hiS = mixC(L.base, L.hi, 0.55), loS = mixC(L.base, L.lo, 0.55);
@@ -44,10 +48,15 @@ export const dirtTiles = LAYERS.map((L, li) => Array.from({ length: DIRT_VAR }, 
   if (li === 0) for (let i = 0; i < 2; i++) { const x = rn(16), y = rn(16); w(x, y, 1, 3, "#8a6a40"); w(x + 1, y + 2, 2, 1, "#8a6a40"); }   // 뿌리
   if (li === 1) for (let i = 0; i < 4; i++) w(rn(16), rn(16), 2, 1, "#a35a44");
   if (li === 3) for (let i = 0; i < 3; i++) { const x = rn(16), y = rn(16); w(x, y, 1, 1, "#9a86d6"); }
+  if (li === 4) for (let i = 0; i < 3; i++) { const x = rn(16), y = rn(16); w(x, y, 2, 1, "#ff7a3c"); w(x, y + 1, 1, 1, "#ffb066"); }   // 용암 알갱이
+  if (li === 5) for (let i = 0; i < 3; i++) { const x = rn(16), y = rn(16); w(x, y, 1, 2, "#9ff0ff"); w(x + 1, y, 1, 1, "#e0ffff"); }   // 수정 조각
+  if (li === 6) for (let i = 0; i < 2; i++) { const x = rn(16), y = rn(16); w(x, y, 3, 1, "#efe4c8"); w(x + 1, y - 1, 1, 3, "#efe4c8"); }   // 화석 뼈
+  if (li === 7) for (let i = 0; i < 4; i++) w(rn(16), rn(16), 1, 1, "#8fa0ff");                         // 반짝이는 점
 })));
 
 // 배경 벽(파낸 뒤 보이는 면): 지층 색을 어둡게 가라앉힌 흙
-export const backTiles = LAYERS.map((L) => Array.from({ length: 4 }, () => sprite(16, 16, (p) => {
+export const backTiles = LAYERS.map((L, li) => Array.from({ length: 4 }, () => sprite(16, 16, (p) => {
+  const art = li < 4 ? artBase : artDeep;
   const w = (x, y, ww, hh, c) => { for (const dx of [0, -16]) for (const dy of [0, -16]) p(x + dx, y + dy, ww, hh, c); };
   const rn = (n) => (art() * n) | 0;
   const bg = mixC(L.base, "#0a0605", 0.6), a = mixC(L.base, "#0a0605", 0.5), b = mixC(L.base, "#0a0605", 0.7);   // 파낸 뒤 보이는 뒷벽(흙보다 한 톤 어둡게)

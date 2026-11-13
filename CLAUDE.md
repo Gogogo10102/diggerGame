@@ -29,7 +29,7 @@ src/
     art/    sprites(타일·광물 그림) itemIcons buildings assets(PNG 불러오기)
     data/   items recipes consumables progress(레벨·업적·칭호)
     systems/furnace cave floating(떠 있는 흙) collapseFx drops input town update
-    render/ util(글꼴·기본 그리기) draw(월드·HUD) townUI(마을 창 4탭)
+    render/ util(글꼴·기본 그리기) draw(월드·HUD) townUI(마을 창 4탭) minimap(미니맵·큰 지도)
     save/   config worldSave account transfer
     ui/     dom inventory overlay menu
 public/assets/         게임 그림 PNG + manifest.json
@@ -45,7 +45,7 @@ docs/                  plan.md decisions.md
    위에서 아래로 실행되는 순서가 중요합니다(앞 모듈의 값을 최상단에서 바로 씀).
    순서: config → world → sprites → player → items → recipes → furnace → cave → floating →
    collapseFx → drops → itemIcons → consumables → buildings → stats → input → town → update →
-   util → draw → townUI → save/config → progress → dom → inventory → worldSave → account → transfer →
+   util → draw → townUI → minimap → save/config → progress → dom → inventory → worldSave → account → transfer →
    overlay → menu → main.
    - 새 모듈을 넣을 때: 들어갈 자리 앞 모듈을 import 하고, 뒤 모듈의 사슬 import 를 새 모듈로 바꿉니다.
    - `state.ts`, `assets.ts` 는 사슬 밖(누구나 import 가능).
@@ -56,7 +56,8 @@ docs/                  plan.md decisions.md
    한 번 만들고 속만 바꾸는 객체(P, 배열, Map)는 `export const` 로 두면 됩니다.
 
 3. **최상단 이름은 프로젝트 전체에서 겹치지 않게.** 테스트 빌드가 모든 모듈을 한 파일로
-   이어 붙이기 때문입니다. 모듈 안 지역 변수는 상관없습니다.
+   이어 붙이기 때문입니다. 모듈 안 지역 변수는 상관없습니다. `S.xxx` 의 이름도 최상단 이름과 겹치면 안 됩니다
+   (테스트 빌드가 S 의 값들을 전역 이름으로도 꺼내 둠).
 
 4. **`// @ts-nocheck` 는 하나씩 지워 나가는 중.** 옮겨 온 코드라 타입이 없습니다.
    파일을 크게 손볼 때 그 파일의 nocheck 를 지우고 타입을 붙이는 걸 권장(필수 아님).
@@ -68,6 +69,11 @@ docs/                  plan.md decisions.md
    `docs/decisions.md` 의 "밸런스 메모" 에 한 줄 남깁니다.
 
 7. **세이브 형식을 바꾸면** 옛 세이브도 읽히게(없는 필드는 기본값) 하고 테스트를 추가합니다.
+
+8. **맵은 32x32칸 구역 단위로 '다가가면' 만들어집니다** (`core/world.ts`). 아직 안 만든 구역은 전부 0(빈칸)이라
+   그대로 읽으면 굴로 착각합니다. 플레이어에서 먼 칸을 읽거나 쓰기 전에는 `ensureRect`/`ensureAround` 로 먼저 만드세요
+   (먼저 써 두면 나중에 구역이 만들어질 때 덮어써짐). 맵 전체를 훑는 반복문은 쓰지 말고 플레이어 주변 창만 계산합니다.
+   구역 모양은 (시드, 위치)로만 정해지므로 생성 규칙(`baseCell`, `chunkFeatures`)을 바꾸면 기존 월드의 안 판 곳 모양도 바뀝니다.
 
 ## 글꼴 · UI 규칙
 - 글자 크기는 **12 / 16 / 32px 만** 씁니다. 12px = 갈무리11, 16·32px = Neo둥근모. 도트 글꼴은 설계 크기의 정수배가 아니면 흐려집니다.

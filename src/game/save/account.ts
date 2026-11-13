@@ -4,7 +4,7 @@ import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, LAYERS, MINE_COL, SURF, T, 
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { FUEL_BASE, bombs, flashes, floaters, maxFuel, parts, recalcStats, say } from "../core/stats.ts";
-import { addStones, fixFoundation, genWorld, legacySeen, regenT, rub, warn } from "../core/world.ts";
+import { fixFoundation, genWorld, legacySeen, regenT, rub, rubSet, warn } from "../core/world.ts";
 import { HOT } from "../data/consumables.ts";
 import { ITEMS } from "../data/items.ts";
 import { checkQuests, initProgress } from "../data/progress.ts";
@@ -32,7 +32,7 @@ export function snapshot() {
     player: { x: P.x, y: P.y, fuel: P.fuel, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, layerMax: P.layerMax, facing: P.facing },
     settings: { showHelp: S.showHelp },
     world: encodeWorld(),
-    stones: 1,
+    stones: 1, worldV: 2,
     seen: encodeSeen(),
     rub: encodeRLE(rub),
     mineNo: S.acct.mineNo || 1,
@@ -62,14 +62,13 @@ export function applyAccount(d) {
   };
   initProgress(d);
   let regenWorld = false;
-  if (!(typeof d.world === "string" && decodeWorld(d.world))) { genWorld(S.acct.seed); regenWorld = typeof d.world === "string"; }
-  else {
-    if (!d.stones) addStones(S.acct.seed);                           // 돌이 없던 예전 저장 → 돌 추가
-    if (!(typeof d.seen === "string" && decodeSeen(d.seen))) legacySeen();
-  }
+  genWorld(S.acct.seed);                                          // 같은 시드로 마을 근처를 만들고, 저장된 구역의 바뀐 칸을 덮어씀
+  if (!(typeof d.world === "string" && decodeWorld(d.world))) { genWorld(S.acct.seed); regenWorld = typeof d.world === "string"; }   // 예전 형식(작은 맵) → 새로
+  else if (!(typeof d.seen === "string" && decodeSeen(d.seen))) legacySeen();
   fixFoundation();                                                 // 건물 기초석 보정
-  if (!(typeof d.rub === "string" && decodeRLE(d.rub, rub, 1))) rub.fill(0);
-  for (let i = 0; i < rub.length; i++) if (rub[i]) regenT[i] = REGEN_MIN + Math.random() * (REGEN_MAX - REGEN_MIN);
+  if (regenWorld || !(typeof d.rub === "string" && decodeRLE(d.rub, rub, 1))) rub.fill(0);
+  rubSet.clear();
+  for (let i = 0; i < rub.length; i++) if (rub[i]) { rubSet.add(i); regenT[i] = REGEN_MIN + Math.random() * (REGEN_MAX - REGEN_MIN); }
   warn.fill(0); floatT.fill(0); chunks.length = 0; drops.length = 0; debrisT.fill(0); debrisList.length = 0; dust.length = 0; S.floatScanT = 0; S.unstable = []; S.graceT = 6; S.cavWarn = 0; S.scanT = 0;     // 불러온 직후 잠깐은 붕괴 유예
   P.items = {};
   for (const id in (pl.items || {})) if (ITEMS[id] && pl.items[id]) P.items[id] = true;   // 모르는 아이템은 무시
@@ -119,7 +118,7 @@ export function applyAccount(d) {
   S.msgT = 0; S.bannerT = 0; S.playT = 0; S.saveT = 0; S.lastSave = performance.now();
   S.state = "play";
   checkQuests(true);
-  if (regenWorld) say("마을이 정비되어 광산 터를 새로 만들었어요 (진행은 그대로)");
+  if (regenWorld) say("맵이 넓어져서 광산을 새로 만들었어요 (돈·장비·업적은 그대로)");
 }
 
 export function newAccountData(name) {
@@ -132,7 +131,7 @@ export function newAccountData(name) {
     player: { x: 6 * T + T / 2, y: SURF * T - HH - 1, fuel: FUEL_BASE, money: 0, cargo: {}, stash: {}, bars: {}, inv: {}, items: {}, layerMax: 0, facing: 1 },
     settings: { showHelp: true },
     world: encodeWorld(),
-    stones: 1,
+    stones: 1, worldV: 2,
     seen: encodeSeen(),
     rub: encodeRLE(rub),
   };
