@@ -83,7 +83,10 @@ docs/                  plan.md decisions.md
 - 새 그림 추가: PNG 저장 → `assetTable()` 에 경로 한 줄 → `npm run assets:manifest`.
 - 경로 규칙: `ores/icon/<광물id>.png`(인벤토리 아이콘), `ores/world/<id>_<변형>.png`(땅속 광물),
   `ores/drop/<id>.png`(바닥에 떨어진 것), `bars/<cu|fe|ag|au|mi>.png`(주괴), `items/<아이템id>.png`,
-  `ui/icon/<이름>.png`, `tiles/...`, `buildings/...`, `sky/...`.
+  `ui/icon/<이름>.png`, `tiles/...`, `buildings/...`, `sky/...`,
+  `signs/<건물>.png`(건물 간판 로고), `signs/tab_<탭>_<on|off>.png`(마을 창 탭 이름).
+- **건물·탭 이름은 글자가 아니라 그림(로고)으로 박아 둡니다.** 글꼴이 바뀌어도 모양이 그대로이게 하려는 것.
+  처음 그림은 `tools/make-signs.py` 로 만들었고, 이후엔 PNG를 직접 고쳐도 됩니다.
 - 광물 id: 2 구리, 3 철, 4 금, 5 다이아, 6 석탄, 8 은, 9 에메랄드, 10 루비, 11 미스릴.
 - 현재 원석·주괴 그림은 **임시 확정(v1)** 입니다. 나중에 다시 작업 예정.
 - 아직 코드로만 그리는 것: 캐릭터(로봇, 장비에 따라 모양이 바뀜), 건물 일부(매 프레임 그리는 부분).

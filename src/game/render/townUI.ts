@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./draw.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { fxText } from "../art/buildings.ts";
+import { TAB_IMG, fxText } from "../art/buildings.ts";
 import { itemIcon } from "../art/itemIcons.ts";
 import { ICON, oreIcon } from "../art/sprites.ts";
 import { TILE } from "../core/config.ts";
@@ -99,11 +99,16 @@ export function townFrame(vw, vh, title, fhWide, fhNarrow, hint) {
       ctx.fillStyle = TC.tabOffHi; ctx.fillRect(tx + 3, y + 9, tw - 6, 3);
       top = y + 9; inner = TH - 12;
     }
-    setFont(16);
-    const lw = Math.ceil(ctx.measureText(label).width), showIc = tw >= lw + 44;
-    const total = lw + (showIc ? 22 : 0), sx = tx + Math.floor((tw - total) / 2), ty = top + Math.floor((inner - 16) / 2) + 1;
-    if (showIc) drawPx(ICON[ic], sx, ty, 16, on ? 1 : 0.7);
-    txt(label, sx + (showIc ? 22 : 0), ty, on ? TC.gold : TC.dim, 16);
+    const img = TAB_IMG[k + (on ? "_on" : "_off")];
+    if (img && img.width > 1 && img.width <= tw - 8) {             // 탭 이름은 그림으로 박아 둔 로고 (글꼴 영향 없음)
+      ctx.drawImage(img, tx + Math.floor((tw - img.width) / 2), top + Math.floor((inner - img.height) / 2) + 1);
+    } else {                                                        // 그림이 없거나 칸이 좁으면 글자로
+      setFont(16);
+      const lw = Math.ceil(ctx.measureText(label).width), showIc = tw >= lw + 44;
+      const total = lw + (showIc ? 22 : 0), sx = tx + Math.floor((tw - total) / 2), ty = top + Math.floor((inner - 16) / 2) + 1;
+      if (showIc) drawPx(ICON[ic], sx, ty, 16, on ? 1 : 0.7);
+      txt(label, sx + (showIc ? 22 : 0), ty, on ? TC.gold : TC.dim, 16);
+    }
     shopBtn.push({ x: tx, y, w: tw, h: TH, act: "town", arg: k });
   });
   // 닫기

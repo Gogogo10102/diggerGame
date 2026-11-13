@@ -848,6 +848,8 @@ async function login(t, name) {
   ok(t33.ev("!P.bars.cu") && t33.ev("P.money") === t33.ev("unitPrice('cu') * 2"), "판매 탭에서 주괴 선택 판매");
   t33.key("Escape"); await t33.tick();
   ok(t33.ev("BAR_KEYS.every((k) => barIcon[k].width === 16) && Object.keys(oreDrop).every((k) => oreDrop[k].width === 12)"), "주괴 아이콘/떨어진 아이템 스프라이트");
+  ok(t33.ev("Object.keys(assetTable()).filter((k) => k.startsWith('signs/')).length") === 13, "간판 로고 5개 + 탭 이름 8개를 그림 파일로 연결");
+  ok(t33.ev("SIGN_IMG.garage.width") === 1, "간판 그림이 없으면(테스트 환경) 글자로 대신 그림");
   t33.ev("spawnDrop(5, 4 * T, (SURF - 1) * T, 1)"); t33.run(30);
   ok(t33.ev("state") === "play", "작아진 떨어진 아이템 그리기 정상");
 
