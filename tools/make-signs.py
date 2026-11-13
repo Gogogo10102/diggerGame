@@ -18,12 +18,8 @@ SIZE = 12
 
 INK = (20, 21, 31, 255)
 # 이름, 글자, 아이콘, 판(바탕, 밝은 테, 어두운 테), 글자(본색, 밝은 윗부분)
-SIGNS = [
-    ("garage",  "정비소",      "engine",  ("#8a5a3c", "#c08a5c", "#5e3b25"), ("#ffd34d", "#fff3a8")),
-    ("shop",    "상점",        "chest",   ("#2b4a7a", "#4f7fc0", "#1b2f52"), ("#8fd3ff", "#e6f8ff")),
-    ("craft",   "제작소",      "drill",   ("#3a3f52", "#6b7399", "#1b1d2c"), ("#7cff6b", "#e0ffd8")),
-    ("furnace", "용광로",      "furnace", ("#6e2a1b", "#a8452f", "#3d1410"), ("#ffb066", "#fff0c8")),
-    ("mine",    "광산",        "depth",   ("#5e3b25", "#8a5a3c", "#3a2414"), ("#ff9a4d", "#ffd8b0")),
+SIGNS = [   # 건물 이름은 건물 그림 속 로고로 대신함(tools/make-buildings.py). 여기엔 광산 입구 표지판만 (글자 없이)
+    ("mine",    "",            "depth",   ("#5e3b25", "#8a5a3c", "#3a2414"), ("#ff9a4d", "#ffd8b0")),
 ]
 
 def hexc(h, a=255):
@@ -61,12 +57,12 @@ def letters(text, fill, light, size=SIZE):
     return sh
 
 def plate(name, text, icon, pal, col):
-    lt = letters(text, *col)
+    lt = letters(text, *col) if text else Image.new("RGBA", (0, 0))
     ic = Image.open(os.path.join(ICON_DIR, icon + ".png")).convert("RGBA")
     ic = ic.crop(ic.getbbox())                                     # 아이콘 둘레의 빈칸은 잘라 냄
     pad, gap = 4, 4
-    inner_h = max(lt.height, ic.height + 2)
-    W = 1 + pad + ic.width + gap + lt.width + pad - 1 + 1
+    inner_h = max(lt.height, ic.height + 4)
+    W = 1 + pad + ic.width + (gap + lt.width - 1 if text else 0) + pad + 1
     H = 1 + inner_h + 2 + 1
     im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
@@ -83,7 +79,8 @@ def plate(name, text, icon, pal, col):
     # 아이콘 + 글자
     cy = (H - ic.height) // 2
     im.alpha_composite(ic, (1 + pad, cy))
-    im.alpha_composite(lt, (1 + pad + ic.width + gap - 2, (H - lt.height) // 2 + 1))
+    if text:
+        im.alpha_composite(lt, (1 + pad + ic.width + gap - 2, (H - lt.height) // 2 + 1))
     os.makedirs(OUT, exist_ok=True)
     im.save(os.path.join(OUT, name + ".png"))
     return im

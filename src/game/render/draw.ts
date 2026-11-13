@@ -1,9 +1,9 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
+import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, itemIcon } from "../art/itemIcons.ts";
 import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, getMiner, grassTiles, hardTiles, hv, stoneTiles, sunImg } from "../art/sprites.ts";
-import { BUILD_COLS, H, HH, LAYERS, MINE_COL, SURF, T, TILE, W, layerOf } from "../core/config.ts";
+import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, LAYERS, MINE_COL, SURF, T, TILE, W, layerOf } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
@@ -178,19 +178,11 @@ export function draw() {
   // 떨어지는 덩어리
   for (const ch of chunks) for (const k of ch.cells) drawSolid(k.id, k.c, k.r, k.c * T - camX, (k.r + ch.off) * T + Math.round(ch.frac) - camY);
 
-  // 건물 (정비소 / 아이템 상점 / 제작소)
+  // 건물 (상점 / 제작소 / 용광로). 그림 아래 끝 = 땅 표면, 그림 1픽셀 = 화면 2픽셀. 이름 대신 그림 속 로고
   {
-    const bY = (SURF - 4) * T - camY, bW = 7 * T, bH = 4 * T;
-    const bx1 = BUILD_COLS[0][0] * T - camX, bx2 = BUILD_COLS[1][0] * T - camX, bx3 = BUILD_COLS[2][0] * T - camX;
-    if ((MINE_COL + 3) * T - camX > 0 && bx1 < vw) {
-      ctx.drawImage(S.shopImg, bx1, bY, bW, bH);
-      ctx.drawImage(S.itemShopImg, bx2, bY, bW, bH);
-      ctx.drawImage(S.craftShopImg, bx3, bY, bW, bH);
-      drawSign(SIGN_IMG.garage, bx1 + bW / 2, bY + 60, "정비소", "#ffd34d");
-      drawSign(SIGN_IMG.shop, bx2 + bW / 2, bY + 54, "상점", "#8fd3ff");
-      drawSign(SIGN_IMG.craft, bx3 + bW / 2, bY + 70, "제작소", "#7cff6b");
-      // 굴뚝 연기 / 용광로 불빛
-      const smoke = (x, y, col) => {
+    const base = SURF * T - camY;
+    if ((MINE_COL + 3) * T - camX > 0 && BUILD_COLS[0][0] * T - camX < vw) {
+      const smoke = (x, y, col) => {                                // 굴뚝 연기
         for (let i = 0; i < 4; i++) {
           const t = (S.animT * 0.45 + i / 4) % 1, sz = Math.round((6 + t * 14) / 2) * 2;
           ctx.globalAlpha = (1 - t) * 0.6; ctx.fillStyle = col;
@@ -198,42 +190,55 @@ export function draw() {
         }
         ctx.globalAlpha = 1;
       };
-      smoke(bx1 + 186, bY + 8, "#c9ced8");
-      // 용광로: 재련 중이면 불길이 세지고 쇳물이 흐름
-      {
-        const bx4 = BUILD_COLS[3][0] * T - camX, fW = 5 * T;
-        ctx.drawImage(furnaceImg, bx4, bY, fW, bH);
-        const busy = !!(S.acct && S.acct.furnace && S.acct.furnace.q.length);
-        const fx = bx4 + 44, fy = bY + 72, fw = 56, fh = 48;
+      // 건물 칸 가운데에 맞춰 놓을 자리 (그림 크기가 바뀌어도 땅에 붙음)
+      const spot = (img, k) => {
+        const w = img.width * 2, h = img.height * 2, cw = (BUILD_COLS[k][1] - BUILD_COLS[k][0] + 1) * T;
+        return { x: BUILD_COLS[k][0] * T - camX + Math.floor((cw - w) / 2), y: base - h, w, h, fx: BLD_FX[["shop", "craft", "furnace"][k]] };
+      };
+      const fit = (q, img) => q.fx && img.width === q.fx.w && img.height === q.fx.h;   // 새 그림일 때만 불빛 위치가 맞음
+      const at = (q, a) => [q.x + a[0] * 2, q.y + a[1] * 2];
+
+      const sh = spot(S.itemShopImg, B_SHOP), cr = spot(S.craftShopImg, B_CRAFT), fu = spot(furnaceImg, B_FURN);
+      // 용광로 불·쇳물은 건물 그림 '뒤'에 먼저 그림 → 그림에 뚫린 아궁이·홈 사이로 보임 (창살은 그림 위에 남음)
+      const busy = !!(S.acct && S.acct.furnace && S.acct.furnace.q.length);
+      if (fit(fu, furnaceImg)) {
+        const m = fu.fx.mouth, [mx, my] = at(fu, m), mw = m[2] * 2, mh = m[3] * 2;
         const fl = (k) => Math.round((Math.sin(S.animT * (7 + k) + k * 1.7) * 0.5 + 0.5) * 4) * 2;
-        ctx.fillStyle = busy ? "#d8401a" : "#4a1a0e"; ctx.fillRect(fx, fy + 18 - fl(1), fw, fh - 18 + fl(1));
-        ctx.fillStyle = busy ? "#ff8a1f" : "#6e2812"; ctx.fillRect(fx + 6, fy + 24 - fl(2), fw - 12, fh - 24 + fl(2));
-        ctx.fillStyle = busy ? "#ffd34d" : "#94391a"; ctx.fillRect(fx + 14, fy + 30 - fl(3), fw - 28, fh - 30 + fl(3));
-        if (busy) { ctx.fillStyle = "#fff3a8"; ctx.fillRect(fx + 22, fy + 36 - fl(4), fw - 44, fh - 36 + fl(4)); }
-        ctx.fillStyle = busy ? "rgba(255,138,31,0.22)" : "rgba(255,90,31,0.07)"; ctx.fillRect(bx4 + 24, bY + bH - 4, 96, 4);
-        if (busy) {
-          ctx.fillStyle = "#ff8a1f"; ctx.fillRect(bx4 + 106, bY + 110, 24, 4);
-          ctx.fillStyle = "#fff3a8"; ctx.fillRect(bx4 + 106 + (((S.animT * 30) | 0) % 22), bY + 110, 2, 4);
-        }
-        smoke(bx4 + 100, bY - 2, busy ? "#8a90a0" : "#c9ced8");
-        drawSign(SIGN_IMG.furnace, bx4 + fW / 2, bY + 38, "용광로", "#ffb066");
+        ctx.fillStyle = "#1c0d0a"; ctx.fillRect(mx, my, mw, mh);
+        ctx.fillStyle = busy ? "#d8401a" : "#4a1a0e"; ctx.fillRect(mx, my + mh * 0.38 - fl(1), mw, mh * 0.62 + fl(1));
+        ctx.fillStyle = busy ? "#ff8a1f" : "#6e2812"; ctx.fillRect(mx + 6, my + mh * 0.5 - fl(2), mw - 12, mh * 0.5 + fl(2));
+        ctx.fillStyle = busy ? "#ffd34d" : "#94391a"; ctx.fillRect(mx + 14, my + mh * 0.62 - fl(3), mw - 28, mh * 0.38 + fl(3));
+        if (busy) { ctx.fillStyle = "#fff3a8"; ctx.fillRect(mx + 22, my + mh * 0.74 - fl(4), mw - 44, mh * 0.26 + fl(4)); }
+        const tr = fu.fx.trough, [tx, ty] = at(fu, tr);
+        ctx.fillStyle = busy ? "#ff8a1f" : "#2a1a14"; ctx.fillRect(tx, ty, tr[2] * 2, tr[3] * 2);
+        if (busy) { ctx.fillStyle = "#fff3a8"; ctx.fillRect(tx + (((S.animT * 30) | 0) % (tr[2] * 2 - 2)), ty, 2, tr[3] * 2); }
       }
-      // 광산 입구 표지판
+      ctx.drawImage(S.itemShopImg, sh.x, sh.y, sh.w, sh.h);
+      ctx.drawImage(S.craftShopImg, cr.x, cr.y, cr.w, cr.h);
+      ctx.drawImage(furnaceImg, fu.x, fu.y, fu.w, fu.h);
+      if (fit(sh, S.itemShopImg)) smoke(...at(sh, sh.fx.smoke), "#c9ced8");
+      if (fit(cr, S.craftShopImg)) {
+        smoke(...at(cr, cr.fx.smoke), "#9aa0b4");
+        const g = cr.fx.forge, [gx, gy] = at(cr, g);                 // 대장간 불빛 깜빡임
+        ctx.globalAlpha = 0.14 + 0.08 * Math.sin(S.animT * 9) + 0.05 * Math.sin(S.animT * 23);
+        ctx.fillStyle = "#ffb040"; ctx.fillRect(gx, gy, g[2] * 2, g[3] * 2);
+        ctx.globalAlpha = 1;
+      }
+      if (fit(fu, furnaceImg)) {
+        smoke(...at(fu, fu.fx.smoke), busy ? "#8a90a0" : "#c9ced8");
+        ctx.fillStyle = busy ? "rgba(255,138,31,0.22)" : "rgba(255,90,31,0.07)";   // 아궁이 앞 땅에 비친 불빛
+        ctx.fillRect(fu.x + 40, base - 4, fu.w - 80, 4);
+      }
+      // 광산 입구 표지판 (글자 없이 로고만)
       const sx = MINE_COL * T + 8 - camX, sy = SURF * T - camY;
       ctx.fillStyle = "#14151f"; ctx.fillRect(sx + 18, sy - 50, 8, 50);
       ctx.fillStyle = "#8a5a3c"; ctx.fillRect(sx + 20, sy - 50, 4, 50);
-      if (SIGN_IMG.mine.width > 1) drawSign(SIGN_IMG.mine, sx + 44, sy - 52);
-      else {                                                       // 로고 PNG가 없을 때만 예전 나무판 + 글자
-        ctx.fillStyle = "#14151f"; ctx.fillRect(sx - 4, sy - 66, 74, 30);
-        ctx.fillStyle = "#c08a5c"; ctx.fillRect(sx - 2, sy - 64, 70, 26);
-        ctx.fillStyle = "#e0a874"; ctx.fillRect(sx - 2, sy - 64, 70, 3);
-        ctx.fillStyle = "#8a5a3c"; ctx.fillRect(sx - 2, sy - 41, 70, 3);
-        txt("광산 ▼", sx + 33, sy - 58, "#3a2414", 14, "center");
+      if (SIGN_IMG.mine.width > 1) drawSign(SIGN_IMG.mine, sx + 22, sy - 54);
+      else {                                                       // 로고 PNG가 없을 때만 나무판 + 화살표
+        ctx.fillStyle = "#14151f"; ctx.fillRect(sx + 2, sy - 70, 40, 30);
+        ctx.fillStyle = "#c08a5c"; ctx.fillRect(sx + 4, sy - 68, 36, 26);
+        txt("▼", sx + 22, sy - 63, "#3a2414", 16, "center");
       }
-      smoke(bx3 + 32, bY + 10, "#9aa0b4");
-      ctx.globalAlpha = 0.16 + 0.1 * Math.sin(S.animT * 9) + 0.05 * Math.sin(S.animT * 23);
-      ctx.fillStyle = "#ffb040"; ctx.fillRect(bx3 + 28, bY + 80, 48, 40);
-      ctx.globalAlpha = 1;
     }
   }
 
@@ -505,8 +510,8 @@ export function drawHUD(vw, vh, depth) {
   const helpW = Math.ceil(ctx.measureText(helpStr).width) + 32;
   const helpUp = helpOn && 12 + helpW > S.hotLeft - 8;      // 슬롯과 겹치면 도움말을 슬롯 위로 올리고, 안내창도 같이 올림
   const helpLift = helpUp ? 44 : 0;
-  if ((S.nearItems || S.nearCraft || S.nearFurnace || S.nearGarage) && S.state === "play" && P.dead <= 0) {
-    const nm = S.nearItems ? "아이템 상점 열기" : S.nearCraft ? "제작소 열기" : S.nearFurnace ? "용광로 열기" : "창고 · 판매 열기";
+  if ((S.nearItems || S.nearCraft || S.nearFurnace) && S.state === "play" && P.dead <= 0) {
+    const nm = S.nearItems ? "상점 열기" : S.nearCraft ? "제작소 열기" : "용광로 열기";
     const label = S.usedTouch ? nm : "[E] " + nm;
     setFont(16);
     const pw = Math.ceil(ctx.measureText(label).width) + 56, ph = 48;

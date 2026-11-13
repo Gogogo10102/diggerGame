@@ -32,7 +32,6 @@ export function assetTable() {
   t["tiles/bedrock.png"] = () => bedrock;
   t["tiles/plinth_top.png"] = () => plinthTop;
   t["tiles/plinth_low.png"] = () => plinthLow;
-  t["buildings/garage.png"] = () => S.shopImg;
   t["buildings/item_shop.png"] = () => S.itemShopImg;
   t["buildings/workshop.png"] = () => S.craftShopImg;
   t["buildings/furnace.png"] = () => furnaceImg;

@@ -67,7 +67,7 @@ export const SHOP_PER = 4;                                   // 상점 한 쪽�
 export const bombs = [], flashes = [];
 S.shakeT = 0; S.stoneHintT = 0; S.lastRevealKey = "";
 S.inShop = true;
-S.nearItems = false; S.nearCraft = false; S.nearFurnace = false; S.nearGarage = false; S.furnaceOpen = false;
+S.nearItems = false; S.nearCraft = false; S.nearFurnace = false;
 S.shopTab = 0; S.shopSel = 0; S.craftTab = 0; S.craftSel = 0; S.sellSel = 0;
 S.state = "title";       // title | play
 S.showHelp = true;

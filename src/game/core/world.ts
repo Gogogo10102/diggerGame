@@ -101,7 +101,11 @@ export function genWorld(seed) {
 genWorld(SEED);
 // 건물 자리(열 범위). 이 아래 두 줄은 기초석이라 부술 수 없음
 export function fixFoundation() {
-  for (const b of BUILD_COLS) for (let c = b[0]; c <= b[1]; c++) for (let r = SURF; r <= SURF + 1; r++) tiles[r * W + c] = 13;
+  for (let c = 0; c < W; c++) for (let r = SURF; r <= SURF + 1; r++) {
+    const inBuild = BUILD_COLS.some((b) => c >= b[0] && c <= b[1]);
+    if (inBuild) tiles[r * W + c] = 13;
+    else if (tiles[r * W + c] === 13) tiles[r * W + c] = 1;     // 예전 배치(정비소 있던 시절)의 기초석이 광산 터에 남지 않게 흙으로
+  }
 }
 fixFoundation();
 // 돌 장애물: 드릴로 못 파고 다이너마이트로만 부술 수 있음 (덩어리 + 가로 암석대)

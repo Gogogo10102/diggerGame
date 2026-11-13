@@ -360,7 +360,7 @@ export function makeShop(roofA, roofB, roofC) {
     p(0, 46, 112, 2, "#5a381f");
   });
 }
-S.shopImg = undefined; S.itemShopImg = undefined; S.craftShopImg = undefined;                              // 건물 스프라이트(아래에서 생성)
+S.itemShopImg = undefined; S.craftShopImg = undefined;                              // 건물 스프라이트(아래에서 생성)
 
 // 아이콘
 export const ICON = {};

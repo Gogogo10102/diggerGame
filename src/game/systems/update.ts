@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./town.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { BUILD_COLS, H, HH, HW, LAYERS, MINE_COL, ORE_COL, SURF, T, TILE, W, inB, layerOf } from "../core/config.ts";
+import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, HW, LAYERS, MINE_COL, ORE_COL, SURF, T, TILE, W, inB, layerOf } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bombs, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, say, spawn, updateFx } from "../core/stats.ts";
@@ -221,18 +221,17 @@ export function update(dt) {
   revealAround();
   // 연료 / 상점 / 지층
   const row = Math.floor(P.y / T), col = Math.floor(P.x / T);
-  const nowShop = row < SURF && col >= BUILD_COLS[0][0] && col < MINE_COL;   // 마을(건물 앞) 어디서나 연료 충전
-  S.nearGarage = row < SURF && inB(0, col);                      // 정비소 앞: 창고·판매
-  S.nearItems = row < SURF && inB(1, col);                       // 아이템 상점 앞
-  S.nearCraft = row < SURF && inB(2, col);                       // 제작소 앞
-  S.nearFurnace = row < SURF && inB(3, col);                     // 용광로 앞
-  if (!nowShop) P.fuel -= (FUEL_IDLE + (thrusting ? FUEL_THRUST : 0) + (digging ? FUEL_DIG : 0)) * STAT.eff * dt;
-  if (nowShop && !S.inShop) {
+  const onGround = row < SURF;                                     // 지상(마을이든 광산 터든)에 나오면 연료가 줄지 않고 가득 참
+  S.nearItems = onGround && inB(B_SHOP, col);                      // 상점 앞
+  S.nearCraft = onGround && inB(B_CRAFT, col);                     // 제작소 앞
+  S.nearFurnace = onGround && inB(B_FURN, col);                    // 용광로 앞
+  if (!onGround) P.fuel -= (FUEL_IDLE + (thrusting ? FUEL_THRUST : 0) + (digging ? FUEL_DIG : 0)) * STAT.eff * dt;
+  if (onGround && !S.inShop) {
     const was = P.fuel;
     P.fuel = maxFuel();
-    say(cargoCount() > 0 ? "연료 충전! 광물은 정비소 앞 [E] 창고·판매에서 팔 수 있어요" : (was < maxFuel() - 0.5 ? "마을 도착 · 연료 충전" : "마을"));
+    if (was < maxFuel() - 0.5) say(cargoCount() > 0 ? "지상 도착 · 연료 충전! 광물은 마을 건물 [E] → 판매 탭에서 팔아요" : "지상 도착 · 연료 충전");
   }
-  S.inShop = nowShop;
+  S.inShop = onGround;
 
   const depth = Math.max(0, P.y / T - SURF);
   if (S.acct && depth > S.acct.stats.maxDepth) S.acct.stats.maxDepth = depth;

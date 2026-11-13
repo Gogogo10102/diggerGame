@@ -23,7 +23,7 @@ export function openMenu() {
   S.state = "menu"; keysReset();
   renderMenu();
 }
-export function closeMenu() { hideOv(); S.invOpen = false; S.furnaceOpen = false; S.state = "play"; }
+export function closeMenu() { hideOv(); S.invOpen = false; S.state = "play"; }
 export function openInventory() {
   if (S.state !== "play" || !S.acct || P.dead > 0) return;
   S.state = "menu"; keysReset();
