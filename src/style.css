@@ -1,0 +1,55 @@
+  html,body{margin:0;height:100%;background:#14151f;overflow:hidden;touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  canvas{display:block;image-rendering:pixelated;touch-action:none}
+  /* 계정/메뉴 오버레이 */
+  #ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(14,15,23,.8);z-index:10;font-family:'Galmuri14','Galmuri11','Malgun Gothic',monospace;color:#fff;font-size:14px;touch-action:auto;-webkit-user-select:text;user-select:text}
+  #ov.on{display:flex}
+  #ov .pnl{box-sizing:border-box;width:min(480px,94vw);max-height:90vh;overflow:auto;background:#2b2f45;border:3px solid #6b7399;box-shadow:0 0 0 3px #14151f,0 6px 0 3px rgba(0,0,0,.35);padding:16px}
+  #ov h2{margin:0 0 12px;font-size:20px;color:#ffd34d;font-weight:normal;text-align:center}
+  #ov p{margin:6px 0;line-height:1.5}
+  #ov .warn{color:#ff9a90}
+  #ov .msg{color:#ffd34d}
+  #ov .dim{color:#9aa3c8}
+  #ov .row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);padding:8px 10px;margin:8px 0}
+  #ov .row .info{flex:1;min-width:0}
+  #ov .row .nm{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #ov .btn{font:inherit;color:#14151f;background:#d7dcf0;border:0;padding:8px 12px;margin:4px 6px 4px 0;cursor:pointer;box-shadow:inset -3px -3px 0 #7a82a6,0 0 0 3px #14151f;min-height:40px}
+  #ov .btn:active{transform:translateY(2px)}
+  #ov .btn.pri{background:#ffd34d;box-shadow:inset -3px -3px 0 #c98f1a,0 0 0 3px #14151f}
+  #ov .btn.del{background:#ff9a90;box-shadow:inset -3px -3px 0 #a11a2f,0 0 0 3px #14151f}
+  #ov .btns{display:flex;flex-wrap:wrap;margin:10px 0 0}
+  #ov input,#ov textarea{box-sizing:border-box;font:inherit;font-size:16px;width:100%;background:#14151f;color:#fff;border:3px solid #6b7399;padding:8px;margin:6px 0;border-radius:0}
+  #ov textarea{height:110px;resize:none}
+  #ov .hero{display:flex;gap:12px;align-items:center;background:rgba(255,255,255,.06);padding:10px;margin:6px 0}
+  #ov .portrait{background:#1b1d2c;border:3px solid #14151f;padding:4px;flex:none}
+  #ov .heroinfo{flex:1;min-width:0}
+  #ov .nm{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #ov .sm{font-size:12px;margin-top:2px}
+  #ov .bar{height:10px;background:#14151f;margin:5px 0;border:2px solid #14151f;box-sizing:content-box}
+  #ov .bar .fill{height:100%;background:#7cff6b}
+  #ov .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
+  #ov .slots.hot{grid-template-columns:repeat(4,1fr)}
+  #ov .slots.ores{grid-template-columns:repeat(3,1fr)}
+  #ov .slot{background:rgba(255,255,255,.07);padding:6px 4px;text-align:center;border:2px solid #14151f;min-width:0}
+  #ov .slot.empty{opacity:.45}
+  #ov .slot .minis{display:flex;gap:4px;justify-content:center;margin-top:4px}
+  #ov .slot .btn.mini{font-size:11px;padding:4px 6px;margin:0;min-width:0}
+  #ov .slot .ico{image-rendering:pixelated;display:block;margin:0 auto 2px}
+  #ov .slot .nm2{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #ov .slot .pips{font-size:9px;color:#ffd34d;letter-spacing:1px;margin-top:2px}
+  #ov .pnl.wide{width:min(600px,96vw)}
+  #ov .tabs{display:flex;gap:8px;margin:0 0 12px}
+  #ov .tabs .btn.tab{flex:1;margin:0;background:#3a3f5e;color:#c9cfe6;box-shadow:inset -3px -3px 0 #23263a,0 0 0 3px #14151f}
+  #ov .tabs .btn.tab.on{background:#ffd34d;color:#14151f;box-shadow:inset -3px -3px 0 #c98f1a,0 0 0 3px #14151f}
+  #ov .tabs .btn.tab.x{flex:0 0 44px;background:#c0392b;color:#fff;box-shadow:inset -3px -3px 0 #7a1f17,0 0 0 3px #14151f}
+  #ov .slot{border-width:3px;border-style:solid}
+  #ov .row.smelt{gap:6px;flex-wrap:wrap}
+  #ov .row.smelt .ico{image-rendering:pixelated;filter:drop-shadow(0 3px 0 rgba(0,0,0,.45))}
+  #ov .row.smelt .arrow{color:#ff9a4d;font-size:16px}
+  #ov .row.smelt .minis{display:flex;gap:4px}
+  #ov .btn.mini{font-size:12px;padding:4px 8px;margin:0;min-height:32px}
+  #ov .btn.mini.off{opacity:.45}
+  #ov .slot .ico{filter:drop-shadow(0 3px 0 rgba(0,0,0,.45))}
+  #ov table{width:100%;border-collapse:collapse}
+  #ov td{padding:3px 0}
+  #ov td:first-child{color:#9aa3c8}
+  #ov td:last-child{text-align:right}

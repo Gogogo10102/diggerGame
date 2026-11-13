@@ -1,0 +1,125 @@
+// @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
+import "./cave.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
+import { H, HH, HW, SURF, T, W } from "../core/config.ts";
+import { P } from "../core/player.ts";
+import { S } from "../core/state.ts";
+import { floaters, maxFuel, spawn } from "../core/stats.ts";
+import { regenT, rub, seen, tiles, warn } from "../core/world.ts";
+import { saveNow } from "../save/account.ts";
+import { REGEN_MAX, REGEN_MIN } from "./cave.ts";
+import { spawnDust } from "./collapseFx.ts";
+
+// =====================================================================
+//  공중에 떠 있는 흙: 바닥(기반암/기초석)에 이어지지 않은 덩어리는 잠깐 흔들린 뒤 떨어져 쌓입니다.
+// =====================================================================
+export const FLOAT_DELAY = 0.7;                       // 떠 있는 걸 감지한 뒤 떨어지기까지(초)
+export const floatT = new Float32Array(W * H);        // 칸별 '떠 있음' 누적 시간(저장 안 함)
+export const chunks = [];                             // 떨어지는 덩어리 [{cells:[{c,r,id,rub}], off, frac, vy, hit}]
+S.floatScanT = 0;
+export const anchorTile = (v) => v === 7 || v === 13;
+export const solidTile = (v) => v !== 0 && v !== 14 && v !== 15;
+export const _stack = new Int32Array(W * H), _vis = new Uint8Array(W * H);
+export function scanFloating(dt) {
+  _vis.fill(0);
+  let sp = 0;
+  for (let i = 0; i < tiles.length; i++) if (anchorTile(tiles[i])) { _vis[i] = 1; _stack[sp++] = i; }
+  while (sp > 0) {
+    const i = _stack[--sp], c = i % W, r = (i / W) | 0;
+    const nb = [c > 0 ? i - 1 : -1, c < W - 1 ? i + 1 : -1, r > SURF ? i - W : -1, r < H - 1 ? i + W : -1];
+    for (let k = 0; k < 4; k++) { const j = nb[k]; if (j >= 0 && !_vis[j] && solidTile(tiles[j])) { _vis[j] = 1; _stack[sp++] = j; } }
+  }
+  const out = [];
+  for (let i = SURF * W; i < tiles.length; i++) {
+    if (!_vis[i] && solidTile(tiles[i])) { out.push(i); floatT[i] += dt; }
+    else if (floatT[i] !== 0) floatT[i] = 0;
+  }
+  if (!out.length) return;
+  // 떠 있는 칸들을 덩어리로 묶기
+  const seenI = new Set();
+  for (const s of out) {
+    if (seenI.has(s)) continue;
+    const comp = [s]; seenI.add(s);
+    for (let q = 0; q < comp.length; q++) {
+      const i = comp[q], c = i % W, r = (i / W) | 0;
+      for (const j of [c > 0 ? i - 1 : -1, c < W - 1 ? i + 1 : -1, r > SURF ? i - W : -1, r < H - 1 ? i + W : -1]) {
+        if (j >= 0 && !seenI.has(j) && !_vis[j] && solidTile(tiles[j])) { seenI.add(j); comp.push(j); }
+      }
+    }
+    let t = 0;
+    for (const i of comp) t = Math.max(t, floatT[i]);
+    if (t >= FLOAT_DELAY) makeChunk(comp);
+  }
+}
+export function makeChunk(comp) {
+  const cells = comp.map((i) => ({ c: i % W, r: (i / W) | 0, id: tiles[i], rub: rub[i] }));
+  for (const i of comp) { tiles[i] = 0; rub[i] = 0; floatT[i] = 0; warn[i] = 0; }
+  chunks.push({ cells, off: 0, frac: 0, vy: 0, hit: false });
+  const cx = cells[0].c * T, cy = cells[0].r * T;
+  for (let k = 0; k < 6; k++) spawn(cx + Math.random() * T, cy + Math.random() * T, (Math.random() - 0.5) * 60, 10, 0.5, "#a8826e", 4, 600);
+}
+export function chunkBlockedAt(ch, off) {
+  for (const k of ch.cells) {
+    const r = k.r + off;
+    if (r >= H) return true;
+    const v = tiles[r * W + k.c];
+    if (solidTile(v)) return true;
+  }
+  return false;
+}
+export function landChunk(ch, off) {
+  const pc0 = Math.floor((P.x - HW) / T), pc1 = Math.floor((P.x + HW - 0.001) / T);
+  const pr0 = Math.floor((P.y - HH) / T), pr1 = Math.floor((P.y + HH - 0.001) / T);
+  for (const k of ch.cells) {
+    const r = k.r + off, i = r * W + k.c;
+    for (let n = 0; n < 3; n++) spawn((k.c + Math.random()) * T, (r + 1) * T - 2, (Math.random() - 0.5) * 70, -20 - Math.random() * 40, 0.4, "#8d6a4a", 3, 500);
+    if (P.dead <= 0 && k.c >= pc0 && k.c <= pc1 && r >= pr0 && r <= pr1) continue;   // 플레이어 칸은 비워 둠
+    tiles[i] = k.id; rub[i] = k.rub; seen[i] = 1;
+    if (k.rub) regenT[i] = REGEN_MIN + Math.random() * (REGEN_MAX - REGEN_MIN);
+  }
+  spawnDust((ch.cells[0].c + 0.5) * T, (ch.cells[0].r + off + 1) * T - 2, Math.min(8, 2 + (ch.cells.length >> 1)), Math.min(T * 4, ch.cells.length * 6));
+  if (Math.abs(ch.cells[0].c * T - P.x) < 12 * T && Math.abs((ch.cells[0].r + off) * T - P.y) < 12 * T) S.shakeT = Math.max(S.shakeT, 0.25);
+}
+export function updateChunks(dt) {
+  S.floatScanT += dt;
+  if (S.floatScanT >= 0.25) { const d = S.floatScanT; S.floatScanT = 0; scanFloating(d); }
+  for (let n = chunks.length - 1; n >= 0; n--) {
+    const ch = chunks[n];
+    ch.vy = Math.min(900, ch.vy + 1400 * dt);
+    ch.frac += ch.vy * dt;
+    let landed = false;
+    while (ch.frac >= T) {
+      if (chunkBlockedAt(ch, ch.off + 1)) { landed = true; ch.frac = 0; break; }
+      ch.off++; ch.frac -= T;
+    }
+    if (!landed && chunkBlockedAt(ch, ch.off + 1)) { landed = true; ch.frac = 0; }   // 바로 아래가 막혔으면 착지
+    // 플레이어 충돌(낙석)
+    if (!ch.hit && P.dead <= 0) {
+      for (const k of ch.cells) {
+        const x0 = k.c * T, y0 = (k.r + ch.off) * T + ch.frac;
+        if (P.x + HW > x0 && P.x - HW < x0 + T && P.y + HH > y0 && P.y - HH < y0 + T) {
+          ch.hit = true; P.fuel -= maxFuel() * 0.2; P.vy = -200;
+          floaters.push({ x: P.x, y: P.y - 30, text: "낙석! 연료 -20%", color: "#ff6b6b", life: 1.4 });
+          S.shakeT = Math.max(S.shakeT, 0.5);
+          break;
+        }
+      }
+    }
+    if (landed) { landChunk(ch, ch.off); chunks.splice(n, 1); saveNow(false, true); }
+  }
+}
+// 저장할 때는 떨어지는 중인 덩어리를 착지한 상태로 간주해서 기록
+export function withChunksSettled(fn) {
+  const undo = [];
+  for (const ch of chunks) {
+    let off = ch.off;
+    while (!chunkBlockedAt(ch, off + 1)) off++;
+    for (const k of ch.cells) {
+      const i = (k.r + off) * W + k.c;
+      undo.push([i, tiles[i], rub[i]]);
+      tiles[i] = k.id; rub[i] = k.rub;
+    }
+  }
+  try { return fn(); }
+  finally { for (let n = undo.length - 1; n >= 0; n--) { tiles[undo[n][0]] = undo[n][1]; rub[undo[n][0]] = undo[n][2]; } }
+}
+
