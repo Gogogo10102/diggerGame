@@ -29,7 +29,7 @@ src/
     art/    sprites(타일·광물 그림) itemIcons buildings assets(PNG 불러오기)
     data/   items recipes consumables progress(레벨·업적·칭호)
     systems/furnace cave floating(떠 있는 흙) collapseFx drops input town update
-    render/ util draw
+    render/ util(글꼴·기본 그리기) draw(월드·HUD) townUI(마을 창 4탭)
     save/   config worldSave account transfer
     ui/     dom inventory overlay menu
 public/assets/         게임 그림 PNG + manifest.json
@@ -45,7 +45,7 @@ docs/                  plan.md decisions.md
    위에서 아래로 실행되는 순서가 중요합니다(앞 모듈의 값을 최상단에서 바로 씀).
    순서: config → world → sprites → player → items → recipes → furnace → cave → floating →
    collapseFx → drops → itemIcons → consumables → buildings → stats → input → town → update →
-   util → draw → save/config → progress → dom → inventory → worldSave → account → transfer →
+   util → draw → townUI → save/config → progress → dom → inventory → worldSave → account → transfer →
    overlay → menu → main.
    - 새 모듈을 넣을 때: 들어갈 자리 앞 모듈을 import 하고, 뒤 모듈의 사슬 import 를 새 모듈로 바꿉니다.
    - `state.ts`, `assets.ts` 는 사슬 밖(누구나 import 가능).
@@ -68,6 +68,13 @@ docs/                  plan.md decisions.md
    `docs/decisions.md` 의 "밸런스 메모" 에 한 줄 남깁니다.
 
 7. **세이브 형식을 바꾸면** 옛 세이브도 읽히게(없는 필드는 기본값) 하고 테스트를 추가합니다.
+
+## 글꼴 · UI 규칙
+- 글자 크기는 **12 / 16 / 32px 만** 씁니다. 12px = 갈무리11, 16·32px = Neo둥근모. 도트 글꼴은 설계 크기의 정수배가 아니면 흐려집니다.
+  캔버스는 `txt(글, x, y, 색, 크기)` 를 쓰면 자동으로 가까운 단계에 맞춰집니다. 글자 폭을 잴 때는 `setFont(크기)` 후 `measureText`.
+- 도트 그림은 `drawPx(그림, x, y, 칸크기)` 로 정수 배율로만 키웁니다(1.5배 금지).
+- 마을 창(상점·제작·용광로·판매)은 `render/townUI.ts` 의 공용 틀(`townFrame` + `townFooter`)을 씁니다.
+  "본문에서 고르기 → 아래 상세 칸에 설명과 버튼" 흐름을 지켜 주세요. 버튼은 `uiBtn`.
 
 ## 그림(에셋) 다루는 법
 - 게임은 그림을 코드로도 그리지만, `public/assets/<경로>.png` 가 있으면 그 파일로 **덮어씁니다**

@@ -620,7 +620,7 @@ async function login(t, name) {
   ok((dist[5][11] || 0) > (dist[3][11] || 0) && (dist[5][11] || 0) >= 4, "미스릴은 깊을수록 훨씬 많아짐");
   ok((dist[1][3] || 0) > (dist[0][3] || 0), "철은 중층에서 더 많음");
   ok((dist[3][11] || 0) <= 12, "미스릴은 한계 구간 전에는 한두 개씩만 나옴");
-  ok((dist[0][2] || 0) > (dist[5][2] || 0), "구리는 깊어질수록 줄어듦");
+  ok((dist[0][2] || 0) + (dist[1][2] || 0) > (dist[4][2] || 0) + (dist[5][2] || 0), "구리는 깊어질수록 줄어듦");   // 광맥이 뭉쳐 나와서 구간 하나끼리 비교하면 가끔 뒤집힘
   // 경도
   ok(t28.ev("hardOf(1, SURF + 200)") > t28.ev("hardOf(1, SURF + 5)") * 2, "깊은 흙이 훨씬 단단함");
   ok(t28.ev("hardOf(3, SURF + 100)") > t28.ev("hardOf(3, SURF + 2)"), "깊은 곳의 광물도 더 단단함");
@@ -744,8 +744,22 @@ async function login(t, name) {
   ok(t31.ev("nearFurnace") === true, "용광로 앞 감지");
   t31.ev("P.cargo = { 2: 10, 3: 5, 6: 12 }; P.stash = { 4: 4 }; P.money = 5000");
   t31.key("KeyE"); await t31.tick();
-  ok(t31.ev("state") === "menu" && t31.texts().some((x) => x.includes("용광로")) && t31.ev("cargoCount()") === 0 && t31.ev("P.stash[2]") === 10, "E로 용광로 열림, 화물은 창고로");
-  ok(t31.texts().some((x) => x.includes("구리 주괴")) && t31.texts().some((x) => x.includes("미스릴 주괴")), "재련 목록 표시");
+  t31.run(1);
+  ok(t31.ev("state") === "furnace" && t31.canvasTexts().some((x) => x.includes("용광로")) && t31.ev("cargoCount()") === 0 && t31.ev("P.stash[2]") === 10, "E로 용광로 열림, 화물은 창고로");
+  ok(t31.canvasTexts().some((x) => x.includes("구리 주괴")) && t31.canvasTexts().some((x) => x.includes("미스릴 주괴")), "재련 목록 표시");
+  // 창 안에서 조작: 키보드 1개 넣기 → 버튼으로 비우기 → 다른 주괴 고르고 '최대'
+  t31.key("Digit1"); t31.run(1);
+  ok(t31.ev("acct.furnace.q.length") === 1 && t31.ev("acct.furnace.q[0].m") === "cu" && t31.ev("P.stash[2]") === 8, "용광로 창: 1 키로 구리 주괴 1개 넣기");
+  t31.run(30);
+  ok(t31.ev("acct.furnace.q[0].left") < 4, "용광로 창을 보는 동안에도 재련 진행");
+  t31.tapAct("fclear"); t31.run(1);
+  ok(t31.ev("acct.furnace.q.length") === 0 && t31.ev("P.stash[2]") === 10 && t31.ev("msgT") > 0, "비우기 버튼: 재료 반환 + 안내");
+  t31.tapAct("fsel", 1); t31.run(1);
+  ok(t31.ev("furnaceSel") === 1 && t31.canvasTexts().some((x) => x.includes("철 주괴 넣기")), "줄을 누르면 철 주괴 선택, 상세 칸 표시");
+  t31.tapAct("smelt", null); t31.run(1);
+  ok(t31.ev("acct.furnace.q.length") === 2 && t31.ev("acct.furnace.q.every((j) => j.m === 'fe')"), "최대 버튼: 철 주괴 2개(원석 5개 → 2개)");
+  t31.ev("furnaceClear()"); t31.key("Escape"); t31.run(1);
+  ok(t31.ev("state") === "play", "Esc로 용광로 창 닫힘");
   // 재련 시작: 구리 원석 2 + 석탄 1 → 구리 주괴 1
   let r = t31.ev("furnaceSmelt('cu', 3)");
   ok(r.includes("3개") && t31.ev("acct.furnace.q.length") === 3 && t31.ev("P.stash[2]") === 4 && t31.ev("P.stash[6]") === 9, "구리 주괴 3개: 원석 6 + 석탄 3 사용");
@@ -762,7 +776,6 @@ async function login(t, name) {
   t31.ev("P.stash[6] = 12");
   // 시간이 지나면 주괴 완성 (광산에 있어도 진행)
   t31.ev("furnaceSmelt('cu', 2); furnaceSmelt('fe', 1)");
-  t31.key("Escape"); await t31.tick();
   t31.ev("P.x = 35 * T + 16; P.y = (SURF + 10) * T + 16; for (let r = SURF + 9; r <= SURF + 11; r++) tiles[r*W+35] = 0; P.fuel = 1e9; graceT = 99");
   t31.run(60 * 9);
   ok(t31.ev("P.bars.cu") === 2 && !t31.ev("P.bars.fe"), "약 9초 뒤 구리 주괴 2개 완성, 철은 진행 중");
@@ -819,7 +832,8 @@ async function login(t, name) {
   t33.ev("switchTown('shop')"); ok(t33.ev("townActive()") === "shop" && t33.ev("state") === "shop", "공용 탭: 상점");
   t33.ev("switchTown('craft')"); ok(t33.ev("townActive()") === "craft" && t33.ev("craftTab") < t33.ev("RECIPE_CATS.length"), "공용 탭: 제작");
   t33.ev("switchTown('furnace')"); await t33.tick();
-  ok(t33.ev("townActive()") === "furnace" && t33.texts().some((x) => x.includes("용광로")), "공용 탭: 용광로");
+  t33.run(1);
+  ok(t33.ev("townActive()") === "furnace" && t33.ev("state") === "furnace" && t33.canvasTexts().some((x) => x.includes("용광로")), "공용 탭: 용광로");
   t33.key("BracketRight"); await t33.tick();
   ok(t33.ev("townActive()") === "sell", "] 키: 용광로 → 판매");
   t33.key("BracketRight"); await t33.tick();

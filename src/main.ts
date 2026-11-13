@@ -6,6 +6,7 @@ import { S } from "./game/core/state.ts";
 import { draw } from "./game/render/draw.ts";
 import { update } from "./game/systems/update.ts";
 import { loadAssets } from "./game/art/assets.ts";
+import { updateFurnace } from "./game/systems/furnace.ts";
 
 // =====================================================================
 //  메인 루프 (고정 스텝)
@@ -22,6 +23,7 @@ function loop(now) {
   } else {
     S.accT = 0; S.animT += 1 / 60;
     if (S.msgT > 0) S.msgT -= 1 / 60;
+    if (S.state === "furnace") updateFurnace(dtr);          // 용광로 창을 보는 동안에도 재련이 진행되어 막대가 차오름
   }
   draw();
   requestAnimationFrame(loop);

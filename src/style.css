@@ -1,10 +1,12 @@
+  /* 글꼴: 기본 16px Neo둥근모, 작은 글씨 12px 갈무리11 (도트 글꼴은 이 크기들의 정수배로만 씀) */
+  :root{--font-m:'NeoDunggeunmo','Galmuri11','Apple SD Gothic Neo','Malgun Gothic',monospace;--font-s:'Galmuri11','NeoDunggeunmo','Apple SD Gothic Neo','Malgun Gothic',monospace}
   html,body{margin:0;height:100%;background:#14151f;overflow:hidden;touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
   canvas{display:block;image-rendering:pixelated;touch-action:none}
   /* 계정/메뉴 오버레이 */
-  #ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(14,15,23,.8);z-index:10;font-family:'Galmuri14','Galmuri11','Malgun Gothic',monospace;color:#fff;font-size:14px;touch-action:auto;-webkit-user-select:text;user-select:text}
+  #ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(14,15,23,.8);z-index:10;font-family:var(--font-m);color:#fff;font-size:16px;line-height:1.5;-webkit-font-smoothing:none;-moz-osx-font-smoothing:grayscale;touch-action:auto;-webkit-user-select:text;user-select:text}
   #ov.on{display:flex}
   #ov .pnl{box-sizing:border-box;width:min(480px,94vw);max-height:90vh;overflow:auto;background:#2b2f45;border:3px solid #6b7399;box-shadow:0 0 0 3px #14151f,0 6px 0 3px rgba(0,0,0,.35);padding:16px}
-  #ov h2{margin:0 0 12px;font-size:20px;color:#ffd34d;font-weight:normal;text-align:center}
+  #ov h2{margin:0 0 12px;font-size:32px;line-height:1.25;color:#ffd34d;font-weight:normal;text-align:center}
   #ov p{margin:6px 0;line-height:1.5}
   #ov .warn{color:#ff9a90}
   #ov .msg{color:#ffd34d}
@@ -23,7 +25,7 @@
   #ov .portrait{background:#1b1d2c;border:3px solid #14151f;padding:4px;flex:none}
   #ov .heroinfo{flex:1;min-width:0}
   #ov .nm{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #ov .sm{font-size:12px;margin-top:2px}
+  #ov .sm{font-family:var(--font-s);font-size:12px;margin-top:2px}
   #ov .bar{height:10px;background:#14151f;margin:5px 0;border:2px solid #14151f;box-sizing:content-box}
   #ov .bar .fill{height:100%;background:#7cff6b}
   #ov .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
@@ -32,10 +34,10 @@
   #ov .slot{background:rgba(255,255,255,.07);padding:6px 4px;text-align:center;border:2px solid #14151f;min-width:0}
   #ov .slot.empty{opacity:.45}
   #ov .slot .minis{display:flex;gap:4px;justify-content:center;margin-top:4px}
-  #ov .slot .btn.mini{font-size:11px;padding:4px 6px;margin:0;min-width:0}
+  #ov .slot .btn.mini{font-family:var(--font-s);font-size:12px;padding:4px 6px;margin:0;min-width:0}
   #ov .slot .ico{image-rendering:pixelated;display:block;margin:0 auto 2px}
-  #ov .slot .nm2{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #ov .slot .pips{font-size:9px;color:#ffd34d;letter-spacing:1px;margin-top:2px}
+  #ov .slot .nm2{font-family:var(--font-s);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #ov .slot .pips{font-family:var(--font-s);font-size:12px;line-height:1;color:#ffd34d;letter-spacing:1px;margin-top:2px}
   #ov .pnl.wide{width:min(600px,96vw)}
   #ov .tabs{display:flex;gap:8px;margin:0 0 12px}
   #ov .tabs .btn.tab{flex:1;margin:0;background:#3a3f5e;color:#c9cfe6;box-shadow:inset -3px -3px 0 #23263a,0 0 0 3px #14151f}
@@ -46,7 +48,7 @@
   #ov .row.smelt .ico{image-rendering:pixelated;filter:drop-shadow(0 3px 0 rgba(0,0,0,.45))}
   #ov .row.smelt .arrow{color:#ff9a4d;font-size:16px}
   #ov .row.smelt .minis{display:flex;gap:4px}
-  #ov .btn.mini{font-size:12px;padding:4px 8px;margin:0;min-height:32px}
+  #ov .btn.mini{font-family:var(--font-s);font-size:12px;padding:4px 8px;margin:0;min-height:32px}
   #ov .btn.mini.off{opacity:.45}
   #ov .slot .ico{filter:drop-shadow(0 3px 0 rgba(0,0,0,.45))}
   #ov table{width:100%;border-collapse:collapse}

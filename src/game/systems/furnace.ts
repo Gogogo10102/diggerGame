@@ -10,10 +10,8 @@ import { ITEMS } from "../data/items.ts";
 import { addXP, checkQuests } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
-import { TOWN, stashCargo, switchTown, touch } from "./input.ts";
-import { barEl, iconEl } from "../ui/dom.ts";
-import { closeMenu } from "../ui/menu.ts";
-import { el, keysReset, mkBtn, showOv } from "../ui/overlay.ts";
+import { stashCargo, touch } from "./input.ts";
+import { keysReset } from "../ui/overlay.ts";
 
 // =====================================================================
 //  용광로: 원석 2개 + 석탄을 넣으면 시간이 지나 주괴 1개가 됩니다(플레이 중이면 광산에 있어도 진행).
@@ -145,7 +143,7 @@ export function furnaceUpgrade() {
   saveNow(true, true);
   return "용광로 Lv." + F.lv + " 강화 완료!";
 }
-S.furnaceAnnounce = 0;
+S.furnaceAnnounce = 0; S.furnaceSel = 0;
 export function updateFurnace(dt) {
   if (!S.acct || !S.acct.furnace || !S.acct.furnace.q.length) return;
   const F = S.acct.furnace, L = FURNACE_LV[F.lv], job = F.q[0];
@@ -163,75 +161,22 @@ export function updateFurnace(dt) {
   if (!F.q.length) { say("용광로: 주괴 " + S.furnaceAnnounce + "개 재련 완료!"); S.furnaceAnnounce = 0; saveNow(false, true); }
   checkQuests(false);
 }
+// 용광로 창 열기 (마을 창의 "용광로" 탭. 그리기는 render/townUI.ts)
 export function openFurnace() {
-  const moved = stashCargo();
-  S.state = "menu"; keysReset();
+  stashCargo();                                                   // 들고 온 광물은 창고로 (메시지는 stashCargo가 띄움)
+  S.state = "furnace"; keysReset();
   S.stick = null; touch.l = touch.r = touch.u = touch.d = false;
-  renderFurnace(moved > 0 ? "화물 광물 " + moved + "개를 창고에 넣었어요" : null);
+  const F = S.acct && S.acct.furnace;
+  if (F && F.q.length) S.furnaceSel = Math.max(0, BAR_KEYS.indexOf(F.q[F.q.length - 1].m));
 }
-export function townTabs() {
-  const bar = el("div", "tabs");
-  for (const [k, label] of TOWN) bar.appendChild(mkBtn(label, () => switchTown(k), "tab" + (k === "furnace" ? " on" : "")));
-  bar.appendChild(mkBtn("✕", closeMenu, "tab x"));
-  return bar;
+// 창 안의 버튼/키에서 부르는 동작 (결과 메시지는 아래 상세 칸에 표시)
+export function furnaceAct(kind, arg) {
+  if (kind === "smelt") say(furnaceSmelt(BAR_KEYS[S.furnaceSel], arg));
+  else if (kind === "up") say(furnaceUpgrade());
+  else if (kind === "clear") say(furnaceClear());
 }
-export function renderFurnace(note) {
-  S.invOpen = false; S.furnaceOpen = true;
-  const F = S.acct.furnace, L = FURNACE_LV[F.lv];
-  const root = el("div", "wide");
-  root.appendChild(townTabs());
-  root.appendChild(el("h2", null, "용광로  Lv." + F.lv));
-  // 상태 카드
-  const card = el("div", "hero");
-  const ph = el("div", "portrait"); ph.appendChild(iconEl(ICON.furnace, 72)); card.appendChild(ph);
-  const inf = el("div", "heroinfo");
-  inf.appendChild(el("div", "nm", F.q.length ? "재련 중... (" + F.q.length + " / " + L.cap + ")" : "쉬는 중 (대기열 0 / " + L.cap + ")"));
-  if (F.q.length) {
-    const j = F.q[0], B = BARS[j.m];
-    inf.appendChild(barEl(1 - j.left / B.time, "#ff8a1f"));
-    const cnt = {}; for (const q of F.q) cnt[q.m] = (cnt[q.m] || 0) + 1;
-    inf.appendChild(el("div", "dim sm", "지금: " + B.name + " · 남은 시간 약 " + Math.ceil(F.q.reduce((a, q) => a + q.left, 0) / L.speed) + "초"));
-    inf.appendChild(el("div", "dim sm", Object.keys(cnt).map((k) => BARS[k].name + " x" + cnt[k]).join(" · ")));
-  } else inf.appendChild(el("div", "dim sm", "원석 " + ORE_PER_BAR + "개 + 석탄으로 주괴 1개. 넣어 두면 광산에 가 있어도 계속 재련돼요."));
-  inf.appendChild(el("div", "dim sm", "속도 x" + L.speed + (L.save ? " · 석탄 " + Math.round(L.save * 100) + "% 절약" : "") + " · 창고 석탄 " + (P.stash[6] || 0) + "개"));
-  card.appendChild(inf);
-  root.appendChild(card);
-  if (note) root.appendChild(el("p", "msg", note));
-  // 재련 목록
-  root.appendChild(el("p", "msg", "재련하기"));
-  for (const k of BAR_KEYS) {
-    const B = BARS[k];
-    const row = el("div", "row smelt");
-    row.appendChild(iconEl(oreIcon[B.ore], 36));
-    row.appendChild(el("div", "arrow", "→"));
-    row.appendChild(iconEl(barIcon[k], 40));
-    const info = el("div", "info");
-    info.appendChild(el("div", "nm", B.name + "  (보유 " + (P.bars[k] || 0) + ")"));
-    info.appendChild(el("div", "dim sm", TILE[B.ore].name + " " + ORE_PER_BAR + " + 석탄 " + B.coal + " · " + B.time + "초 · 창고 " + TILE[B.ore].name + " " + (P.stash[B.ore] || 0) + "개"));
-    row.appendChild(info);
-    const can = Math.min(L.cap - F.q.length, Math.floor((P.stash[B.ore] || 0) / ORE_PER_BAR), Math.floor((P.stash[6] || 0) / B.coal));
-    const go = (n) => () => renderFurnace(furnaceSmelt(k, n));
-    const bs = el("div", "minis");
-    bs.appendChild(mkBtn("1개", go(1), can > 0 ? "mini" : "mini off"));
-    bs.appendChild(mkBtn("5개", go(5), can > 0 ? "mini" : "mini off"));
-    bs.appendChild(mkBtn("최대 " + Math.max(0, can), go(Infinity), can > 0 ? "mini pri" : "mini off"));
-    row.appendChild(bs);
-    root.appendChild(row);
-  }
-  // 강화
-  const nx = FURNACE_LV[F.lv + 1];
-  root.appendChild(el("p", "msg", "용광로 강화"));
-  if (nx) {
-    root.appendChild(el("p", "dim", "Lv." + (F.lv + 1) + ": 대기열 " + L.cap + "→" + nx.cap + " · 속도 x" + L.speed + "→x" + nx.speed + (nx.save ? " · 석탄 " + Math.round(nx.save * 100) + "% 절약" : "")));
-    const ub = el("div", "btns");
-    ub.appendChild(mkBtn("강화 ($" + nx.cost + ")", () => renderFurnace(furnaceUpgrade()), P.money >= nx.cost ? "pri" : ""));
-    root.appendChild(ub);
-  } else root.appendChild(el("p", "dim", "최고 단계예요!"));
-  const bs = el("div", "btns");
-  bs.appendChild(mkBtn("닫기", closeMenu, "pri"));
-  if (F.q.length) bs.appendChild(mkBtn("대기열 비우기", () => renderFurnace(furnaceClear()), "del"));
-  root.appendChild(bs);
-  showOv(root);
+// 지금 고른 주괴를 몇 개까지 넣을 수 있는지
+export function furnaceCan(k) {
+  const B = BARS[k], F = S.acct.furnace, L = FURNACE_LV[F.lv];
+  return Math.max(0, Math.min(L.cap - F.q.length, Math.floor((P.stash[B.ore] || 0) / ORE_PER_BAR), Math.floor((P.stash[6] || 0) / B.coal)));
 }
-
-
