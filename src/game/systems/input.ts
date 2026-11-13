@@ -93,7 +93,7 @@ addEventListener("keydown", (e) => {
   if (e.code === "KeyQ") { if (!e.repeat) openQuests(); return; }
   keys[e.code] = true;
   if (e.code === "KeyH") { S.showHelp = !S.showHelp; S.helpPinned = S.showHelp; }
-  if (e.code === "KeyE" && !e.repeat && P.dead <= 0) { if (S.nearItems) openShop(); else if (S.nearCraft) openCraft(); else if (S.nearFurnace) openFurnace(); else if (S.nearGarage) switchTown("sell"); }
+  if (e.code === "KeyE" && !e.repeat && P.dead <= 0) { if (S.nearItems) openShop(); else if (S.nearCraft) openCraft(); else if (S.nearFurnace) openFurnace(); }
   if (/^Digit[1-8]$/.test(e.code) && !e.repeat) useConsumable(HOT[Number(e.code.slice(5)) - 1]);
   if (e.code === "KeyZ" && !e.repeat) cycleZoom();
 });
@@ -217,7 +217,7 @@ export const R_ = () => keys.ArrowRight || keys.KeyD || touch.r;
 export const U_ = () => keys.ArrowUp || keys.KeyW || keys.Space || touch.u;
 export const D_ = () => keys.ArrowDown || keys.KeyS || touch.d;
 
-// 마을 창: 네 건물(상점·제작소·용광로·정비소 창고)을 위쪽 탭으로 오가며 사용
+// 마을 창: 상점·제작소·용광로 + 판매(창고)를 위쪽 탭으로 오가며 사용. 어느 건물 앞에서 [E]로 열어도 됨
 export const TOWN = [["shop", "상점", "chest"], ["craft", "제작", "drill"], ["furnace", "용광로", "furnace"], ["sell", "판매", "coin"]];
 export function stashCargo() {
   let moved = 0;

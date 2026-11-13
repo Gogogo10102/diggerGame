@@ -4,7 +4,14 @@ import { ITEM_ICON } from "./itemIcons.ts";
 import { ICON, art, sprite } from "./sprites.ts";
 import { S } from "../core/state.ts";
 
-// ---- 건물 (112x64 아트 = 7x4 타일): 정비소 / 아이템 상점 / 제작소 ----
+// ---- 건물 ----
+// 실제 그림은 public/assets/buildings/*.png (tools/make-buildings.py 로 그림). 아래 코드 그림은 PNG를 못 불러올 때만 쓰는 예비용
+// 움직이는 부분(굴뚝 연기, 대장간 불빛, 용광로 불·쇳물)의 위치: 그림 좌표(왼쪽 위 0,0). 그림 크기가 이와 같을 때만 그림
+export const BLD_FX = {
+  shop: { w: 112, h: 80, smoke: [90, 0] },
+  craft: { w: 112, h: 80, smoke: [21, 0], forge: [9, 50, 38, 22] },
+  furnace: { w: 80, h: 96, smoke: [40, 0], mouth: [26, 58, 28, 30], trough: [54, 83, 12, 2] },
+};
 export function brickFill(p, x, y, w, h, base, hi, mortar) {
   p(x, y, w, h, base);
   let j = 0;
@@ -19,37 +26,6 @@ export function winPane(p, x, y, w, h) {
   p(x - 1, y - 1, w + 2, h + 2, "#14151f"); p(x, y, w, h, "#7fc4e8"); p(x, y, w, 3, "#cdf3ff");
   p(x + (w >> 1), y, 1, h, "#14151f"); p(x, y + (h >> 1), w, 1, "#14151f");
   p(x + 1, y + 4, 2, 1, "#fff"); p(x - 2, y + h + 1, w + 4, 2, "#5e3b25"); p(x - 2, y + h + 1, w + 4, 1, "#a8704a");
-}
-export function buildGarage() {
-  return sprite(112, 64, (p) => {
-    // 굴뚝
-    brickFill(p, 88, 5, 10, 22, "#8f3a28", "#b24d36", "#5e2418");
-    p(86, 3, 14, 3, "#3a3f52"); p(86, 3, 14, 1, "#8b93a6"); p(88, 6, 10, 1, "#14151f");
-    // 골함석 지붕
-    p(2, 15, 108, 10, "#7b241c");
-    for (let x = 2; x < 110; x += 4) { p(x, 16, 2, 8, "#d9453a"); p(x, 16, 2, 1, "#ff7a6b"); p(x + 2, 16, 1, 8, "#a52a20"); }
-    p(2, 15, 108, 1, "#ff9a90"); p(2, 24, 108, 2, "#3d1410");
-    // 벽돌 벽
-    brickFill(p, 6, 26, 100, 34, "#a8452f", "#c45a40", "#6e2a1b");
-    p(6, 26, 100, 2, "#6e2a1b"); p(6, 26, 1, 34, "#6e2a1b"); p(105, 26, 1, 34, "#6e2a1b");
-    // 간판(나무)
-    p(30, 27, 52, 10, "#14151f"); p(31, 28, 50, 8, "#8a5a3c"); p(31, 28, 50, 1, "#c08a5c"); p(31, 35, 50, 1, "#5e3b25");
-    p(32, 37, 2, 3, "#3a3f52"); p(78, 37, 2, 3, "#3a3f52"); p(32, 27, 1, 1, "#ffd34d"); p(79, 27, 1, 1, "#ffd34d");
-    // 정비 베이(셔터)
-    p(34, 40, 44, 20, "#14151f"); p(36, 41, 40, 19, "#2b2f45"); p(36, 41, 40, 3, "#1b1d2c");
-    p(54, 43, 4, 2, "#ffd34d"); p(55, 44, 2, 1, "#fff3a8"); p(55, 45, 2, 6, "#3a3f52");
-    for (let y = 50; y < 60; y += 3) { p(36, y, 40, 3, "#9aa3b8"); p(36, y, 40, 1, "#e3e8f2"); p(36, y + 2, 40, 1, "#565c70"); }
-    for (let y = 40; y < 60; y += 4) { p(30, y, 3, 2, "#ffcd3c"); p(30, y + 2, 3, 2, "#14151f"); p(79, y, 3, 2, "#ffcd3c"); p(79, y + 2, 3, 2, "#14151f"); }
-    // 주유기
-    p(10, 38, 14, 22, "#14151f"); p(11, 39, 12, 21, "#d9453a"); p(11, 39, 12, 3, "#ff7a6b");
-    p(13, 43, 8, 5, "#14151f"); p(14, 44, 6, 3, "#7cff6b"); p(14, 44, 2, 1, "#d6ffd0");
-    p(11, 51, 12, 2, "#f2f6fa"); p(24, 44, 2, 12, "#14151f"); p(25, 45, 1, 10, "#565c70"); p(24, 55, 3, 2, "#8b93a6");
-    // 창문 + 상자
-    winPane(p, 86, 38, 14, 12);
-    p(102, 50, 8, 10, "#14151f"); p(103, 51, 6, 8, "#8a5a3c"); p(103, 51, 6, 2, "#b07a52"); p(103, 55, 6, 1, "#5e3b25"); p(105, 51, 2, 8, "#5e3b25");
-    // 콘크리트 바닥
-    p(0, 60, 112, 4, "#5a5f70"); p(0, 60, 112, 1, "#9aa3b8"); p(18, 62, 6, 1, "#3a3f52"); p(70, 63, 8, 1, "#3a3f52"); p(96, 62, 4, 1, "#3a3f52");
-  });
 }
 export function buildItemShop() {
   return sprite(112, 64, (p, g) => {
@@ -132,7 +108,6 @@ export function buildWorkshop() {
     p(0, 60, 112, 4, "#5a5f70"); p(0, 60, 112, 1, "#9aa3b8"); p(40, 62, 8, 1, "#3a3f52");
   });
 }
-S.shopImg = buildGarage();
 S.itemShopImg = buildItemShop();
 S.craftShopImg = buildWorkshop();
 // 건물 기초석 (건물 아래 땅은 부술 수 없음)
@@ -153,13 +128,8 @@ export function fxText(fx) {
   }).join(", ");
 }
 
-// ---- 간판 로고 ----
-// 간판 글자는 글꼴에 따라 모양이 바뀌지 않도록 그림으로 박아 둡니다: public/assets/signs/*.png (tools/make-signs.py 로 만듦)
-// 처음엔 1x1 빈 그림이고, PNG를 불러오면 이 캔버스에 덮어써짐. 못 불러오면 draw.ts 가 글자로 대신 그림
-export const SIGN_IMG = {
-  garage: sprite(1, 1, () => {}), shop: sprite(1, 1, () => {}), craft: sprite(1, 1, () => {}),
-  furnace: sprite(1, 1, () => {}), mine: sprite(1, 1, () => {}),
-};
+// ---- 광산 입구 표지판 로고 (글자 없이 그림만): public/assets/signs/mine.png. 못 불러오면 draw.ts 가 나무판 + 화살표로 대신 ----
+export const SIGN_IMG = { mine: sprite(1, 1, () => {}) };
 // 마을 창 탭 이름도 그림으로 (signs/tab_<탭>_<on|off>.png). 1배로 그림
 export const TAB_IMG = {};
 for (const k of ["shop", "craft", "furnace", "sell"]) for (const st of ["on", "off"]) TAB_IMG[k + "_" + st] = sprite(1, 1, () => {});

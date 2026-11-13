@@ -2,7 +2,7 @@
 import "../data/recipes.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { B } from "../art/itemIcons.ts";
 import { ICON, oreIcon, sprite } from "../art/sprites.ts";
-import { BUILD_COLS, SURF, T, TILE } from "../core/config.ts";
+import { BUILD_COLS, B_FURN, SURF, T, TILE } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { floaters, say, spawn } from "../core/stats.ts";
@@ -147,7 +147,7 @@ S.furnaceAnnounce = 0; S.furnaceSel = 0;
 export function updateFurnace(dt) {
   if (!S.acct || !S.acct.furnace || !S.acct.furnace.q.length) return;
   const F = S.acct.furnace, L = FURNACE_LV[F.lv], job = F.q[0];
-  if (Math.random() < dt * 5) spawn((BUILD_COLS[3][0] + 2.5) * T + (Math.random() - 0.5) * 30, (SURF - 0.7) * T, (Math.random() - 0.5) * 60, -60 - Math.random() * 80, 0.6, Math.random() < 0.5 ? "#ffd34d" : "#ff8a1f", 2, 200);
+  if (Math.random() < dt * 5) spawn((BUILD_COLS[B_FURN][0] + 2.5) * T + (Math.random() - 0.5) * 30, (SURF - 0.7) * T, (Math.random() - 0.5) * 60, -60 - Math.random() * 80, 0.6, Math.random() < 0.5 ? "#ffd34d" : "#ff8a1f", 2, 200);
   job.left -= dt * L.speed;
   if (job.left > 0) return;
   F.q.shift();
@@ -156,8 +156,8 @@ export function updateFurnace(dt) {
   S.furnaceAnnounce++;
   if (L.save > 0 && Math.random() < L.save) P.stash[6] = (P.stash[6] || 0) + BARS[job.m].coal;   // 강화: 석탄 절약
   addXP(2);
-  if (Math.abs(P.x - (BUILD_COLS[3][0] + 2.5) * T) < 6 * T && P.y < SURF * T)
-    floaters.push({ x: (BUILD_COLS[3][0] + 2.5) * T, y: (SURF - 2) * T, text: "+" + BARS[job.m].name, color: BARS[job.m].pal[1], life: 1.2 });
+  if (Math.abs(P.x - (BUILD_COLS[B_FURN][0] + 2.5) * T) < 6 * T && P.y < SURF * T)
+    floaters.push({ x: (BUILD_COLS[B_FURN][0] + 2.5) * T, y: (SURF - 2) * T, text: "+" + BARS[job.m].name, color: BARS[job.m].pal[1], life: 1.2 });
   if (!F.q.length) { say("용광로: 주괴 " + S.furnaceAnnounce + "개 재련 완료!"); S.furnaceAnnounce = 0; saveNow(false, true); }
   checkQuests(false);
 }

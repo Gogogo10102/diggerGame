@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./worldSave.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { BUILD_COLS, H, HH, LAYERS, MINE_COL, SURF, T, TILE, W, inB } from "../core/config.ts";
+import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, LAYERS, MINE_COL, SURF, T, TILE, W, inB } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { FUEL_BASE, bombs, flashes, floaters, maxFuel, parts, recalcStats, say } from "../core/stats.ts";
@@ -111,11 +111,10 @@ export function applyAccount(d) {
   bombs.length = 0; flashes.length = 0; S.shakeT = 0; S.lastRevealKey = "";
   S.showHelp = !(d.settings && d.settings.showHelp === false);
   const row = Math.floor(P.y / T), col = Math.floor(P.x / T);
-  S.inShop = row < SURF && col >= BUILD_COLS[0][0] && col < MINE_COL;
-  S.nearGarage = row < SURF && inB(0, col);
-  S.nearItems = row < SURF && inB(1, col);
-  S.nearCraft = row < SURF && inB(2, col);
-  S.nearFurnace = row < SURF && inB(3, col);
+  S.inShop = row < SURF;
+  S.nearItems = row < SURF && inB(B_SHOP, col);
+  S.nearCraft = row < SURF && inB(B_CRAFT, col);
+  S.nearFurnace = row < SURF && inB(B_FURN, col);
   revealAround();
   S.msgT = 0; S.bannerT = 0; S.playT = 0; S.saveT = 0; S.lastSave = performance.now();
   S.state = "play";

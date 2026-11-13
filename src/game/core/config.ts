@@ -8,7 +8,8 @@ export const W = 48, H = 400;   // 월드 크기(타일): 왼쪽은 마을, 오�
 export const SURF = 6;          // 지표면 행
 export const HW = 12, HH = 12;  // 플레이어 충돌 반폭/반높이
 export const SEED = 1234;
-export const BUILD_COLS = [[1, 7], [8, 14], [15, 21], [22, 26]];   // 정비소 / 아이템 상점 / 제작소 / 용광로 (왼쪽에 나란히)
+export const BUILD_COLS = [[1, 7], [8, 14], [15, 19]];   // 상점 / 제작소 / 용광로 (왼쪽에 나란히). 정비소는 없앰 → 지상에 나오면 연료 충전
+export const B_SHOP = 0, B_CRAFT = 1, B_FURN = 2;                 // BUILD_COLS 순서
 export const MINE_COL = BUILD_COLS[BUILD_COLS.length - 1][1] + 1;  // 여기부터 오른쪽이 광산 터
 export const inB = (k, c) => c >= BUILD_COLS[k][0] && c <= BUILD_COLS[k][1];
 
