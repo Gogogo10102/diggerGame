@@ -13,7 +13,7 @@ import { drops, spawnDrop, updateDrops } from "./drops.ts";
 import { updateChunks } from "./floating.ts";
 import { updateFurnace } from "./furnace.ts";
 import { D_, L_, R_, U_ } from "./input.ts";
-import { sfx } from "../core/sound.ts";
+import { sfx, sfxLoop } from "../core/sound.ts";
 
 // =====================================================================
 //  물리 / 업데이트
@@ -197,7 +197,7 @@ export function update(dt) {
       if (!S.dig || S.dig.c !== tgt[0] || S.dig.r !== tgt[1]) S.dig = { c: tgt[0], r: tgt[1], t: 0 };
       S.dig.t += dt;
       S.digPT -= dt;
-      if (S.digPT <= 0) { S.digPT = 0.06; chips(S.dig.c, S.dig.r, id, 2, 1, digDir); sfx("dig", { hard: info.hard >= 1.2 }); }
+      if (S.digPT <= 0) { S.digPT = 0.06; chips(S.dig.c, S.dig.r, id, 2, 1, digDir); sfx("dig", { hard: info.hard >= 1.2, vol: 0.45 }); }   // 드릴 소리 위에 흙 부스러지는 소리
       if (S.dig.t >= hardOf(id, S.dig.r) / drillMult()) {
         tiles[tgt[1] * W + tgt[0]] = 0;
         onMined(id);
@@ -225,16 +225,19 @@ export function update(dt) {
   P.digging = digging;
   P.mode = digging && downDig ? "down" : digging && upDig ? "up" : "side";
 
-  // 이동 · 추진 소리
-  if (thrusting) sfx("thrust");
-  else if (grounded && !digging && Math.abs(P.vx) > 40 * PX) sfx("step", { pitch: 0.8 + Math.abs(P.vx) / (340 * PX) });
+  // 이동 · 추진 · 드릴 소리: 추진은 켜는 순간 점화음 + 로켓 불꽃 소리, 파는 동안은 드릴 소리가 이어짐
+  if (thrusting && !S.thrustOn) sfx("ignite");
+  S.thrustOn = !!thrusting;
+  sfxLoop("thrust", !!thrusting, { pitch: P.vy < 0 ? 1.4 : 1 });
+  sfxLoop("drill", !!P.digging, { hard: !!(S.dig && hardOf(tiles[S.dig.r * W + S.dig.c], S.dig.r) >= 1.2) });
+  if (!thrusting && grounded && !digging && Math.abs(P.vx) > 40 * PX) sfx("step", { pitch: 0.8 + Math.abs(P.vx) / (340 * PX) });
   // 연료가 1/4 아래로 떨어지면 1.5초마다 경고음
   if (!(Math.floor(P.y / T) < SURF) && P.fuel / maxFuel() < 0.25) { S.lowBeepT = (S.lowBeepT || 0) - dt; if (S.lowBeepT <= 0) { S.lowBeepT = 1.5; sfx("warn"); } }
   else S.lowBeepT = 0;
   // 추진 파티클
-  if (thrusting && Math.random() < 0.7) {
+  if (thrusting && Math.random() < 0.7) {                           // 불꽃처럼 움직이는 반대쪽으로 흩날림
     const col = ["#ff8a1f", "#ffe066", "#9aa0b4"][(Math.random() * 3) | 0];
-    spawn(P.x + (Math.random() - 0.5) * 10, P.y + HH, (Math.random() - 0.5) * 50, 90 + Math.random() * 90, 0.35, col, 4, 0);
+    spawn(P.x + (Math.random() - 0.5) * 10, P.y + HH, -P.vx * 0.6 + (Math.random() - 0.5) * 50, 90 + Math.random() * 90, 0.35, col, 4, 0);
   }
 
   revealAround();

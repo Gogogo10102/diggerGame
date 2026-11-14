@@ -2,8 +2,8 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, getMiner, grassTiles, hardTiles, hv, stoneTiles, sunImg } from "../art/sprites.ts";
-import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, SURF, T, TILE, W } from "../core/config.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, stoneTiles, sunImg } from "../art/sprites.ts";
+import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
@@ -135,6 +135,21 @@ function softEdge(c, r, px, py, id) {
   ctx.fillStyle = "rgba(255,230,190,0.16)"; ctx.fill(e.lit);
   ctx.fillStyle = "#0f0905"; ctx.fill(e.line);
   ctx.restore();
+}
+
+// 추진 불꽃: 움직이는 반대쪽으로 기울어짐 (Chipmatic 처럼). 4px 도트 덩어리를 방향을 따라 이어 그림
+function drawThrustFlame(x, y) {
+  const lean = Math.max(-1, Math.min(1, -P.vx / (220 * PX)));        // 오른쪽으로 가면 불꽃은 왼쪽 아래로
+  const ang = lean * 0.75, dx = Math.sin(ang), dy = Math.cos(ang);
+  const fl = (((S.animT * 30) | 0) % 3), len = 7 + fl * 2 + (P.vy < 0 ? 2 : 0);
+  const [outer, inner] = FLAME[LOOK.engine];
+  for (let i = 0; i < len; i++) {
+    const w = Math.max(1, Math.round(3.2 * (1 - i / len) + (i < 2 ? 0.8 : 0)));   // 덩어리 반폭(4px 단위)
+    const cx = Math.round((x + dx * i * 4) / 2) * 2, cy = Math.round((y + dy * i * 4) / 2) * 2;
+    ctx.fillStyle = i > len - 3 ? "rgba(255,140,40,0.55)" : outer; ctx.fillRect(cx - w * 4, cy, w * 8, 4);
+    if (w > 1 && i < len - 2) { ctx.fillStyle = inner; ctx.fillRect(cx - (w - 1) * 4, cy, (w - 1) * 8, 4); }
+    if (i < 2) { ctx.fillStyle = "#ffffff"; ctx.fillRect(cx - 4, cy, 8, 4); }
+  }
 }
 
 export function getCam(vw, vh) {
@@ -396,16 +411,17 @@ export function draw() {
     const dg = P.digging ? ((S.animT * 24) | 0) % 2 : -1;
     const img = getMiner(P.mode, leg, dg);
     const shake = P.digging && ((S.animT * 40) | 0) % 2 ? 2 : 0;
+    // 기계라서 덜덜덜: 굴러갈 때·추진할 때·팔 때 몸이 2px 씩 떨림
+    const thr = U_() && P.fuel > 0;
+    const rattle = (moving || thr || P.digging) ? ((S.animT * (thr ? 30 : 22)) | 0) % 2 * 2 : 0;
+    const rx = thr && ((S.animT * 17) | 0) % 3 === 0 ? 2 : 0;
     ctx.save();
-    ctx.translate(px + (P.mode === "side" ? shake * P.facing : 0), py + HH + (P.mode === "down" ? shake : P.mode === "up" ? -shake : 0));
+    ctx.translate(px + rx + (P.mode === "side" ? shake * P.facing : 0), py + HH - rattle + (P.mode === "down" ? shake : P.mode === "up" ? -shake : 0));
     if (P.facing < 0) ctx.scale(-1, 1);
-    ctx.drawImage(img, -16, -32, 32, 32);
+    const ms = MINER_SZ * 3, mb = MINER_BOX * 3;                     // 그림 x3: 몸통 48px(블록의 3/4) · 충돌 크기는 그대로
+    ctx.drawImage(img, -24 - mb, -48 - mb, ms, ms);
     ctx.restore();
-    if (U_() && P.fuel > 0) {
-      const fh = 8 + (((S.animT * 30) | 0) % 3) * 4;
-      ctx.fillStyle = FLAME[LOOK.engine][0]; ctx.fillRect(px - 6, py + HH, 12, fh);
-      ctx.fillStyle = FLAME[LOOK.engine][1]; ctx.fillRect(px - 2, py + HH, 4, fh - 4);
-    }
+    if (U_() && P.fuel > 0) drawThrustFlame(px, py + HH);
   }
 
   // 떠오르는 글자
@@ -515,6 +531,53 @@ export function drawHotbar(vw, vh) {
   });
 }
 
+// 가진 광물 칸: 화물칸에 든 광물을 아이콘 + 개수로 (새로 주우면 잠깐 노랗게 반짝)
+//   center=true 면 x 가 가운데, 아니면 왼쪽 끝. 돌려주는 값: 칸의 아래 y
+const ORE_BAR_IDS = [6, 2, 3, 8, 4, 9, 5, 10, 11];
+const ORE_BAR_LAST = {}, ORE_BAR_FLASH = {};
+function drawOreBar(x, y, maxW, center) {
+  const have = ORE_BAR_IDS.filter((id) => (P.cargo[id] || 0) > 0);
+  for (const id of ORE_BAR_IDS) {
+    const n = P.cargo[id] || 0;
+    if (n > (ORE_BAR_LAST[id] || 0)) ORE_BAR_FLASH[id] = S.animT + 0.35;
+    ORE_BAR_LAST[id] = n;
+  }
+  setFont(16);
+  let isz = 24, cells = have.map((id) => ({ id, s: String(P.cargo[id]), w: 0 }));
+  const measure = () => cells.reduce((a, c) => { c.w = isz + 4 + Math.ceil(ctx.measureText(c.s).width); return a + c.w + 10; }, 0) + 10;
+  let w = have.length ? measure() : 0;
+  if (w > maxW) { isz = 16; w = measure(); }
+  const h = isz + 12;
+  if (!have.length) {
+    setFont(12); const ew = Math.ceil(ctx.measureText("광물 없음").width) + 20;
+    const x0 = center ? Math.floor(x - ew / 2) : x;
+    plate(x0, y, ew, 28); txt("광물 없음", x0 + 10, y + 8, SY.mute, 12);
+    return y + 28;
+  }
+  // 자리가 모자라면 여러 줄로 (좁은 화면)
+  const lines = [[]];
+  let lw = 10;
+  for (const c of cells) {
+    if (lw + c.w + 10 > maxW && lines[lines.length - 1].length) { lines.push([]); lw = 10; }
+    lines[lines.length - 1].push(c); lw += c.w + 10;
+  }
+  const pw = lines.length > 1 ? maxW : w, ph = h * lines.length - (lines.length - 1) * 6;
+  const x0 = center ? Math.floor(x - pw / 2) : x;
+  plate(x0, y, pw, ph);
+  lines.forEach((line, li) => {
+    let cx = x0 + 10;
+    const ly = y + li * (h - 6);
+    for (const c of line) {
+      const fl = (ORE_BAR_FLASH[c.id] || 0) > S.animT;
+      if (fl) { ctx.fillStyle = "rgba(255,194,26,0.35)"; ctx.fillRect(cx - 4, ly + 3, c.w + 8, h - 6); }
+      ctx.drawImage(oreIcon[c.id], cx, ly + 6 - (fl ? 2 : 0), isz, isz);
+      txt(c.s, cx + isz + 4, ly + Math.floor((h - 16) / 2), fl ? SY.y : "#fff", 16, "left", SY.ink);
+      cx += c.w + 10;
+    }
+  });
+  return y + ph;
+}
+
 // 큰 수는 "12.3만" 처럼 줄여서
 function hudMoney(n) { return n >= 100000 ? (n / 10000).toFixed(n >= 1000000 ? 0 : 1) + "만" : Number(n).toLocaleString("en-US"); }
 // 칸 막대 + 왼쪽에 겹쳐 그린 아이콘 (번개 막대 모양)
@@ -527,7 +590,7 @@ function hudBar(x, y, img, n, filled, kind, label, labelCol) {
 
 export function drawHUD(vw, vh, depth) {
   shopBtn.length = 0;
-  const wide = vw >= 640;
+  const wide = vw >= 760;                     // 넓으면 위 가운데에 광물 칸 + 깊이
   const blink = ((S.animT * 4) | 0) % 2;
   // 왼쪽 위: 연료 · 화물 칸 막대 (아이콘이 막대 왼쪽 끝에 겹침)
   const fr = Math.max(0, P.fuel / maxFuel()), low = fr < 0.25;
@@ -545,10 +608,13 @@ export function drawHUD(vw, vh, depth) {
   // 돈 · 깊이: 넓은 화면은 위 가운데(깊이) · 오른쪽 위(돈), 좁은 화면은 왼쪽 줄 아래에
   const dTxt = (Math.floor(depth) + 1) + "m", mTxt = hudMoney(P.money);
   const bs = 44, bg = 6, bx0 = vw - 10 - 3 * bs - 2 * bg, by0 = 10;
+  S.hudBottom = 0;
   if (wide) {
+    // 위 가운데: 가진 광물 칸 (Chipmatic 처럼) + 그 아래 깊이
+    const ob = drawOreBar(Math.floor(vw / 2), 10, Math.max(160, vw - 2 * 230), true);
     setFont(16); const dw = Math.ceil(ctx.measureText(dTxt).width) + 48;
-    plate(Math.floor(vw / 2 - dw / 2), 10, dw, 34); ctx.drawImage(ICON.depth, Math.floor(vw / 2 - dw / 2) + 8, 19, 16, 16);
-    txt(dTxt, Math.floor(vw / 2 - dw / 2) + 30, 19, "#9fd8ff", 16);
+    plate(Math.floor(vw / 2 - dw / 2), ob + 6, dw, 30); ctx.drawImage(ICON.depth, Math.floor(vw / 2 - dw / 2) + 8, ob + 13, 16, 16);
+    txt(dTxt, Math.floor(vw / 2 - dw / 2) + 30, ob + 13, "#9fd8ff", 16);
     const mw = Math.ceil(ctx.measureText(mTxt).width) + 50, mx0 = bx0 - 10 - mw;
     plate(mx0, by0, mw, bs); ctx.drawImage(ICON.coin, mx0 + 8, by0 + 6, 32, 32);
     txt(mTxt, mx0 + mw - 10, by0 + 14, SY.gold, 16, "right");
@@ -556,6 +622,7 @@ export function drawHUD(vw, vh, depth) {
     ctx.drawImage(ICON.coin, 10, 102, 24, 24); txt(mTxt, 38, 106, SY.gold, 16, "left", SY.ink);
     setFont(16); const mw = Math.ceil(ctx.measureText(mTxt).width);
     ctx.drawImage(ICON.depth, 38 + mw + 14, 106, 16, 16); txt(dTxt, 38 + mw + 34, 106, "#9fd8ff", 16, "left", SY.ink);
+    S.hudBottom = drawOreBar(10, 134, vw - 20 - 46, false);      // 좁은 화면: 왼쪽 줄 아래에 광물 칸 (미니맵은 그 아래로)
   }
 
   // 오른쪽 위: 가방(초록) · 업적(파랑) · 메뉴(주황) 사각 버튼 + 그 아래 미니맵 · 깊이 미터

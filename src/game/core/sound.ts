@@ -4,6 +4,7 @@
 //  - 브라우저는 사용자가 한 번 누르기 전까지 소리를 막아서, 첫 터치/키 입력 때 켭니다.
 //  - Web Audio 가 없는 곳(테스트, 오래된 브라우저)에서는 아무 일도 안 함.
 //  - 크기: S.sfxVol (0~10, 0 = 끔). 설정 창에서 바꾸고 기기에 저장(menu.ts).
+//  - 이어지는 소리(추진 불꽃 · 드릴)는 sfxLoop(이름, 켬/끔) 을 매 프레임 부름. 0.15초 동안 안 부르면 저절로 꺼짐.
 // =====================================================================
 import { S } from "./state.ts";
 
@@ -54,7 +55,7 @@ function hiss(a: AudioContext, kind: BiquadFilterType, f0: number, f1: number, d
 }
 
 // 같은 소리가 너무 촘촘히 겹치지 않게 하는 최소 간격(초)
-const SND_GAP: Record<string, number> = { dig: 0.08, step: 0.12, thrust: 0.07, tick: 0.03, click: 0.04, pickup: 0.05, land: 0.12, warn: 0.5, error: 0.15 };
+const SND_GAP: Record<string, number> = { ignite: 0.25, dig: 0.08, step: 0.12, thrust: 0.07, tick: 0.03, click: 0.04, pickup: 0.05, land: 0.12, warn: 0.5, error: 0.15 };
 
 export type SfxOpt = { pitch?: number; vol?: number; hard?: boolean };
 export function sfx(name: string, o: SfxOpt = {}) {
@@ -113,7 +114,81 @@ export function sfx(name: string, o: SfxOpt = {}) {
       beep(a, "square", 880, 880, 0.07, 0.07 * v); beep(a, "square", 660, 660, 0.09, 0.07 * v, 0.1); break;
     case "refuel":         // 지상 도착 연료 충전
       beep(a, "sine", 300, 900, 0.28, 0.12 * v); beep(a, "triangle", 600, 1500, 0.22, 0.05 * v, 0.06); break;
+    case "ignite":         // 엔진 점화: 펑 + 쉬이익 (로켓 발사 시작)
+      beep(a, "sine", 140, 50, 0.18, 0.4 * v); hiss(a, "lowpass", 3000, 500, 0.35, 0.5 * v); hiss(a, "bandpass", 600, 2400, 0.25, 0.25 * v, 0.03, 0.7); break;
     case "fuse":           // 폭약 설치
       hiss(a, "highpass", 3000, 5000, 0.25, 0.1 * v); beep(a, "square", 400, 300, 0.05, 0.06 * v); break;
   }
+}
+
+// ---------------------------------------------------------------------
+//  이어지는 소리: 추진(로켓 불꽃 소리) · 드릴(모터 윙 + 갈리는 소리)
+// ---------------------------------------------------------------------
+type SndLoop = { g: GainNode; vol: number; on: boolean; last: number; tune: (o: SfxOpt) => void };
+const sndLoops: Record<string, SndLoop> = {};
+let sndLoopTimer: any = null;
+
+function noiseSrc(a: AudioContext) {
+  const s2 = a.createBufferSource(); s2.buffer = sndNoise; s2.loop = true; s2.start(); return s2;
+}
+function makeLoop(a: AudioContext, name: string): SndLoop {
+  const g = a.createGain(); g.gain.value = 0.0001; g.connect(sndOut!);
+  if (name === "thrust") {
+    // 로켓 불꽃: 낮게 웅웅대는 굉음(저역 잡음) + 쉬익(중역) + 타닥거림(빠르게 흔들리는 크기)
+    const roar = noiseSrc(a), lp = a.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 420; lp.Q.value = 0.9;
+    const hiss2 = noiseSrc(a), bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1600; bp.Q.value = 0.6;
+    const hg = a.createGain(); hg.gain.value = 0.35;
+    const crack = a.createGain(); crack.gain.value = 0.8;
+    const lfo = a.createOscillator(), lg = a.createGain(); lfo.type = "square"; lfo.frequency.value = 23; lg.gain.value = 0.25;
+    lfo.connect(lg); lg.connect(crack.gain); lfo.start();
+    roar.connect(lp); lp.connect(crack); hiss2.connect(bp); bp.connect(hg); hg.connect(crack); crack.connect(g);
+    return { g, vol: 0.55, on: false, last: 0, tune: (o) => { lp.frequency.setTargetAtTime(380 + (o.pitch || 1) * 120, a.currentTime, 0.05); } };
+  }
+  // 드릴: 톱니파 모터(빠르게 흔들려서 윙윙) + 갈리는 잡음. 단단한 땅이면 더 높고 거칠게
+  const motor = a.createOscillator(); motor.type = "sawtooth"; motor.frequency.value = 92;
+  const wob = a.createOscillator(), wg = a.createGain(); wob.frequency.value = 31; wg.gain.value = 9;
+  wob.connect(wg); wg.connect(motor.frequency); wob.start();
+  const mlp = a.createBiquadFilter(); mlp.type = "lowpass"; mlp.frequency.value = 900;
+  const mg = a.createGain(); mg.gain.value = 0.35;
+  motor.connect(mlp); mlp.connect(mg); mg.connect(g); motor.start();
+  const grind = noiseSrc(a), gbp = a.createBiquadFilter(); gbp.type = "bandpass"; gbp.frequency.value = 2200; gbp.Q.value = 1.6;
+  const gg2 = a.createGain(); gg2.gain.value = 0.55;
+  const glfo = a.createOscillator(), glg = a.createGain(); glfo.type = "triangle"; glfo.frequency.value = 13; glg.gain.value = 0.3;
+  glfo.connect(glg); glg.connect(gg2.gain); glfo.start();
+  grind.connect(gbp); gbp.connect(gg2); gg2.connect(g);
+  return {
+    g, vol: 0.4, on: false, last: 0,
+    tune: (o) => {
+      const t = a.currentTime;
+      motor.frequency.setTargetAtTime(o.hard ? 132 : 92, t, 0.06);
+      gbp.frequency.setTargetAtTime(o.hard ? 3400 : 2000, t, 0.06);
+      mlp.frequency.setTargetAtTime(o.hard ? 1500 : 900, t, 0.06);
+    },
+  };
+}
+// 켜 둔 소리 중 한동안 다시 안 불린 것은 끔 (창이 열려 게임이 멈춰도 소리가 남지 않게)
+function sndLoopCheck() {
+  if (!sndCtx) return;
+  const now = sndCtx.currentTime;
+  for (const k in sndLoops) {
+    const L2 = sndLoops[k];
+    if (L2.on && now - L2.last > 0.15) { L2.on = false; L2.g.gain.setTargetAtTime(0.0001, now, 0.05); }
+  }
+}
+export function sfxLoop(name: string, on: boolean, o: SfxOpt = {}) {
+  const a = sndGet();
+  if (!a || !sndOut || a.state !== "running") return;
+  let L2 = sndLoops[name];
+  if (!on || !(S.sfxVol > 0)) {
+    if (L2 && L2.on) { L2.on = false; L2.g.gain.setTargetAtTime(0.0001, a.currentTime, name === "thrust" ? 0.08 : 0.04); }
+    return;
+  }
+  if (!L2) {
+    L2 = sndLoops[name] = makeLoop(a, name);
+    if (!sndLoopTimer && typeof setInterval === "function") sndLoopTimer = setInterval(sndLoopCheck, 100);
+  }
+  sndOut.gain.value = Math.pow(S.sfxVol / 10, 1.6) * 0.7;
+  L2.last = a.currentTime;
+  if (!L2.on) { L2.on = true; L2.g.gain.setTargetAtTime(L2.vol * (o.vol === undefined ? 1 : o.vol), a.currentTime, 0.03); }
+  L2.tune(o);
 }

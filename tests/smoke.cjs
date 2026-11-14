@@ -900,6 +900,12 @@ async function login(t, name) {
   ok(mbtn && bbtn && qbtn && bbtn.x < qbtn.x && qbtn.x < mbtn.x && mbtn.x + mbtn.w <= 1000, "오른쪽 위 사각 버튼 3개 (가방 · 업적 · 메뉴)");
   ok(t60.canvasTexts().some((x) => /^\d+\/\d+$/.test(x)), "연료·화물 칸 막대 옆 숫자");
   ok(t60.canvasTexts().some((x) => x === "1m" || /^\d+m$/.test(x)), "깊이 표시");
+  t60.ev("sfxLoop('thrust', true); sfxLoop('drill', true, { hard: true }); sfxLoop('drill', false)"); ok(true, "이어지는 소리(추진·드릴)도 소리 장치 없이 오류 없음");
+  ok(t60.canvasTexts().includes("광물 없음"), "위 가운데 광물 칸: 비었으면 '광물 없음'");
+  t60.ev("P.cargo = { 2: 7, 6: 12 }"); t60.run(1);
+  ok(t60.canvasTexts().includes("7") && t60.canvasTexts().includes("12") && !t60.canvasTexts().includes("광물 없음"), "광물 칸에 가진 광물 개수 표시");
+  t60.ev("P.cargo = {}"); t60.run(1);
+  ok(t60.ev("getMiner('side', 0, -1).width") === 40 && t60.ev("getMiner('down', 0, 0).width") === 40, "미니 굴착기 그림 40x40 (드릴 포함)");
   // 상점: 왼쪽 분류 → 오른쪽 목록, 줄마다 구매 버튼
   t60.ev("P.x = 4 * T; P.y = SURF * T - 20; P.vx = P.vy = 0; P.money = 1000"); t60.run(5);
   t60.key("KeyE"); t60.run(1);
