@@ -309,7 +309,7 @@ export function draw() {
     const img = getMiner(P.mode, leg, dg);
     const shake = P.digging && ((S.animT * 40) | 0) % 2 ? 2 : 0;
     ctx.save();
-    ctx.translate(px + (P.mode === "side" ? shake * P.facing : 0), py + HH + (P.mode === "down" ? shake : 0));
+    ctx.translate(px + (P.mode === "side" ? shake * P.facing : 0), py + HH + (P.mode === "down" ? shake : P.mode === "up" ? -shake : 0));
     if (P.facing < 0) ctx.scale(-1, 1);
     ctx.drawImage(img, -16, -32, 32, 32);
     ctx.restore();

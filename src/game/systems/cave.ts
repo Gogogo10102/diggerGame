@@ -5,9 +5,10 @@ import { H, HH, HW, ORE_COL, PX, SURF, T, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { floaters, maxFuel, say, spawn } from "../core/stats.ts";
-import { ORE_GEN, ensureRect, oreProb, regenT, rub, rubSet, seen, setRub, tiles, warn } from "../core/world.ts";
+import { ORE_GEN, ensureRect, natAir, oreProb, regenT, rub, rubSet, seen, setRub, tiles, warn } from "../core/world.ts";
 import { CONS } from "../data/consumables.ts";
 import { saveNow } from "../save/account.ts";
+import { addXP } from "../data/progress.ts";
 import { spawnDust, startDebris } from "./collapseFx.ts";
 
 // =====================================================================
@@ -49,7 +50,8 @@ export function scanCave(dt) {
       const v = tiles[r * W + c], ct = tiles[(r - 1) * W + c];
       const air = v === 0 || isSup(v);
       const weak = ct !== 0 && !isSup(ct) && !strongCeil(ct);     // 무너질 수 있는 천장(흙/광물)
-      if (air && !held[c] && weak) { if (c0 < 0) c0 = c; } else flush(c - 1);
+      const nat = v === 0 && natAir(r * W + c);                    // 자연 동굴은 원래 그 모양으로 버티던 곳 → 판 칸만 셈
+      if (air && !held[c] && weak && !nat) { if (c0 < 0) c0 = c; } else flush(c - 1);
     }
     flush(cHi);
   }
@@ -190,3 +192,36 @@ ICON.trophy = sprite(16, 16, (p) => {
 ICON.menu = sprite(16, 16, (p) => { for (const y of [3, 7, 11]) { p(2, y, 12, 3, "#14151f"); p(3, y, 10, 2, "#d7dcf0"); } });
 export const TIER_COL = ["#8a90a0", "#7cff6b", "#4fc3ff", "#b58cff", "#ffd34d", "#ff8a3c", "#ff5a8a", "#7ff5e6"];   // 장비 단계 테두리 색
 
+// ---- 동굴 발견 ----
+// 판 칸 옆이 아직 못 본 자연 동굴이면, 이어진 동굴 전체(와 그 벽)를 한 번에 보여 줌 → "파다가 동굴을 발견"
+export const CAVE_FIND_MIN = 12;                // 이만큼 이상 새로 드러나야 '동굴 발견'으로 침 (작은 빈 틈은 제외)
+export function discoverCave(c, r) {
+  const q = [], has = new Set();
+  for (const [x, y] of [[c - 1, r], [c + 1, r], [c, r - 1], [c, r + 1]]) {
+    if (x <= 0 || x >= W - 1 || y <= SURF || y >= H - 1) continue;
+    const i = y * W + x;
+    if (natAir(i) && !has.has(i)) { has.add(i); q.push(i); }
+  }
+  if (!q.length) return 0;
+  ensureRect(c - 40, r - 40, c + 40, r + 40);
+  let fresh = 0;
+  for (let k = 0; k < q.length && q.length < 1500; k++) {
+    const i = q[k], x = i % W, y = (i / W) | 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {   // 동굴 칸 + 벽을 보이게
+      const j = (y + dy) * W + x + dx;
+      if (!seen[j]) { seen[j] = 1; fresh++; }
+    }
+    for (const j of [i - 1, i + 1, i - W, i + W]) {
+      const jx = j % W, jy = (j / W) | 0;
+      if (Math.abs(jx - c) > 40 || Math.abs(jy - r) > 40 || jy <= SURF) continue;
+      if (!has.has(j) && natAir(j)) { has.add(j); q.push(j); }
+    }
+  }
+  if (q.length < CAVE_FIND_MIN || fresh < CAVE_FIND_MIN) return 0;
+  if (S.acct) S.acct.stats.caves = (S.acct.stats.caves || 0) + 1;
+  addXP(10 + Math.min(40, q.length >> 3));
+  say("동굴 발견! 숨어 있던 공간이 드러났어요");
+  floaters.push({ x: P.x, y: P.y - 42, text: "동굴 발견!", color: "#8fd3ff", life: 1.6 });
+  S.shakeT = Math.max(S.shakeT || 0, 0.12);
+  return q.length;
+}

@@ -1,7 +1,7 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../art/buildings.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { CRAFT_ICON } from "../art/itemIcons.ts";
-import { LAYERS, ORE_COL, SURF, T, layerOf } from "./config.ts";
+import { LAYERS, ORE_COL, PX, SURF, T, layerOf } from "./config.ts";
 import { P } from "./player.ts";
 import { S } from "./state.ts";
 import { LOOK } from "../data/consumables.ts";
@@ -82,13 +82,27 @@ export const floaters = [];
 export function spawn(x, y, vx, vy, life, color, size, g) {
   parts.push({ x, y, vx, vy, life, max: life, color, size, g });
 }
-export function chips(c, r, id, n, power) {
+// 파편: 드릴이 닿은 면에서 튀어나와 플레이어 쪽으로 날아감
+//   dir = 파는 방향 ("down" 아래 칸 / "up" 위 칸 / "left" 왼쪽 칸 / "right" 오른쪽 칸)
+//   아래를 파면 위로 튀고, 옆을 파면 반대쪽(플레이어 쪽)으로, 위를 파면 아래로 쏟아짐
+export function chips(c, r, id, n, power, dir) {
   const L = LAYERS[layerOf(r - SURF)];
   const cols = id >= 12 ? ["#8a90a0", "#5b606e", "#b0b6c6"] : id > 1 ? [ORE_COL[id][1], L.base, ORE_COL[id][0]] : [L.base, L.hi, L.lo];
+  const d = dir || "down", k = PX * power, rnd = Math.random;
   for (let i = 0; i < n; i++) {
-    spawn((c + 0.2 + Math.random() * 0.6) * T, (r + 0.2 + Math.random() * 0.6) * T,
-      (Math.random() - 0.5) * 140 * power, -40 - Math.random() * 120 * power,
-      0.45 + Math.random() * 0.25, cols[i % cols.length], 4, 720);
+    let x, y, vx, vy;
+    if (d === "down") {                                              // 칸 윗면 → 위로
+      x = (c + 0.15 + rnd() * 0.7) * T; y = r * T + 2 + rnd() * 6;
+      vx = (rnd() - 0.5) * 140 * k; vy = -(50 + rnd() * 110) * k;
+    } else if (d === "up") {                                         // 칸 아랫면 → 아래로 쏟아짐
+      x = (c + 0.15 + rnd() * 0.7) * T; y = (r + 1) * T - 2 - rnd() * 6;
+      vx = (rnd() - 0.5) * 90 * k; vy = (20 + rnd() * 70) * k;
+    } else {                                                         // 옆 칸: 플레이어 쪽 면 → 플레이어 쪽으로
+      const s = d === "left" ? 1 : -1;                               // 파편이 날아갈 방향
+      x = (d === "left" ? (c + 1) * T - 2 - rnd() * 6 : c * T + 2 + rnd() * 6); y = (r + 0.2 + rnd() * 0.6) * T;
+      vx = s * (50 + rnd() * 120) * k; vy = -(10 + rnd() * 80) * k;
+    }
+    spawn(x, y, vx, vy, 0.45 + rnd() * 0.25, cols[i % cols.length], 4, 720 * PX);
   }
 }
 export function updateFx(dt) {
