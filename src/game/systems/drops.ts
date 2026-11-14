@@ -1,7 +1,7 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./collapseFx.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { ORE_ACCENT, sprite } from "../art/sprites.ts";
-import { ORE_COL, T, TILE } from "../core/config.ts";
+import { ORE_COL, PX, T, TILE } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { cargoCap, cargoCount, floaters, spawn } from "../core/stats.ts";
@@ -147,7 +147,7 @@ for (const id in DROP_MAP) {
 export const DROP_LIFE = 60;
 export const drops = [];                       // [{id, n, x, y, vx, vy, age, wait}]
 export function spawnDrop(id, x, y, n, wait) {
-  drops.push({ id, n: n || 1, x, y, vx: (Math.random() - 0.5) * 60, vy: -90 - Math.random() * 40, age: 0, wait: !!wait });
+  drops.push({ id, n: n || 1, x, y, vx: (Math.random() - 0.5) * 60 * PX, vy: (-90 - Math.random() * 40) * PX, age: 0, wait: !!wait });
   if (drops.length > 200) drops.splice(0, drops.length - 200);
 }
 export function dropPoof(d, col) {
@@ -161,7 +161,7 @@ export function updateDrops(dt) {
     // 묻힘(붕괴로 채워짐 / 흙덩이가 떨어짐) → 사라짐
     if (solid(Math.floor(d.x / T), Math.floor(d.y / T))) { spawnDust(d.x, d.y, 1, 8); drops.splice(i, 1); continue; }
     // 중력 + 바닥/벽 충돌 (크기 16px)
-    d.vy = Math.min(700, d.vy + 900 * dt);
+    d.vy = Math.min(700 * PX, d.vy + 900 * PX * dt);
     let nx = d.x + d.vx * dt;
     if (solid(Math.floor((nx + (d.vx > 0 ? 7 : -7)) / T), Math.floor(d.y / T))) { nx = d.x; d.vx = -d.vx * 0.3; }
     d.x = nx;
@@ -173,7 +173,7 @@ export function updateDrops(dt) {
     // 줍기
     const dist = Math.hypot(P.x - d.x, P.y - d.y);
     if (d.wait) { if (dist > 52) d.wait = false; continue; }
-    if (P.dead > 0 || d.age < 0.35 || dist > 24) continue;
+    if (P.dead > 0 || d.age < 0.35 || dist > 32) continue;
     const room = cargoCap() - cargoCount();
     if (room <= 0) { if (d.age > 0.5 && !(d.fullT > 0)) { floaters.push({ x: P.x, y: P.y - 24, text: "화물 가득", color: "#ff9a90", life: 0.9 }); d.fullT = 2; } if (d.fullT > 0) d.fullT -= dt; continue; }
     const k = Math.min(room, d.n);
@@ -193,16 +193,17 @@ export function drawDrops(camX, camY, vw, vh) {
     const rest = d.vy === 0;
     const bob = rest ? 2 + Math.round(Math.sin(S.animT * 3 + ph) * 1.5) : 0;        // 바닥 위에서 살짝 떠 있음
     const spin = rest ? Math.abs(Math.cos(S.animT * 1.8 + ph)) : 1;                 // 천천히 도는 느낌
-    const w = Math.max(2, Math.round(12 * (0.25 + 0.75 * spin) / 2) * 2), top = floor - 12 - bob;
-    ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.fillRect(cx - 4, floor - 1, 8, 2);     // 그림자
+    // 12px 그림을 2배(캐릭터와 같은 배율)로
+    const w = Math.max(2, Math.round(24 * (0.25 + 0.75 * spin) / 2) * 2), top = floor - 24 - bob;
+    ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.fillRect(cx - 8, floor - 2, 16, 3);     // 그림자
     const gl = DROP_GLOW[d.id];
     if (gl) {
-      const a = 0.08 + 0.05 * Math.sin(S.animT * 4 + ph), my = top + 6;
+      const a = 0.08 + 0.05 * Math.sin(S.animT * 4 + ph), my = top + 12;
       ctx.fillStyle = "rgba(" + gl + "," + a.toFixed(3) + ")";
-      ctx.fillRect(cx - 8, my - 4, 16, 8); ctx.fillRect(cx - 4, my - 8, 8, 16); ctx.fillRect(cx - 6, my - 6, 12, 12);
+      ctx.fillRect(cx - 16, my - 8, 32, 16); ctx.fillRect(cx - 8, my - 16, 16, 32); ctx.fillRect(cx - 12, my - 12, 24, 24);
     }
-    ctx.drawImage(oreDrop[d.id], cx - w / 2, top, w, 12);
-    if (gl && spin > 0.85 && ((S.animT * 2 + ph) % 3) < 0.35) { ctx.fillStyle = "#fff"; ctx.fillRect(cx - 3, top, 1, 3); ctx.fillRect(cx - 4, top + 1, 3, 1); }
+    ctx.drawImage(oreDrop[d.id], cx - w / 2, top, w, 24);
+    if (gl && spin > 0.85 && ((S.animT * 2 + ph) % 3) < 0.35) { ctx.fillStyle = "#fff"; ctx.fillRect(cx - 6, top, 2, 6); ctx.fillRect(cx - 8, top + 2, 6, 2); }
     if (d.n > 1) txt("x" + d.n, cx, top - 14, "#fff", 12, "center");
   }
 }

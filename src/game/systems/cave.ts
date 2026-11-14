@@ -1,7 +1,7 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./furnace.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { ICON, sprite } from "../art/sprites.ts";
-import { H, HH, HW, ORE_COL, SURF, T, W } from "../core/config.ts";
+import { H, HH, HW, ORE_COL, PX, SURF, T, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { floaters, maxFuel, say, spawn } from "../core/stats.ts";
@@ -98,7 +98,7 @@ export function collapseRun(u) {
   if (Math.abs(u.r - pr) <= 15 && Math.abs(pc - (u.c0 + u.c1) / 2) <= 15) S.shakeT = Math.max(S.shakeT, 0.4);
   if (near) {
     P.fuel -= maxFuel() * 0.2;
-    P.vy = -200;
+    P.vy = -200 * PX;
     floaters.push({ x: P.x, y: P.y - 30, text: "낙반! 연료 -20%", color: "#ff6b6b", life: 1.4 });
   }
   S.unstable = S.unstable.filter((x) => x !== u);

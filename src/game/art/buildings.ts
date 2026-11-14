@@ -8,9 +8,9 @@ import { S } from "../core/state.ts";
 // 실제 그림은 public/assets/buildings/*.png (tools/make-buildings.py 로 그림). 아래 코드 그림은 PNG를 못 불러올 때만 쓰는 예비용
 // 움직이는 부분(굴뚝 연기, 대장간 불빛, 용광로 불·쇳물)의 위치: 그림 좌표(왼쪽 위 0,0). 그림 크기가 이와 같을 때만 그림
 export const BLD_FX = {
-  shop: { w: 112, h: 80, smoke: [90, 0] },
-  craft: { w: 112, h: 80, smoke: [21, 0], forge: [9, 50, 38, 22] },
-  furnace: { w: 80, h: 96, smoke: [40, 0], mouth: [26, 58, 28, 30], trough: [54, 83, 12, 2] },
+  shop: { w: 80, h: 64 },
+  craft: { w: 80, h: 64, smoke: [66, 0], forge: [10, 40, 28, 19] },
+  furnace: { w: 64, h: 80, smoke: [32, 0], mouth: [20, 52, 24, 23] },
 };
 export function brickFill(p, x, y, w, h, base, hi, mortar) {
   p(x, y, w, h, base);

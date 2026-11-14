@@ -3,14 +3,17 @@
 // =====================================================================
 //  설정
 // =====================================================================
-export const T = 32;            // 화면상 타일 크기(px). 아트는 16x16을 2배 확대해서 그림
+export const T = 64;            // 화면상 타일 크기(px). 16x16 타일 그림을 4배로. 캐릭터(32px)의 2배라 동굴을 탐험하는 느낌
+export const AS = T / 16;       // 타일·건물 그림 배율(4). 캐릭터 그림은 2배 그대로 → 확대 배율이 0.5 단위면 둘 다 도트가 안 깨짐
+export const PX = T / 32;       // 속도·중력 같은 px 단위 숫자의 배율 (타일 32px 시절 기준값 × PX → 칸당 걸리는 시간은 그대로)
 export const W = 384, H = 2400; // 월드 크기(타일): 왼쪽은 마을, 오른쪽은 광산 터. 32x32 구역 단위로 다가가면 생성 (core/world.ts)
 export const SURF = 6;          // 지표면 행
 export const HW = 12, HH = 12;  // 플레이어 충돌 반폭/반높이
 export const SEED = 1234;
-export const BUILD_COLS = [[1, 7], [8, 14], [15, 19]];   // 상점 / 제작소 / 용광로 (왼쪽에 나란히). 정비소는 없앰 → 지상에 나오면 연료 충전
+export const BUILD_COLS = [[2, 6], [9, 13], [16, 19]];   // 상점 / 제작소 / 용광로. 사이에 2칸씩 띄움. 정비소는 없음 → 지상에 나오면 연료 충전
 export const B_SHOP = 0, B_CRAFT = 1, B_FURN = 2;                 // BUILD_COLS 순서
-export const MINE_COL = BUILD_COLS[BUILD_COLS.length - 1][1] + 1;  // 여기부터 오른쪽이 광산 터
+export const MINE_COL = BUILD_COLS[BUILD_COLS.length - 1][1] + 3;  // 여기부터 오른쪽이 광산 터 (용광로와 2칸 띄움)
+export const inTown = (c) => c >= 1 && c < MINE_COL;             // 마을 땅(기초석, 못 팜)
 export const inB = (k, c) => c >= BUILD_COLS[k][0] && c <= BUILD_COLS[k][1];
 
 // 타일 종류: 0 공기, 1 흙, 2 구리, 3 철, 4 금, 5 다이아, 7 암반

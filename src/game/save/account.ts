@@ -29,7 +29,7 @@ export function snapshot() {
   return withChunksSettled(() => ({
     ver: SAVE_VER, id: S.acct.id, name: S.acct.name, created: S.acct.created, updated: Date.now(),
     seed: S.acct.seed, playTime: Math.floor(S.acct.playTime), stats: S.acct.stats,
-    player: { x: P.x, y: P.y, fuel: P.fuel, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, layerMax: P.layerMax, facing: P.facing },
+    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, layerMax: P.layerMax, facing: P.facing },
     settings: { showHelp: S.showHelp },
     world: encodeWorld(),
     stones: 1, worldV: 2,
@@ -98,8 +98,10 @@ export function applyAccount(d) {
   P.layerMax = Math.max(0, Math.min(LAYERS.length - 1, pl.layerMax | 0));
   P.facing = pl.facing < 0 ? -1 : 1;
   const sx = 6 * T + T / 2, sy = SURF * T - HH - 1;
-  P.x = Number.isFinite(pl.x) ? pl.x : sx;
-  P.y = Number.isFinite(pl.y) ? pl.y : sy;
+  // 위치는 px 로 저장됨. 타일 크기가 다를 때 저장된 것(예전 32px)은 같은 칸·발 위치가 되도록 바꿈
+  const ps = Number(pl.ts) > 0 ? Number(pl.ts) : 32;
+  P.x = Number.isFinite(pl.x) ? pl.x * T / ps : sx;
+  P.y = Number.isFinite(pl.y) ? (pl.y + HH) * T / ps - HH : sy;
   const broken = regenWorld || P.x < 0 || P.x > W * T || P.y < -200 || P.y > H * T || collide(P.x, P.y);
   if (broken || !(P.fuel > 0)) {
     P.x = sx; P.y = sy;                                           // 연료가 바닥났던 저장은 구조된 상태로 시작
@@ -128,7 +130,7 @@ export function newAccountData(name) {
   return {
     ver: SAVE_VER, id: newId(), name, created: now, updated: now, seed, mineNo: 1, xp: 0, quest: {}, title: "", playTime: 0,
     stats: { maxDepth: 0, earned: 0, deaths: 0, crafted: 0, collapses: 0, mined: {} },
-    player: { x: 6 * T + T / 2, y: SURF * T - HH - 1, fuel: FUEL_BASE, money: 0, cargo: {}, stash: {}, bars: {}, inv: {}, items: {}, layerMax: 0, facing: 1 },
+    player: { ts: T, x: 6 * T + T / 2, y: SURF * T - HH - 1, fuel: FUEL_BASE, money: 0, cargo: {}, stash: {}, bars: {}, inv: {}, items: {}, layerMax: 0, facing: 1 },
     settings: { showHelp: true },
     world: encodeWorld(),
     stones: 1, worldV: 2,

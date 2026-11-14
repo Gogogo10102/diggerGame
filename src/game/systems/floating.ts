@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./cave.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { H, HH, HW, SURF, T, W } from "../core/config.ts";
+import { H, HH, HW, PX, SURF, T, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { floaters, maxFuel, spawn } from "../core/stats.ts";
@@ -103,7 +103,7 @@ export function updateChunks(dt) {
   if (S.floatScanT >= 0.25) { const d = S.floatScanT; S.floatScanT = 0; scanFloating(d); }
   for (let n = chunks.length - 1; n >= 0; n--) {
     const ch = chunks[n];
-    ch.vy = Math.min(900, ch.vy + 1400 * dt);
+    ch.vy = Math.min(900 * PX, ch.vy + 1400 * PX * dt);
     ch.frac += ch.vy * dt;
     let landed = false;
     while (ch.frac >= T) {
@@ -116,7 +116,7 @@ export function updateChunks(dt) {
       for (const k of ch.cells) {
         const x0 = k.c * T, y0 = (k.r + ch.off) * T + ch.frac;
         if (P.x + HW > x0 && P.x - HW < x0 + T && P.y + HH > y0 && P.y - HH < y0 + T) {
-          ch.hit = true; P.fuel -= maxFuel() * 0.2; P.vy = -200;
+          ch.hit = true; P.fuel -= maxFuel() * 0.2; P.vy = -200 * PX;
           floaters.push({ x: P.x, y: P.y - 30, text: "낙석! 연료 -20%", color: "#ff6b6b", life: 1.4 });
           S.shakeT = Math.max(S.shakeT, 0.5);
           break;

@@ -1,6 +1,6 @@
 // 미니맵 + 큰 지도
 import "./townUI.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { H, LAYERS, ORE_COL, SURF, T, W, BUILD_COLS, layerOf } from "../core/config.ts";
+import { H, LAYERS, SURF, T, W, BUILD_COLS, layerOf } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { isGen, seen, tiles } from "../core/world.ts";
@@ -14,20 +14,16 @@ import { shopBtn, touch } from "../systems/input.ts";
 //   - 칸 하나 = 점 하나로 그린 뒤 정수 배율로 키움
 // =====================================================================
 
-// 칸 종류 → 지도 색 (지층마다 흙 색이 다름). ImageData 에 바로 쓰려고 32비트 정수로 미리 만들어 둠
+// 칸 종류 → 지도 색. 광물이 어디 있는지는 알려 주지 않고 '지나갈 수 있는 길'만 대충 보여 줌
+//   빈칸(판 굴·동굴)·지지대 = 밝은 길 색 / 그 밖의 막힌 칸(흙·광물·돌·암반)은 모두 지층 색을 어둡게 한 한 가지 색
 const MAP_RGB = (hex: string): number[] => { const h = hex.replace("#", ""); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; };
 const MAP_PACK = ([r, g, b]: number[]): number => ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;   // 리틀엔디언 RGBA
-export const MAP_UNSEEN = MAP_PACK([7, 7, 11]), MAP_SKY = MAP_PACK([106, 166, 224]), MAP_TOWN = MAP_PACK([154, 160, 180]);
+export const MAP_UNSEEN = MAP_PACK([7, 7, 11]), MAP_SKY = MAP_PACK([106, 166, 224]), MAP_PATH = MAP_PACK([214, 196, 160]);
 export const MAP_LUT = (() => {
   const lut = new Uint32Array(LAYERS.length * 256);
-  const fixed: Record<number, string> = { 0: "#16110e", 7: "#24242c", 12: "#7a7f90", 13: "#9aa0b4", 14: "#c08a5c", 15: "#cfd6e4", 16: "#4a4d5a" };
   LAYERS.forEach((L, li) => {
-    for (let id = 0; id < 256; id++) {
-      let col = L.base;
-      if (fixed[id]) col = fixed[id];
-      else if ((ORE_COL as Record<number, string[]>)[id]) col = (ORE_COL as Record<number, string[]>)[id][1];
-      lut[li * 256 + id] = MAP_PACK(MAP_RGB(col));
-    }
+    const rock = MAP_PACK(MAP_RGB(L.base).map((v) => Math.round(v * 0.55)));
+    for (let id = 0; id < 256; id++) lut[li * 256 + id] = id === 0 || id === 14 || id === 15 ? MAP_PATH : rock;
   });
   return lut;
 })();
