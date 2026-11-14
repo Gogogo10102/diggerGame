@@ -4,7 +4,7 @@
 //  설정
 // =====================================================================
 export const T = 32;            // 화면상 타일 크기(px). 아트는 16x16을 2배 확대해서 그림
-export const W = 48, H = 400;   // 월드 크기(타일): 왼쪽은 마을, 오른쪽은 광산 터
+export const W = 384, H = 2400; // 월드 크기(타일): 왼쪽은 마을, 오른쪽은 광산 터. 32x32 구역 단위로 다가가면 생성 (core/world.ts)
 export const SURF = 6;          // 지표면 행
 export const HW = 12, HH = 12;  // 플레이어 충돌 반폭/반높이
 export const SEED = 1234;
@@ -46,10 +46,14 @@ export const ORE_COL = {
 };
 // 지층 (깊이 m 기준)
 export const LAYERS = [
-  { name: "흙층",     from: 0,   base: "#6b4a2f", hi: "#7d5a3a", lo: "#573b25", peb: "#8a8077" },
-  { name: "점토층",   from: 60,  base: "#7a4436", hi: "#8d5443", lo: "#63372b", peb: "#a8826e" },
-  { name: "암석층",   from: 140, base: "#5d6070", hi: "#70748a", lo: "#4a4d5b", peb: "#8d92a8" },
-  { name: "심층 코어", from: 250, base: "#3f3358", hi: "#51436e", lo: "#30274a", peb: "#6a5c91" },
+  { name: "흙층",     from: 0,    base: "#6b4a2f", hi: "#7d5a3a", lo: "#573b25", peb: "#8a8077" },
+  { name: "점토층",   from: 60,   base: "#7a4436", hi: "#8d5443", lo: "#63372b", peb: "#a8826e" },
+  { name: "암석층",   from: 140,  base: "#5d6070", hi: "#70748a", lo: "#4a4d5b", peb: "#8d92a8" },
+  { name: "심층 코어", from: 250,  base: "#3f3358", hi: "#51436e", lo: "#30274a", peb: "#6a5c91" },
+  { name: "용암 지대", from: 450,  base: "#5a2a24", hi: "#743731", lo: "#421d19", peb: "#c0582e" },
+  { name: "수정 동굴", from: 800,  base: "#24434f", hi: "#2f5866", lo: "#1a323b", peb: "#7fd8e0" },
+  { name: "고대 화석층", from: 1300, base: "#6d6450", hi: "#837962", lo: "#544c3c", peb: "#d8ccae" },
+  { name: "심연",     from: 1900, base: "#1d2236", hi: "#272d46", lo: "#151928", peb: "#5a6aa8" },
 ];
-export const layerOf = (d) => (d < 60 ? 0 : d < 140 ? 1 : d < 250 ? 2 : 3);
+export const layerOf = (d) => { let i = 0; while (i + 1 < LAYERS.length && d >= LAYERS[i + 1].from) i++; return i; };
 

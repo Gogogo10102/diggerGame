@@ -7,7 +7,7 @@ import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, LAYERS, MINE_COL, SURF, T, 
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
-import { hardOf, isAir, seen, tiles } from "../core/world.ts";
+import { ensureRect, hardOf, isAir, seen, tiles } from "../core/world.ts";
 import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
@@ -20,6 +20,7 @@ import { chunks, floatT, solidTile } from "../systems/floating.ts";
 import { BARS, furnaceImg, matHave, matIcon, matName } from "../systems/furnace.ts";
 import { STICK_R, U_, shopBtn, touch } from "../systems/input.ts";
 import { drawCraftModal, drawFurnaceModal, drawShopModal, fitText } from "./townUI.ts";
+import { drawMapModal, drawMinimap } from "./minimap.ts";
 import { SELL_COLS, SELL_KEYS, stashValue, unitPrice } from "../systems/town.ts";
 import { ov } from "../ui/overlay.ts";
 
@@ -100,6 +101,7 @@ export function draw() {
   };
   const c0 = Math.max(0, Math.floor(camX / T)), c1 = Math.min(W - 1, Math.floor((camX + vw) / T));
   const r0 = Math.max(0, Math.floor(camY / T)), r1 = Math.min(H - 1, Math.floor((camY + vh) / T));
+  ensureRect(c0 - 1, r0 - 1, c1 + 1, r1 + 1);                         // 화면에 보이는 땅은 꼭 만들어 둠(멀리 축소해서 볼 때)
   for (let r = r0; r <= r1; r++) {
     for (let c = c0; c <= c1; c++) {
       const id = tiles[r * W + c];
@@ -341,7 +343,7 @@ export function draw() {
         let v;
         if (isAir(c, r)) { v = L; L *= 0.8; } else { v = L * 0.7; L = 0; }
         if (r >= gr0) S.skyL[(r - gr0) * gw + i] = v;
-        if (L <= 0.01 && r >= gr0) break;
+        if (L <= 0.01) break;                                       // 빛이 다 막히면 그 아래는 0 (깊은 곳에서 위부터 훑지 않게)
       }
     }
     const data = S.gridImg.data;
@@ -397,6 +399,7 @@ export function draw() {
   if (S.state === "shop") drawShopModal(SW, SH);
   if (S.state === "craft") drawCraftModal(SW, SH);
   if (S.state === "furnace") drawFurnaceModal(SW, SH);
+  if (S.state === "map") drawMapModal(SW, SH);
   if (S.state === "title") drawTitle(SW, SH);
 }
 
@@ -466,12 +469,13 @@ export function drawHUD(vw, vh, depth) {
   }
   if (S.saveFlash > 0 && S.state !== "title") txt(S.saveFail ? "저장 실패!" : "저장됨", bx0 - 10, by0 + 15, S.saveFail ? "#ff6b6b" : "#7cff6b", 14, "right");
   const mh = Math.min(260, vh - 64 - 150), mx = vw - 10 - 36, my = by0 + bs + 10;
+  drawMinimap(vw, vh, my);
   if (mh >= 70) {
     panel(mx, my, 36, mh);
     const bx = mx + 12, by = my + 10, bw = 12, bhh = mh - 20, total = H - SURF;
     ctx.fillStyle = "#14151f"; ctx.fillRect(bx - 2, by - 2, bw + 4, bhh + 4);
-    for (let i = 0; i < 4; i++) {
-      const a = LAYERS[i].from, b = i < 3 ? LAYERS[i + 1].from : total;
+    for (let i = 0; i < LAYERS.length; i++) {
+      const a = LAYERS[i].from, b = i < LAYERS.length - 1 ? LAYERS[i + 1].from : total;
       ctx.fillStyle = LAYERS[i].base;
       ctx.fillRect(bx, Math.floor(by + bhh * a / total), bw, Math.ceil(bhh * (b - a) / total));
     }
@@ -505,7 +509,7 @@ export function drawHUD(vw, vh, depth) {
   const helpOn = S.showHelp && S.state === "play" && (S.helpPinned || S.playT < 30);
   const helpStr = S.usedTouch
     ? "드래그로 조작 · 아래 슬롯: 소모품 · 오른쪽 위: 가방/업적/메뉴"
-    : "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-8 소모품 · I 가방 · Q 업적 · Z 확대 · H 도움말";
+    : "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-8 소모품 · I 가방 · Q 업적 · M 지도 · Z 확대 · H 도움말";
   setFont(12);
   const helpW = Math.ceil(ctx.measureText(helpStr).width) + 32;
   const helpUp = helpOn && 12 + helpW > S.hotLeft - 8;      // 슬롯과 겹치면 도움말을 슬롯 위로 올리고, 안내창도 같이 올림

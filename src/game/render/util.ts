@@ -29,7 +29,7 @@ export function fontPx(size) { return !size ? 16 : size <= 12 ? 12 : size < 24 ?
 export function setFont(size) { const px = fontPx(size); ctx.font = px + "px " + (px === 12 ? FONT_S : FONT_M); return px; }
 try { document.fonts.load("16px NeoDunggeunmo"); document.fonts.load("12px Galmuri11"); } catch (e) {}
 
-export function txt(s, x, y, col, size, align, shadow) {
+export function txt(s: string, x: number, y: number, col?: string, size?: number, align?: CanvasTextAlign, shadow?: string) {
   align = align || "left";
   size = setFont(size);
   ctx.textAlign = align; ctx.textBaseline = "top";
@@ -37,7 +37,7 @@ export function txt(s, x, y, col, size, align, shadow) {
   ctx.fillStyle = shadow || "#14151f"; ctx.fillText(s, Math.round(x) + o, Math.round(y) + o);
   ctx.fillStyle = col || "#fff"; ctx.fillText(s, Math.round(x), Math.round(y));
 }
-export function panel(x, y, w, h, fill) {
+export function panel(x: number, y: number, w: number, h: number, fill?: string) {
   x |= 0; y |= 0; w |= 0; h |= 0;
   const u = 3;
   ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(x + u, y + u * 2, w - 2 * u, h);
