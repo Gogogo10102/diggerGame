@@ -309,7 +309,7 @@ async function login(t, name) {
   const t9 = boot(path); t9.run(5); await login(t9, "ShopP"); t9.run(10);
   ok(t9.ev("CATS.length") === 8, "상점 분류 8개(소모품 포함)");
   ok(t9.ev("CATS.slice(0, 7).every((c) => c.ids.length === 8)"), "분류마다 아이템 8개 (기존 3 + 5)");
-  ok(t9.ev("new Set(Object.keys(ITEMS)).size") === 56 + 32 + 8, "아이템 id 중복 없음 (" + t9.ev("Object.keys(ITEMS).length") + ")");
+  ok(t9.ev("new Set(Object.keys(ITEMS)).size") === 56 + 32 + 6, "아이템 id 중복 없음 (소모품 6) (" + t9.ev("Object.keys(ITEMS).length") + ")");
   ok(t9.ev("Object.keys(ITEMS).every((id) => itemIcon(id) && itemIcon(id).width === 16)"), "모든 아이템에 아이콘 존재");
   const uniq = t9.ev("new Set(CATS.slice(0,7).flatMap((c) => c.ids).map((id) => itemIcon(id).toDataURL ? id : id)).size");
   t9.ev("P.x = 4 * T; P.y = SURF * T - 20; P.vx = P.vy = 0"); t9.run(5);
@@ -362,7 +362,7 @@ async function login(t, name) {
   ok(t10.ev("LOOK.key") !== k0 && t10.ev("LOOK.drill") === 2 && t10.ev("LOOK.lamp") === 1, "장비 단계가 외형(LOOK)에 반영");
   t10.run(20);
   const hb = JSON.parse(t10.ev("JSON.stringify(hotBtns)"));
-  ok(hb.length === 8 && hb.every((b) => b.x >= 0 && b.x + b.w <= 390 && b.y + b.h <= 844), "휴대폰에서 소모품 슬롯 8개가 화면 안에 있음");
+  ok(hb.length === 6 && hb.every((b) => b.x >= 0 && b.x + b.w <= 390 && b.y + b.h <= 844), "휴대폰에서 소모품 슬롯 6개가 화면 안에 있음");
   t10.ev("P.inv = { fuel_s: 2 }; P.fuel = 5");
   t10.ptr("pointerdown", hb[0].x + 5, hb[0].y + 5); t10.ptr("pointerup", 0, 0);
   ok(t10.ev("P.inv.fuel_s") === 1 && t10.ev("P.fuel") > 5, "슬롯 터치로 연료통 사용");
@@ -411,57 +411,27 @@ async function login(t, name) {
   const pb = t16.ev("JSON.stringify(promptBtn)");
   ok(pb !== "null" && JSON.parse(pb).y >= 0 && JSON.parse(pb).y + JSON.parse(pb).h <= 844 - 60, "폰: 상점 열기 버튼이 슬롯과 겹치지 않음");
 
-  console.log("[19] 지반 붕괴 / 지지대 / 광물 재생");
+  console.log("[19] 지반 붕괴 없음 / 쌓인 흙 광물 재생");
   const t20 = boot(path); t20.run(5); await login(t20, "Cave"); t20.run(10);
   const R = 42;
-  const setup = (c0, c1, extra) => t20.ev("(() => { graceT = 0; unstable = []; warn.fill(0); for (let r = SURF + 38; r <= SURF + 46; r++) for (let c = 2; c < 30; c++) { tiles[r*W+c] = 1; baseTiles[r*W+c] = 1; rub[r*W+c] = 0; } for (let c = " + c0 + "; c <= " + c1 + "; c++) tiles[(SURF+" + R + ")*W+c] = 0; " + (extra || "") + " })()");
+  const setup = (c0, c1, extra) => t20.ev("(() => { for (let r = SURF + 38; r <= SURF + 46; r++) for (let c = 2; c < 30; c++) { tiles[r*W+c] = 1; baseTiles[r*W+c] = 1; rub[r*W+c] = 0; } for (let c = " + c0 + "; c <= " + c1 + "; c++) tiles[(SURF+" + R + ")*W+c] = 0; " + (extra || "") + " })()");
   const far = () => t20.ev("P.dead = 0; P.fuel = maxFuel(); P.x = 26 * T + 16; P.y = (SURF + 60) * T + 16; tiles[(SURF+60)*W+26] = 0; P.vx = P.vy = 0");
   const scans = (n) => { for (let i = 0; i < n; i++) t20.ev("scanCave(0.5)"); };
   const cell = (c) => t20.ev("tiles[(SURF+" + R + ")*W+" + c + "]");
-  far(); setup(5, 12);
-  scans(1);
-  ok(t20.ev("unstable.length") === 1 && t20.ev("unstable[0].c1 - unstable[0].c0 + 1") === 8, "지지대 없는 8칸 터널 = 불안정 구간 1개");
-  ok(t20.ev("unstable[0].t") > 0, "불안정 누적 시간이 쌓이기 시작(징후)");
-  t20.run(3);
-  scans(6);
-  ok(cell(8) === 0, "경고 시간(4초) 전에는 무너지지 않음");
-  scans(2);
-  ok([5, 6, 7, 8, 9, 10, 11, 12].every((c) => cell(c) === 1 || cell(c) === 12), "경고 시간이 지나면 터널이 흙/돌로 다시 채워짐");
-  ok(t20.ev("[5,6,7,8,9,10,11,12].every((c) => rub[(SURF+" + R + ")*W+c] === 1)"), "채워진 칸은 재생 대상으로 표시");
-  ok(t20.ev("floaters.some((f) => f.text === '붕괴!')"), "붕괴 알림 표시");
-  // 짧은 터널은 안전
-  setup(5, 7); scans(12);
-  ok([5, 6, 7].every((c) => cell(c) === 0), "3칸 이하 터널은 지지대 없이도 안전");
-  // 나무 지지대
-  setup(5, 12, "tiles[(SURF+" + R + ")*W+8] = 14; tiles[(SURF+" + R + ")*W+11] = 14;"); scans(12);
-  ok(t20.ev("unstable.length") === 0 && cell(6) === 0 && cell(12) === 0 && cell(8) === 14, "나무 지지대를 4칸 간격으로 세우면 안전");
-  setup(5, 12, "tiles[(SURF+" + R + ")*W+8] = 14;"); scans(1);
-  ok(t20.ev("unstable.length") === 1, "지지대 간격이 넓으면 여전히 불안정");
-  // 강철 지지대
-  setup(4, 12, ""); scans(1);
-  ok(t20.ev("unstable.length") === 1, "9칸 터널은 불안정");
-  setup(4, 12, "tiles[(SURF+" + R + ")*W+8] = 15;"); scans(14);
-  ok(t20.ev("unstable.length") === 0 && cell(4) === 0 && cell(12) === 0, "강철 지지대 1개로 양옆 3칸씩 보강(총 9칸 안전)");
-  // 돌 천장은 무너지지 않음
-  setup(5, 14, "for (let c = 5; c <= 14; c++) tiles[(SURF+" + (R - 1) + ")*W+c] = 12;"); scans(1);
-  ok(t20.ev("unstable.length") === 0, "돌 천장 아래는 붕괴 대상이 아님");
-  // 플레이어가 안에 있을 때
-  setup(5, 12, "");
-  t20.ev("P.x = 8 * T + 16; P.y = (SURF + " + R + ") * T + 16; P.vx = P.vy = 0; P.fuel = maxFuel(); P.dead = 0");
-  scans(1);
-  ok(t20.ev("cavWarn") > 0, "플레이어 근처가 불안정하면 경고 수치가 올라감");
-  scans(8);
-  ok(cell(8) === 0, "플레이어가 서 있는 칸은 비워 둠(매몰 방지)");
-  ok(cell(5) === 1 && cell(12) === 1, "나머지 구간은 채워짐");
-  ok(t20.ev("P.fuel") < t20.ev("maxFuel()") * 0.85, "낙반에 맞으면 연료 -20%");
-  ok(t20.ev("(() => { const c = 8; return !collide(P.x, P.y); })()"), "플레이어는 갇히지 않고 움직일 수 있는 상태");
-  // 재생
+  far(); setup(3, 26);
+  scans(40); t20.run(120);
+  ok([3, 8, 15, 20, 26].every((c) => cell(c) === 0), "아주 긴 터널(24칸)도 무너지지 않음");
+  ok(t20.ev("unstable.length") === 0 && t20.ev("cavWarn") === 0, "불안정 경고도 없음");
+  t20.ev("P.x = 10 * T + 16; P.y = (SURF + " + R + ") * T + 16; P.vx = P.vy = 0; P.fuel = maxFuel()"); t20.run(200);
+  ok(t20.ev("P.fuel") > t20.ev("maxFuel()") * 0.9 && cell(10) === 0, "터널 안에 오래 있어도 낙반 없음");
+  ok(t20.ev("typeof collapseRun") === "undefined", "붕괴 함수 자체가 없음");
+  // 재생 (떨어진 흙더미로 채워진 칸)
   far(); setup(5, 7);
   t20.ev("(() => { for (let k = 0; k < 300; k++) { const c = 2 + (k % 28), r = SURF + 120 + ((k / 28) | 0); tiles[r*W+c] = 1; setRub(r*W+c, 1); regenT[r*W+c] = 0; } })()");
   scans(1);
   const ores = t20.ev("(() => { let n = 0; for (let k = 0; k < 300; k++) { const c = 2 + (k % 28), r = SURF + 120 + ((k / 28) | 0); if (tiles[r*W+c] > 1 && tiles[r*W+c] < 12) n++; } return n; })()");
   ok(ores > 60 && ores < 190, "재생 시간이 되면 일부(약 40%)가 광물로 변함 (" + ores + "/300)");
-  ok(t20.ev("rub.reduce((a, v) => a + v, 0)") === 0 || t20.ev("(() => { let n = 0; for (let i = 0; i < rub.length; i++) n += rub[i]; return n; })()") < 5, "재생 처리된 칸은 표시 해제");
+  ok(t20.ev("(() => { let n = 0; for (let i = 0; i < rub.length; i++) n += rub[i]; return n; })()") < 5, "재생 처리된 칸은 표시 해제");
   t20.ev("tiles[(SURF+100)*W+5] = 0; setRub((SURF+100)*W+5, 1); regenT[(SURF+100)*W+5] = 999"); scans(1);
   ok(t20.ev("rub[(SURF+100)*W+5]") === 0, "다시 파낸 칸은 재생 표시 해제");
   t20.ev("tiles[(SURF+101)*W+5] = 12; setRub((SURF+101)*W+5, 1); regenT[(SURF+101)*W+5] = 0"); scans(1);
@@ -470,53 +440,22 @@ async function login(t, name) {
   t20.ev("tiles[(SURF+110)*W+7] = 1; setRub((SURF+110)*W+7, 1)");
   await t20.ev("saveNow(true)"); await t20.tick();
   const sv19 = JSON.parse(await t20.ev("JSON.stringify(snapshot())"));
-  ok(typeof sv19.rub === "string" && sv19.stats.collapses >= 1, "저장에 재생 표시 + 붕괴 횟수 포함");
+  ok(typeof sv19.rub === "string", "저장에 재생 표시 포함");
   t20.ev("rub.fill(0)");
-  setup(5, 12); far();
   t20.ev("applyAccount(" + JSON.stringify(sv19) + ")");
   ok(t20.ev("rub[(SURF+110)*W+7]") === 1 && t20.ev("regenT[(SURF+110)*W+7]") > 0, "불러오면 재생 표시와 타이머 복원");
-  ok(t20.ev("graceT") > 0, "불러온 직후 붕괴 유예");
-  t20.ev("unstable = []; for (let c = 5; c <= 12; c++) tiles[(SURF+" + R + ")*W+c] = 0; for (let c = 3; c <= 14; c++) tiles[(SURF+" + (R - 1) + ")*W+c] = 1");
-  t20.ev("P.x = 26 * T + 16; P.y = (SURF + 60) * T + 16; tiles[(SURF+60)*W+26] = 0");
-  scans(10);
-  ok(cell(8) === 0, "유예 시간 동안에는 불안정해도 무너지지 않음");
   const bad19 = JSON.parse(JSON.stringify(sv19)); bad19.rub = "%%%";
   t20.ev("applyAccount(" + JSON.stringify(bad19) + ")");
   ok(t20.ev("state") === "play", "손상된 rub 데이터도 무시하고 시작");
 
-  console.log("[20] 지지대 설치 / 회수 / 폭파");
-  t20.ev("graceT = 0; P.dead = 0; P.inv = { sup_w: 2, sup_s: 1 }; P.x = 15 * T + 16; P.y = (SURF + 20) * T + 16; P.vx = P.vy = 0; tiles[(SURF+20)*W+15] = 0; tiles[(SURF+20)*W+14] = 1; tiles[(SURF+20)*W+16] = 1");
-  t20.key("Digit7"); await t20.tick();
-  ok(t20.ev("tiles[(SURF+20)*W+15]") === 14 && t20.ev("P.inv.sup_w") === 1, "7번 키: 나무 지지대 설치");
-  ok(!t20.ev("collide(P.x, P.y)"), "지지대는 통과할 수 있음(막지 않음)");
-  t20.key("Digit7"); await t20.tick();
-  ok(t20.ev("tiles[(SURF+20)*W+15]") === 0 && t20.ev("P.inv.sup_w") === 2, "같은 자리에서 다시 쓰면 회수");
-  t20.key("Digit8"); await t20.tick();
-  ok(t20.ev("tiles[(SURF+20)*W+15]") === 15 && t20.ev("P.inv.sup_s") === 0, "8번 키: 강철 지지대 설치");
-  t20.key("Digit7"); await t20.tick();
-  ok(t20.ev("tiles[(SURF+20)*W+15]") === 15 && t20.ev("msg").includes("회수") === false || t20.ev("P.inv.sup_w") === 2, "다른 종류 지지대로 덮어쓰기 안 됨");
-  t20.ev("P.inv.dyn_s = 1"); t20.ev("P.x = 15 * T + 16; P.y = (SURF + 20) * T + 16"); t20.key("Digit4"); await t20.tick();
+  console.log("[20] 지지대는 이제 팔지 않음 / 옛 지지대 / 폭파");
+  ok(!t20.ev("HOT").includes("sup_w") && !t20.ev("HOT").includes("sup_s") && t20.ev("HOT.length") === 6, "단축 슬롯 6칸 (지지대 없음)");
+  ok(!t20.ev("CATS[CATS.length - 1].ids").some((id) => id.startsWith("sup_")), "상점 소모품에 지지대 없음");
+  t20.ev("P.dead = 0; P.x = 15 * T + 16; P.y = (SURF + 20) * T + 16; P.vx = P.vy = 0; tiles[(SURF+20)*W+15] = 14; tiles[(SURF+20)*W+14] = 1; tiles[(SURF+20)*W+16] = 1");
+  ok(!t20.ev("collide(P.x, P.y)"), "옛 세이브의 지지대는 그대로 지나갈 수 있음");
+  t20.ev("P.inv.dyn_s = 1"); t20.key("Digit4"); await t20.tick();
   t20.ev("P.x = 15 * T + 16 + 6 * T"); t20.ev("bombs[0].t = 0.001"); t20.run(5);
-  ok(t20.ev("tiles[(SURF+20)*W+15]") === 0, "폭발이 지지대를 부숨");
-  t20.ev("P.x = 6 * T; P.y = SURF * T - 20; P.vx = P.vy = 0; P.inv.sup_w = 1"); t20.run(3);
-  t20.key("Digit7"); await t20.tick();
-  ok(t20.ev("P.inv.sup_w") === 1, "지상에서는 설치 불가");
-  // 상점에서 구매
-  const t21 = boot(path); t21.run(5); await login(t21, "SupShop"); t21.run(10);
-  t21.ev("P.x = 4 * T; P.y = SURF * T - 20; P.vx = P.vy = 0; P.money = 500"); t21.run(5);
-  t21.key("KeyE"); await t21.tick();
-  t21.ev("shopTab = 7; shopSel = 4");
-  t21.key("Digit3"); await t21.tick();
-  ok(t21.ev("P.inv.sup_w") === 1 && t21.ev("P.money") === 485, "상점 소모품 2쪽에서 나무 지지대 구매");
-  t21.key("Digit4"); await t21.tick();
-  ok(t21.ev("P.inv.sup_s") === 1 && t21.ev("P.money") === 425, "강철 지지대 구매");
-  // 징후 렌더링
-  const t22 = boot(path, { w: 1000, h: 640 }); t22.run(5); await login(t22, "Sign"); t22.run(10);
-  t22.ev("graceT = 0; for (let r = SURF + 38; r <= SURF + 46; r++) for (let c = 2; c < 30; c++) tiles[r*W+c] = 1; for (let c = 5; c <= 12; c++) tiles[(SURF+42)*W+c] = 0; P.x = 8 * T + 16; P.y = (SURF + 42) * T + 16; P.vx = P.vy = 0; P.fuel = 1e9; scanCave(0.5); scanCave(0.5); scanCave(0.5);");
-  t22.run(60);
-  ok(t22.ev("unstable.length") === 1 && t22.ev("parts.length") >= 0, "징후(균열/흙가루) 그리기 중에도 오류 없음");
-  t22.run(200);
-  ok(t22.ev("Number.isFinite(shakeT) && cavWarn >= 0") && t22.ev("state") === "play", "경고 → 붕괴까지 진행해도 오류 없이 계속 플레이");
+  ok(t20.ev("tiles[(SURF+20)*W+15]") === 0, "폭발이 옛 지지대를 치움");
 
   console.log("[21] 공중 흙 낙하 / 새 광산");
   const t23 = boot(path, { w: 1000, h: 640 }); t23.run(5); await login(t23, "Float"); t23.run(10);
@@ -583,7 +522,7 @@ async function login(t, name) {
   ok(t26.ev("state") === "play" && t26.ev("Array.isArray(dirtTiles[0]) && dirtTiles[0].length === DIRT_VAR && backTiles.length === LAYERS.length"), "새 타일 스프라이트로 그리기 오류 없음");
 
 
-  console.log("[22] 인벤토리 / 연료 / 붕괴 연출");
+  console.log("[22] 인벤토리 / 연료");
   const t27 = boot(path, { w: 1000, h: 640 }); t27.run(5); await login(t27, "Inv"); t27.run(10);
   t27.ev("P.cargo = { 2: 3, 4: 1 }; P.inv = { fuel_s: 2 }; P.items.lamp1 = true; recalcStats();");
   t27.key("KeyI"); await t27.tick();
@@ -602,14 +541,6 @@ async function login(t, name) {
   t27.ev("P.x = 15 * T + 16; P.y = (SURF + 8) * T; P.vx = P.vy = 0; P.fuel = maxFuel(); graceT = 99");
   t27.run(120);
   ok(t27.ev("P.fuel") > full - 4, "2초 동안 가만히 있으면 연료가 거의 안 줆(" + t27.ev("P.fuel").toFixed(2) + ")");
-  // 붕괴 연출
-  t27.ev("graceT = 0; for (let r = SURF + 38; r <= SURF + 46; r++) for (let c = 2; c < 30; c++) tiles[r*W+c] = 1; for (let c = 5; c <= 12; c++) tiles[(SURF+42)*W+c] = 0; P.x = 20 * T; P.y = (SURF + 30) * T; P.vx = P.vy = 0; P.fuel = 1e9; scanCave(0.5); scanCave(0.5); scanCave(0.5); scanCave(0.5); scanCave(0.5); scanCave(0.5); scanCave(0.5); scanCave(0.5); scanCave(0.5);");
-  for (let i = 0; i < 60 && t27.ev("debrisList.length") === 0; i++) t27.run(1);
-  ok(t27.ev("debrisList.length") > 0 && t27.ev("dust.length") > 0, "붕괴 시 흙 낙하 연출과 먼지 생성");
-  t27.run(120);
-  ok(t27.ev("debrisList.length") === 0 && [1, 12].includes(t27.ev("tiles[(SURF+42)*W+8]")), "연출이 끝나면 흙(가끔 돌)으로 채워져 있음");
-  t27.run(200);
-  ok(t27.ev("dust.length") === 0, "먼지가 가라앉아 사라짐");
 
   console.log("[23] 깊이별 분포 / 경도 / 레벨 / 업적 / 제작 트리");
   const t28 = boot(path); t28.run(5); await login(t28, "Prog"); t28.run(10);
@@ -956,9 +887,7 @@ async function login(t, name) {
   t50.ev("keys.ArrowLeft = true"); for (let i = 0; i < 600 && t50.ev("tiles[" + target.r + " * W + " + (target.c + 1) + "]") !== 0; i++) t50.run(1); t50.ev("keys.ArrowLeft = false");
   ok(t50.ev("acct.stats.caves") === t50.ev("stats0") + 1 && t50.ev("seen[" + target.r + " * W + " + target.c + "]") === 1, "흙을 뚫고 들어가면 동굴 발견 (통계 +1, 동굴 전체가 보임)");
   ok(t50.ev("msg").includes("동굴 발견"), "동굴 발견 안내");
-  // 자연 동굴은 무너지거나 떨어지지 않음
-  t50.ev("graceT = 0; warn.fill(0); scanCave(0.5); scanCave(0.5)");
-  ok(t50.ev("unstable.filter((u) => { for (let c = u.c0; c <= u.c1; c++) if (natAir(u.r * W + c)) return true; return false; }).length") === 0, "자연 동굴 칸은 천장 붕괴 계산에 안 들어감");
+  // 자연 동굴은 떨어지지 않음
   t50.ev("chunks.length = 0; for (let k = 0; k < 10; k++) scanFloating(0.5)");
   ok(t50.ev("chunks.length") === 0, "판 칸에 안 닿은 자연 지형은 떨어지지 않음");
   ok(t50.ev("QUESTS.some((q) => q.group === 'cave')"), "동굴 탐험 업적");
@@ -971,6 +900,12 @@ async function login(t, name) {
   ok(mbtn && bbtn && qbtn && bbtn.x < qbtn.x && qbtn.x < mbtn.x && mbtn.x + mbtn.w <= 1000, "오른쪽 위 사각 버튼 3개 (가방 · 업적 · 메뉴)");
   ok(t60.canvasTexts().some((x) => /^\d+\/\d+$/.test(x)), "연료·화물 칸 막대 옆 숫자");
   ok(t60.canvasTexts().some((x) => x === "1m" || /^\d+m$/.test(x)), "깊이 표시");
+  t60.ev("sfxLoop('thrust', true); sfxLoop('drill', true, { hard: true }); sfxLoop('drill', false)"); ok(true, "이어지는 소리(추진·드릴)도 소리 장치 없이 오류 없음");
+  ok(t60.canvasTexts().includes("광물 없음"), "위 가운데 광물 칸: 비었으면 '광물 없음'");
+  t60.ev("P.cargo = { 2: 7, 6: 12 }"); t60.run(1);
+  ok(t60.canvasTexts().includes("7") && t60.canvasTexts().includes("12") && !t60.canvasTexts().includes("광물 없음"), "광물 칸에 가진 광물 개수 표시");
+  t60.ev("P.cargo = {}"); t60.run(1);
+  ok(t60.ev("getMiner('side', 0, -1).width") === 40 && t60.ev("getMiner('down', 0, 0).width") === 40, "미니 굴착기 그림 40x40 (드릴 포함)");
   // 상점: 왼쪽 분류 → 오른쪽 목록, 줄마다 구매 버튼
   t60.ev("P.x = 4 * T; P.y = SURF * T - 20; P.vx = P.vy = 0; P.money = 1000"); t60.run(5);
   t60.key("KeyE"); t60.run(1);

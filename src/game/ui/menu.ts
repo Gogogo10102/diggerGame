@@ -86,7 +86,7 @@ export function renderSettings(note) {
 export function renderNewMine() {
   const root = el("div");
   root.appendChild(el("h2", null, "새 광산 찾기"));
-  root.appendChild(el("p", "dim", "지금 광산(파낸 땅, 지지대, 쌓인 흙더미)은 두고 완전히 새로운 땅으로 떠나요."));
+  root.appendChild(el("p", "dim", "지금 광산(파낸 땅, 쌓인 흙더미)은 두고 완전히 새로운 땅으로 떠나요."));
   root.appendChild(el("p", "dim", "돈 · 장비 · 소모품 · 창고 · 광물 기록은 그대로 가져갑니다. 연료는 가득 채워져요."));
   root.appendChild(el("p", "msg", "현재 광산 #" + (S.acct.mineNo || 1) + " → 새 광산 #" + ((S.acct.mineNo || 1) + 1) + " (되돌릴 수 없어요)"));
   const bs = el("div", "btns");
@@ -123,7 +123,6 @@ export function renderStats() {
     ["칭호", titleName() || "없음"],
     ["현재 광산", "#" + (S.acct.mineNo || 1)],
     ["사망 횟수", st.deaths + "회"],
-    ["지반 붕괴", (st.collapses || 0) + "회"],
     ["제련한 주괴", (st.smelted || 0) + "개"],
     ["용광로", "Lv." + ((S.acct.furnace && S.acct.furnace.lv) || 1)],
     ["구매한 아이템", Object.keys(P.items).filter((id) => !ITEMS[id].craft).length + " / " + Object.keys(ITEMS).filter((id) => !ITEMS[id].craft && !ITEMS[id].cons).length],

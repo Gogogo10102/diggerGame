@@ -61,7 +61,7 @@ export function drawMinimap(vw: number, vh: number, by: number) {
   if (S.state !== "play") return;
   const iw = MINI.tw * MINI.s, ih = MINI.th * MINI.s, pw = iw + 12, ph = ih + 12;
   let x = vw - 10 - 36 - 8 - pw, y = by;
-  if (x < 290) { y = 136; x = vw - 10 - 36 - 8 - pw; }                 // 좁은 화면: 왼쪽 위 상태 카드와 겹치지 않게 그 아래로
+  if (x < 290) { y = Math.max(136, (S.hudBottom || 0) + 8); x = vw - 10 - 36 - 8 - pw; }                 // 좁은 화면: 왼쪽 위 상태 카드와 겹치지 않게 그 아래로
   if (x < 10 || y + ph + 20 > vh - 120) return;                          // 너무 작은 화면이면 생략
   const pc = Math.floor(P.x / T), pr = Math.floor(P.y / T);
   const c0 = pc - (MINI.tw >> 1), r0 = pr - (MINI.th >> 1);

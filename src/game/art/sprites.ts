@@ -425,51 +425,79 @@ ICON.chest = sprite(16, 16, (p) => {
 });
 // 플레이어(채굴 로봇) 프레임
 export const minerCache = new Map();
+// ---- 캐릭터: 미니 굴착기 ----
+//  그림 40x40 (화면 120x120 = 3배). 몸통은 가운데 16x16 칸(12~27) = 화면 48px(블록의 3/4). 드릴은 몸통 밖으로 크게 나옴.
+//  충돌 크기(HW/HH)는 예전 그대로라 몸통이 충돌 상자보다 큼 → 굴 가장자리가 깎여 보여서 벽에 파묻혀 보이지 않음.
+//  드릴만 방향을 바꿈: side = 앞으로, down = 앞쪽 아래로, up = 위로. 몸은 꺾지 않음.
+//  장비 단계에 따라 색이 바뀜: 드릴 날(LOOK.drill) · 궤도(LOOK.tracks) · 뒤 평형추(LOOK.crate) · 지붕 등(LOOK.lamp)
+export const MINER_SZ = 40, MINER_BOX = 12;
 export function getMiner(mode, leg, dig) {
   const key = mode + leg + dig + "|" + LOOK.key;
   if (minerCache.has(key)) return minerCache.get(key);
-  const img = sprite(16, 16, (p) => {
-    const Y = "#ffcd3c", Yh = "#fff3a8", Ys = "#d9902b";
-    const O = "#ef7d3a", Oh = "#ffb066", Os = "#b34a24";
-    const D = "#3a3f52", V = "#1f2a44", E = "#5ff3ff";
+  const img = sprite(MINER_SZ, MINER_SZ, (p0) => {
+    const p = (x, y, w, h, c) => p0(MINER_BOX + x, MINER_BOX + y, w, h, c);    // 몸통 칸 기준 좌표
+    const K = "#14151f", Y = "#ffc21a", Yh = "#ffe27a", Ys = "#c48600", Yd = "#8a5a00";
+    const G = "#5ff3ff", Gh = "#e0ffff", Gd = "#1f6a8a", CH = "#2a2e37", CHl = "#4a5262";
     const TR = LOOK.tracks > 0 ? PAL[LOOK.tracks - 1] : null;
     const DR = LOOK.drill > 0 ? PAL[LOOK.drill - 1] : null;
     const CP = LOOK.crate > 0 ? PAL[LOOK.crate - 1] : null;
-    const trD = TR ? TR.l : D, trB = "#14151f", trP = TR ? TR.m : "#8b93a6";
-    const bitC = DR ? DR.h : "#cfd6e4", drG = DR ? DR.m : "#8b93a6", drD = DR ? DR.l : "#565c70";
+    const trD = TR ? TR.l : "#3a3f52", trP = TR ? TR.m : "#8b93a6", trH = TR ? TR.h : "#c6cedc";
+    const bH = DR ? DR.h : "#e3e8f2", bM = DR ? DR.m : "#9aa3b8", bL = DR ? DR.l : "#5b6379";
     const ds = dig < 0 ? 0 : dig;
-    // 화물 배낭 (화물칸 단계가 오를수록 커지고 화려해짐)
-    if (CP) {
-      if (mode === "side") {
-        p(1, 9, 3, 4, "#14151f"); p(2, 9, 2, 3, CP.m); p(2, 9, 2, 1, CP.h);
-        if (LOOK.crate >= 4) { p(0, 10, 1, 3, CP.l); p(1, 8, 2, 1, CP.h); }
-      } else { p(2, 9, 2, 4, CP.m); p(12, 9, 2, 4, CP.m); p(2, 9, 2, 1, CP.h); p(12, 9, 2, 1, CP.h); }
-    }
+
+    // 드릴 원뿔: (방향 r/d/u, 밑변 가운데, 길이, 밑변 폭). 홈 무늬가 dig 프레임마다 밀려서 도는 것처럼 보임
+    const cone = (dir, bx, by, len, base) => {
+      const at = (i, k) => (dir === "r" ? [bx + i, by + k] : dir === "d" ? [bx + k, by + i] : [bx + k, by - i]);
+      const fill = new Map();
+      for (let i = 0; i < len; i++) {
+        const h = Math.round(((base - 1) / 2) * (1 - i / len));
+        for (let k = -h; k <= h; k++) fill.set(at(i, k).join(","), [i, k, h]);
+      }
+      for (const key2 of fill.keys()) {                                  // 바깥 윤곽
+        const [x, y] = key2.split(",").map(Number);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!fill.has((x + dx) + "," + (y + dy))) p(x + dx, y + dy, 1, 1, K);
+      }
+      for (const [key2, [i, k, h]] of fill) {
+        const [x, y] = key2.split(",").map(Number);
+        const t = h ? (k + h) / (2 * h) : 0.5;                              // 0 = 위(왼)쪽 · 1 = 아래(오른)쪽
+        let c = t < 0.3 ? bH : t < 0.72 ? bM : bL;
+        if (h > 0 && ((i + k + ds * 2) & 3) === 0) c = t < 0.3 ? bM : bL;  // 나선 홈
+        p(x, y, 1, 1, c);
+      }
+    };
     // 무한궤도
-    if (mode === "down") { p(3, 13, 3, 3, trD); p(10, 13, 3, 3, trD); p(3, 15, 3, 1, trB); p(10, 15, 3, 1, trB); }
-    else { p(3, 13, 10, 3, trD); p(3, 15, 10, 1, trB); for (let i = 0; i < 3; i++) p(4 + i * 3 + leg, 14, 2, 1, trP); }
-    // 몸통
-    p(4, 8, 8, 6, O); p(4, 12, 8, 2, Os); p(5, 9, 2, 1, Oh);
-    p(7, 10, 3, 2, D); p(8, 10, 1, 1, "#7cff6b");
-    // 헬멧
-    p(4, 1, 8, 7, Y); p(3, 3, 10, 4, Y);
-    p(11, 2, 1, 5, Ys); p(12, 3, 1, 4, Ys); p(5, 2, 3, 1, Yh); p(3, 7, 10, 1, Ys);
-    p(8, 0, 1, 1, "#ff5a4d");
-    if (LOOK.lamp > 0) { p(12, 2, 2, 2, GLOW[LOOK.lamp - 1]); p(12, 2, 1, 1, "#fff"); }
-    // 바이저
-    p(6, 4, 6, 3, V); p(7, 5, 1, 1, E); p(10, 5, 1, 1, E);
-    // 드릴 (등급에 따라 색이 달라짐)
+    p(1, 11, 14, 1, K); p(0, 12, 1, 3, K); p(15, 12, 1, 3, K); p(1, 15, 14, 1, K);
+    p(1, 12, 14, 3, trD); p(1, 12, 14, 1, trP);
+    for (let i = 0; i < 4; i++) { const wx = 2 + i * 3 + (i > 1 ? 1 : 0); p(wx, 12, 2, 2, trP); p(wx, 12, 1, 1, trH); p(wx + 1, 13, 1, 1, K); }
+    for (let i = 0; i < 5; i++) p(1 + i * 3 + leg, 14, 1, 1, K);           // 바퀴 자국: 움직이면 한 칸씩 밀림
+    // 뒤 평형추 (화물칸 단계 색)
+    const cw = CP || { h: CHl, m: CH, l: K };
+    p(0, 5, 2, 6, K); p(0, 6, 2, 4, cw.m); p(0, 6, 1, 1, cw.h);
+    if (LOOK.crate >= 4) p(0, 4, 2, 1, cw.h);
+    // 차체
+    p(1, 8, 13, 4, K); p(2, 9, 11, 2, Y); p(2, 9, 11, 1, Yh); p(2, 10, 11, 1, Ys);
+    for (let x = 3; x < 12; x += 3) p(x, 10, 1, 1, Yd);                       // 경고 줄무늬 느낌
+    // 운전석
+    p(3, 0, 6, 1, K); p(2, 1, 1, 8, K); p(9, 1, 1, 8, K);
+    p(3, 1, 6, 8, Y); p(3, 1, 5, 1, Yh); p(3, 1, 1, 6, Yh); p(8, 2, 1, 6, Ys); p(3, 8, 6, 1, Ys);
+    p(5, 2, 3, 4, Gd); p(5, 2, 3, 3, G); p(5, 2, 1, 1, Gh); p(6, 2, 1, 1, Gh);   // 유리창
+    p(4, 7, 4, 1, Ys);
+    // 지붕 등 (조명 단계)
+    if (LOOK.lamp > 0) { p(8, -1, 2, 1, K); p(8, -1, 1, 1, GLOW[LOOK.lamp - 1]); } else p(8, -1, 1, 1, "#ff5a4d");
+    // 팔 + 드릴 (방향마다)
     if (mode === "side") {
-      p(12, 10, 2, 3, drG); p(12, 10, 2, 1, bitC);
-      p(14, 10, 1, 3, bitC); p(15, 11, 1, 1, bitC);
-      if (LOOK.drill >= 4) { p(15, 10, 1, 1, bitC); p(15, 12, 1, 1, bitC); }
-      if (ds === 0) p(14, 11, 1, 1, drD); else { p(14, 10, 1, 1, drD); p(14, 12, 1, 1, drD); }
-    } else if (mode === "up") {                                     // 위로: 헬멧 위로 드릴을 들어 올림
-      p(6, 0, 4, 2, drG); p(7, 0, 2, 1, bitC);
-      if (ds === 0) p(6, 1, 1, 1, drD); else p(9, 1, 1, 1, drD);
+      p(10, 3, 2, 6, K); p(10, 4, 1, 4, Y); p(11, 4, 1, 4, Ys);             // 팔(운전석 앞)
+      p(12, 2, 4, 9, K); p(12, 3, 3, 7, CH); p(12, 3, 3, 1, CHl);            // 드릴 모터
+      cone("r", 16, 6, 10, 9);
+    } else if (mode === "down") {
+      p(10, 3, 2, 6, K); p(10, 4, 1, 4, Y);
+      p(12, 5, 3, 11, K); p(12, 6, 2, 9, Y); p(12, 6, 1, 9, Yh);            // 앞으로 내린 팔 (궤도 앞)
+      p(9, 15, 9, 3, K); p(10, 15, 7, 2, CH); p(10, 15, 7, 1, CHl);         // 드릴 모터
+      cone("d", 13, 18, 8, 9);
     } else {
-      p(6, 13, 4, 2, drG); p(7, 15, 2, 1, bitC);
-      if (ds === 0) p(6, 14, 1, 1, drD); else p(9, 14, 1, 1, drD);
+      p(10, -2, 4, 5, K); p(11, -1, 2, 4, Y); p(11, -1, 1, 4, Yh);         // 위로 든 팔
+      p(8, -5, 9, 4, K); p(9, -4, 7, 2, CH); p(9, -4, 7, 1, CHl);           // 드릴 모터
+      cone("u", 12, -6, 6, 9);
     }
   });
   minerCache.set(key, img);
