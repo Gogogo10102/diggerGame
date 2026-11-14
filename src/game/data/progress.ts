@@ -61,6 +61,7 @@ addQuests("depth", "깊이", [50, 100, 200, 300, 500, 800, 1300, 1900, 2390],
 addQuests("craft", "제작", [1, 5, 12, 25], ["견습 제작자", "제작자", "장인", "대장장이 왕"], () => (S.acct ? S.acct.stats.crafted || 0 : 0), "장비 제작", [300, 1500, 8000, 40000]);
 addQuests("earn", "수익", [1000, 10000, 100000, 1000000], ["동전 부자", "상인", "거상", "광산 재벌"], () => (S.acct ? S.acct.stats.earned || 0 : 0), "$ 수익", [100, 1000, 10000, 100000]);
 addQuests("types", "광물 도감", [9], ["광물 박사"], () => ORE_IDS.filter((id) => minedOf(id) > 0).length, "종류 채굴", [3000]);
+addQuests("cave", "동굴 탐험", [1, 10, 30, 100], ["동굴 발견자", "동굴 탐험가", "지하 지도 제작자", "동굴의 주인"], () => (S.acct ? S.acct.stats.caves || 0 : 0), "개 동굴 발견", [300, 2000, 8000, 30000]);
 addQuests("smelt", "제련", [10, 50, 200, 1000], ["견습 제련공", "제련공", "용광로 장인", "불의 군주"], () => (S.acct ? S.acct.stats.smelted || 0 : 0), "주괴 제련", [200, 800, 4000, 20000]);
 QUESTS.forEach((q) => { q.xp = Math.max(10, Math.round(q.money * 0.15)); });
 export const QUEST_BY = {}; QUESTS.forEach((q) => { QUEST_BY[q.id] = q; });

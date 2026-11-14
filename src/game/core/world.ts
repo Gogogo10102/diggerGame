@@ -50,7 +50,7 @@ export const SHELL_STONE = { 10: 0.2, 11: 0.35 };                            // 
 // =====================================================================
 export const CH = 32, CW = Math.ceil(W / CH), CHN = Math.ceil(H / CH);
 export const genMask = new Uint8Array(CW * CHN);   // 만들어진 구역 = 1
-export const WGEN = { seed: SEED, bands: [], feat: new Map() };
+export const WGEN = { seed: SEED, bands: [], feat: new Map(), caveOff: false };   // caveOff: 테스트에서 굴을 직접 만들 때만 끔
 export const PREGEN = { cx: 2, cy: 14 };           // 시작할 때 미리 만드는 범위(구역 수): 마을과 그 아래 448m
 export const hash32 = (a, b, c, d) => {
   let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x632be59b, 0xc2b2ae35) ^ Math.imul(c + 0x27d4eb2f, 0x165667b1) ^ Math.imul(d + 0x7f4a7c15, 0x27d4eb2d);
@@ -112,10 +112,63 @@ export function chunkFeatures(cx, cy) {
       }
     }
   }
-  const f = { veins, stones };
+  const f = { veins, stones, caves: chunkCaves(cx, cy) };
   WGEN.feat.set(key, f);
   return f;
 }
+// ---- 동굴 ----
+// 구역마다 0~2개: 꼬불꼬불한 굴(벌레 굴) 또는 넓은 방. 깊을수록 자주·크게.
+// 광맥과 다른 난수를 써서 기존 광맥 모양은 그대로 (동굴만 새로 파임). 시작점에서 ±30칸 안에만 파서 이웃 구역까지만 걸침.
+// 동굴 벽에는 가끔 광물이 드러나 있음 (탐험 보상)
+export const CAVE_TOP = SURF + 12;                 // 이보다 얕은 곳엔 동굴 없음 (마을·지표 근처 보호)
+export function chunkCaves(cx, cy) {
+  const rng = mulberry32(hash32(WGEN.seed, cx, cy, 0xca7e)), caves = [];
+  if (WGEN.caveOff) return caves;
+  const y0 = Math.max(CAVE_TOP, cy * CH + 2), y1 = Math.min(H - 6, cy * CH + CH - 3);
+  if (y0 > y1) return caves;
+  const d = (y0 - SURF);
+  const p = d < 60 ? 0.35 : d < 300 ? 0.55 : 0.75;
+  for (let n = 0; n < 2 && rng() < (n === 0 ? p : p * 0.4); n++) {
+    const ox = cx * CH + 2 + ((rng() * (CH - 4)) | 0), oy = y0 + ((rng() * (y1 - y0 + 1)) | 0);
+    const set = new Set(), cells = [];
+    const add = (x, y) => {
+      if (x < 1 || x > W - 2 || y < CAVE_TOP || y > H - 4 || Math.abs(x - ox) > 30 || Math.abs(y - oy) > 30) return;
+      const i = y * W + x;
+      if (!set.has(i)) { set.add(i); cells.push([x, y]); }
+    };
+    const ellipse = (x0, y0e, rx, ry) => {
+      for (let yy = Math.floor(y0e - ry); yy <= Math.ceil(y0e + ry); yy++) for (let xx = Math.floor(x0 - rx); xx <= Math.ceil(x0 + rx); xx++) {
+        const dx = (xx - x0) / rx, dy = (yy - y0e) / ry;
+        if (dx * dx + dy * dy <= 1.05) add(xx, yy);
+      }
+    };
+    const room = rng() < 0.3 + Math.min(0.3, d / 3000);
+    if (room) {                                                   // 넓은 방: 타원 몇 개를 겹침, 바닥은 평평한 편
+      const k = 3 + ((rng() * 4) | 0), big = 1 + Math.min(1, d / 1500);
+      for (let q = 0; q < k; q++) ellipse(ox + (rng() - 0.5) * 12 * big, oy + (rng() - 0.5) * 4, (2.5 + rng() * 3.5) * big, 1.6 + rng() * 1.6);
+    } else {                                                      // 벌레 굴: 옆으로 기는 굴, 굵기가 조금씩 바뀜
+      let x = ox, y = oy, ang = (rng() < 0.5 ? 0 : Math.PI) + (rng() - 0.5) * 1.2, rad = 0.9 + rng() * 0.8;
+      const len = 16 + ((rng() * 36) | 0);
+      for (let s = 0; s < len; s++) {
+        ellipse(x, y, rad, Math.max(0.6, rad * 0.8));
+        x += Math.cos(ang); y += Math.sin(ang) * 0.7;
+        ang += (rng() - 0.5) * 0.7;
+        rad = Math.max(0.6, Math.min(2.2, rad + (rng() - 0.5) * 0.5));
+      }
+    }
+    // 벽에 드러난 광물
+    const ores = [];
+    for (const [x, y] of cells) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const xx = x + dx, yy = y + dy;
+      if (set.has(yy * W + xx) || rng() >= 0.05) continue;
+      let pr = rng() * ORE_GEN.reduce((a, g) => a + oreProb(g, yy - SURF), 0);
+      for (const g of ORE_GEN) { pr -= oreProb(g, yy - SURF); if (pr < 0) { ores.push([xx, yy, g.id]); break; } }
+    }
+    caves.push({ cells, ores });
+  }
+  return caves;
+}
+
 // 가로 암석대(2칸 두께): 48칸마다 좁은 통로가 하나씩 있어서 찾아 돌아가거나 폭파해서 뚫음
 export function makeBands(seed) {
   const rng = mulberry32((seed ^ 0x5f3759df) | 0), bands = [];
@@ -154,12 +207,21 @@ export function genChunk(cx, cy) {
       if (!gap) putStone(r * W + c, c, r);
     }
   }
+  for (const f of near) for (const cv of f.caves) for (const [x, y] of cv.cells) {          // 동굴 파기 (암반은 남김)
+    if (inside(x, y) && tiles[y * W + x] !== 7) tiles[y * W + x] = 0;
+  }
+  for (const f of near) for (const cv of f.caves) for (const [x, y, id] of cv.ores) {      // 동굴 벽 광물
+    if (inside(x, y) && tiles[y * W + x] === 1) tiles[y * W + x] = id;
+  }
   for (let r = Math.max(y0, SURF); r <= SURF + 1 && r < y1; r++) for (let c = x0; c < x1; c++) {   // 마을 땅은 기초석(못 팜)
     if (inTown(c)) tiles[r * W + c] = 13;
   }
   for (let r = y0; r < y1; r++) baseTiles.set(tiles.subarray(r * W + x0, r * W + x1), r * W + x0);
   genMask[k] = 1;
 }
+// 처음부터 비어 있던 칸(자연 동굴·빈 틈) vs 플레이어가 판 칸. 자연 동굴은 무너지거나 떨어지지 않게 다르게 다룸
+export const natAir = (i) => tiles[i] === 0 && baseTiles[i] === 0;
+export const dugAir = (i) => tiles[i] === 0 && baseTiles[i] !== 0;
 export const isGen = (c, r) => c >= 0 && c < W && r >= 0 && r < H && genMask[((r / CH) | 0) * CW + ((c / CH) | 0)] === 1;
 // 칸 범위를 덮는 구역을 모두 만들어 둠
 export function ensureRect(c0, r0, c1, r1) {

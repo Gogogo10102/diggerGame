@@ -4,7 +4,7 @@ import { H, HH, HW, PX, SURF, T, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { floaters, maxFuel, spawn } from "../core/stats.ts";
-import { ensureRect, isGen, regenT, rub, seen, setRub, tiles, warn } from "../core/world.ts";
+import { dugAir, ensureRect, isGen, regenT, rub, seen, setRub, tiles, warn } from "../core/world.ts";
 import { saveNow } from "../save/account.ts";
 import { REGEN_MAX, REGEN_MIN } from "./cave.ts";
 import { spawnDust } from "./collapseFx.ts";
@@ -63,6 +63,9 @@ export function scanFloating(dt) {
         if (!seenI.has(j) && !_vis[L(cc, rr)] && solidTile(tiles[j])) { seenI.add(j); comp.push(j); }
       }
     }
+    // 플레이어가 판 칸(dugAir)에 닿지 않은 덩어리는 원래 그렇게 생긴 자연 지형 → 떨어뜨리지 않음
+    const touchesDug = comp.some((i) => dugAir(i - 1) || dugAir(i + 1) || dugAir(i - W) || dugAir(i + W));
+    if (!touchesDug) { for (const i of comp) floatT[i] = 0; continue; }
     let t = 0;
     for (const i of comp) t = Math.max(t, floatT[i]);
     if (t >= FLOAT_DELAY) makeChunk(comp);

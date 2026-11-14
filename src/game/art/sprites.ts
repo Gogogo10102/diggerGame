@@ -464,6 +464,9 @@ export function getMiner(mode, leg, dig) {
       p(14, 10, 1, 3, bitC); p(15, 11, 1, 1, bitC);
       if (LOOK.drill >= 4) { p(15, 10, 1, 1, bitC); p(15, 12, 1, 1, bitC); }
       if (ds === 0) p(14, 11, 1, 1, drD); else { p(14, 10, 1, 1, drD); p(14, 12, 1, 1, drD); }
+    } else if (mode === "up") {                                     // 위로: 헬멧 위로 드릴을 들어 올림
+      p(6, 0, 4, 2, drG); p(7, 0, 2, 1, bitC);
+      if (ds === 0) p(6, 1, 1, 1, drD); else p(9, 1, 1, 1, drD);
     } else {
       p(6, 13, 4, 2, drG); p(7, 15, 2, 1, bitC);
       if (ds === 0) p(6, 14, 1, 1, drD); else p(9, 14, 1, 1, drD);

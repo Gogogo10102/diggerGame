@@ -56,7 +56,7 @@ export function applyAccount(d) {
     id: d.id, name: d.name, created: d.created || Date.now(), seed: d.seed | 0, mineNo: Math.max(1, Math.min(9999, d.mineNo | 0)),
     playTime: Number(d.playTime) || 0,
     stats: {
-      maxDepth: Number(st.maxDepth) || 0, earned: Number(st.earned) || 0, deaths: Number(st.deaths) || 0, crafted: Number(st.crafted) || 0, collapses: Number(st.collapses) || 0,
+      maxDepth: Number(st.maxDepth) || 0, earned: Number(st.earned) || 0, deaths: Number(st.deaths) || 0, crafted: Number(st.crafted) || 0, collapses: Number(st.collapses) || 0, caves: Number(st.caves) || 0,
       mined: st.mined && typeof st.mined === "object" ? st.mined : {},
     },
   };
@@ -129,7 +129,7 @@ export function newAccountData(name) {
   const now = Date.now();
   return {
     ver: SAVE_VER, id: newId(), name, created: now, updated: now, seed, mineNo: 1, xp: 0, quest: {}, title: "", playTime: 0,
-    stats: { maxDepth: 0, earned: 0, deaths: 0, crafted: 0, collapses: 0, mined: {} },
+    stats: { maxDepth: 0, earned: 0, deaths: 0, crafted: 0, collapses: 0, caves: 0, mined: {} },
     player: { ts: T, x: 6 * T + T / 2, y: SURF * T - HH - 1, fuel: FUEL_BASE, money: 0, cargo: {}, stash: {}, bars: {}, inv: {}, items: {}, layerMax: 0, facing: 1 },
     settings: { showHelp: true },
     world: encodeWorld(),
