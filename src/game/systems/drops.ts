@@ -1,5 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./collapseFx.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
+import { sfx } from "../core/sound.ts";
 import { ORE_ACCENT, sprite } from "../art/sprites.ts";
 import { ORE_COL, PX, T, TILE } from "../core/config.ts";
 import { P } from "../core/player.ts";
@@ -179,6 +180,7 @@ export function updateDrops(dt) {
     const k = Math.min(room, d.n);
     P.cargo[d.id] = (P.cargo[d.id] || 0) + k;
     d.n -= k;
+    sfx("pickup");
     floaters.push({ x: P.x, y: P.y - 24, text: "+" + TILE[d.id].name + (k > 1 ? " x" + k : ""), color: ORE_COL[d.id][0], life: 1.0 });
     if (d.n <= 0) drops.splice(i, 1);
   }

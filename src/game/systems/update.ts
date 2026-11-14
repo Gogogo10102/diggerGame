@@ -13,6 +13,7 @@ import { drops, spawnDrop, updateDrops } from "./drops.ts";
 import { updateChunks } from "./floating.ts";
 import { updateFurnace } from "./furnace.ts";
 import { D_, L_, R_, U_ } from "./input.ts";
+import { sfx } from "../core/sound.ts";
 
 // =====================================================================
 //  물리 / 업데이트
@@ -27,6 +28,7 @@ export function useConsumable(id) {
     if (P.fuel >= maxFuel() - 0.5) return say("연료가 이미 가득해요");
     P.fuel = Math.min(maxFuel(), P.fuel + maxFuel() * c.frac);
     P.inv[id]--;
+    sfx("refuel");
     floaters.push({ x: P.x, y: P.y - 30, text: "연료 +" + Math.round(c.frac * 100) + "%", color: "#7cff6b", life: 1.2 });
     say(c.name + " 사용! (남은 " + P.inv[id] + "개)");
   } else {
@@ -35,6 +37,7 @@ export function useConsumable(id) {
     if (bombs.some((b) => b.c === col && b.r === row)) return say("이미 폭약이 설치된 자리예요");
     P.inv[id]--;
     bombs.push({ c: col, r: row, t: 2.5, rad: c.rad, id });
+    sfx("fuse");
     say("폭약 설치! 멀리 떨어지세요 (남은 " + P.inv[id] + "개)");
   }
   saveNow(true, true);
@@ -64,6 +67,7 @@ export function explode(b) {
   }
   flashes.push({ x, y, t: 0.4, rad: R });
   S.shakeT = 0.45;
+  sfx("boom", { vol: Math.max(0.25, 1 - Math.hypot(P.x - x, P.y - y) / (20 * T)) });
   // 폭발에 휘말리면 연료를 잃고 튕겨 나감
   const d = Math.hypot(P.x / T - (b.c + 0.5), P.y / T - (b.r + 0.5));
   if (P.dead <= 0 && d < R + 0.9) {
@@ -148,7 +152,9 @@ export function update(dt) {
     P.vx = 0;
   }
   P.y += P.vy * dt;
+  const fallV = P.vy;
   if (collide(P.x, P.y)) {
+    if (fallV > 260 * PX) sfx("land", { vol: Math.min(1, fallV / (520 * PX)) });   // 세게 떨어질수록 큰 쿵
     P.y = P.vy > 0 ? Math.floor((P.y + HH) / T) * T - HH - 0.001
                     : (Math.floor((P.y - HH) / T) + 1) * T + HH + 0.001;
     P.vy = 0;
@@ -191,12 +197,13 @@ export function update(dt) {
       if (!S.dig || S.dig.c !== tgt[0] || S.dig.r !== tgt[1]) S.dig = { c: tgt[0], r: tgt[1], t: 0 };
       S.dig.t += dt;
       S.digPT -= dt;
-      if (S.digPT <= 0) { S.digPT = 0.06; chips(S.dig.c, S.dig.r, id, 2, 1, digDir); }
+      if (S.digPT <= 0) { S.digPT = 0.06; chips(S.dig.c, S.dig.r, id, 2, 1, digDir); sfx("dig", { hard: info.hard >= 1.2 }); }
       if (S.dig.t >= hardOf(id, S.dig.r) / drillMult()) {
         tiles[tgt[1] * W + tgt[0]] = 0;
         onMined(id);
         chips(tgt[0], tgt[1], id, 12, 1.4, digDir);
         S.dig = null;
+        if (info.value > 0) sfx("ore", { pitch: 0.8 + Math.min(0.9, Math.log10(1 + info.value) * 0.3) }); else sfx("break");
         discoverCave(tgt[0], tgt[1]);                              // 뚫은 칸 옆이 숨은 동굴이면 동굴 전체가 드러남
         if (info.value > 0) {
           const ox = (tgt[0] + 0.5) * T, oy = (tgt[1] + 0.5) * T;
@@ -218,6 +225,12 @@ export function update(dt) {
   P.digging = digging;
   P.mode = digging && downDig ? "down" : digging && upDig ? "up" : "side";
 
+  // 이동 · 추진 소리
+  if (thrusting) sfx("thrust");
+  else if (grounded && !digging && Math.abs(P.vx) > 40 * PX) sfx("step", { pitch: 0.8 + Math.abs(P.vx) / (340 * PX) });
+  // 연료가 1/4 아래로 떨어지면 1.5초마다 경고음
+  if (!(Math.floor(P.y / T) < SURF) && P.fuel / maxFuel() < 0.25) { S.lowBeepT = (S.lowBeepT || 0) - dt; if (S.lowBeepT <= 0) { S.lowBeepT = 1.5; sfx("warn"); } }
+  else S.lowBeepT = 0;
   // 추진 파티클
   if (thrusting && Math.random() < 0.7) {
     const col = ["#ff8a1f", "#ffe066", "#9aa0b4"][(Math.random() * 3) | 0];
@@ -235,6 +248,7 @@ export function update(dt) {
   if (onGround && !S.inShop) {
     const was = P.fuel;
     P.fuel = maxFuel();
+    if (was < maxFuel() - 0.5) sfx("refuel");
     if (was < maxFuel() - 0.5) say(cargoCount() > 0 ? "지상 도착 · 연료 충전! 광물은 마을 건물 [E] → 판매 탭에서 팔아요" : "지상 도착 · 연료 충전");
   }
   S.inShop = onGround;

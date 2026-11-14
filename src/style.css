@@ -5,53 +5,66 @@
   /* 계정/메뉴 오버레이 */
   #ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(14,15,23,.8);z-index:10;font-family:var(--font-m);color:#fff;font-size:16px;line-height:1.5;-webkit-font-smoothing:none;-moz-osx-font-smoothing:grayscale;touch-action:auto;-webkit-user-select:text;user-select:text}
   #ov.on{display:flex}
-  #ov .pnl{box-sizing:border-box;width:min(480px,94vw);max-height:90vh;overflow:auto;background:#2b2f45;border:3px solid #6b7399;box-shadow:0 0 0 3px #14151f,0 6px 0 3px rgba(0,0,0,.35);padding:16px}
-  #ov h2{margin:0 0 12px;font-size:32px;line-height:1.25;color:#ffd34d;font-weight:normal;text-align:center}
+  /* ---- 안전 노랑 스타일: 숯색 철판 + 노란 머리띠(경고 줄무늬) · 버튼은 레퍼런스 버튼표 (docs/decisions.md "UI 스타일") ---- */
+  #ov .pnl{box-sizing:border-box;width:min(480px,94vw);max-height:90vh;overflow:auto;background:#2a2e37;border:0;box-shadow:0 0 0 2px #0b0c0f,inset 0 2px 0 #3c424e,0 6px 0 2px rgba(0,0,0,.35);padding:0 16px 16px}
+  #ov h2{margin:0 -16px 14px;padding:6px 16px 4px;font-size:32px;line-height:1.25;color:#1a1a1a;font-weight:normal;text-align:left;background:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAQUlEQVR4XmP8f0iKAQakI+BMBiasok9XwCSQ1T5dAVIM0oEpysDAwCglhbADohYCEHYgi0pHwCTQRKE6MEUZGBgAfQ0QOCsPcU8AAAAASUVORK5CYII=) right 10px center/32px 32px repeat-x,#ffc21a;background-size:16px 16px;box-shadow:inset 0 2px 0 #ffe27a,inset 0 -2px 0 #c48600;image-rendering:pixelated}
+  #ov h2{background:linear-gradient(#ffc21a,#ffc21a) left/calc(100% - 96px) 100% no-repeat,url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAQUlEQVR4XmP8f0iKAQakI+BMBiasok9XwCSQ1T5dAVIM0oEpysDAwCglhbADohYCEHYgi0pHwCTQRKE6MEUZGBgAfQ0QOCsPcU8AAAAASUVORK5CYII=) right/16px 16px repeat,#ffc21a}
+  #ov .tabs{margin-top:12px}
   #ov p{margin:6px 0;line-height:1.5}
-  #ov .warn{color:#ff9a90}
-  #ov .msg{color:#ffd34d}
-  #ov .dim{color:#9aa3c8}
-  #ov .row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);padding:8px 10px;margin:8px 0}
+  #ov .warn{color:#ff9a5a}
+  #ov .msg{color:#ffc21a}
+  #ov .dim{color:#98a0b2}
+  #ov .row{display:flex;align-items:center;gap:8px;background:#262a32;padding:8px 10px;margin:8px 0;box-shadow:0 0 0 2px #0b0c0f}
   #ov .row .info{flex:1;min-width:0}
   #ov .row .nm{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #ov .btn{font:inherit;color:#14151f;background:#d7dcf0;border:0;padding:8px 12px;margin:4px 6px 4px 0;cursor:pointer;box-shadow:inset -3px -3px 0 #7a82a6,0 0 0 3px #14151f;min-height:40px}
-  #ov .btn:active{transform:translateY(2px)}
-  #ov .btn.pri{background:#ffd34d;box-shadow:inset -3px -3px 0 #c98f1a,0 0 0 3px #14151f}
-  #ov .btn.del{background:#ff9a90;box-shadow:inset -3px -3px 0 #a11a2f,0 0 0 3px #14151f}
+  /* 버튼: 진한 테두리 + 위 밝은 줄 + 아래 두꺼운 턱, 모서리 1칸 깎기. 기본 = 주황(설정·메뉴) */
+  #ov .btn{--o:#94400a;--l:#e0780e;--b:#ffa82a;--h:#ffd684;--t:#7a3006;font:inherit;font-size:16px;color:var(--t);background:var(--b);border:2px solid var(--o);padding:6px 14px 10px;margin:4px 6px 4px 0;cursor:pointer;min-height:44px;border-radius:0;box-shadow:inset 0 2px 0 var(--h),inset 0 -6px 0 var(--l);clip-path:polygon(2px 0,calc(100% - 2px) 0,100% 2px,100% calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,0 calc(100% - 2px),0 2px)}
+  #ov .btn:active{transform:translateY(4px);box-shadow:inset 0 2px 0 var(--h),inset 0 -2px 0 var(--l)}
+  #ov .btn.pri{--o:#2c6a22;--l:#5aa83a;--b:#8ee05a;--h:#c4f690;--t:#1f5418}
+  #ov .btn.info{--o:#0e4f86;--l:#1a86c4;--b:#40c4f0;--h:#a8eeff;--t:#0b3f6c}
+  #ov .btn.del,#ov .btn.back{--o:#84182a;--l:#c43a4c;--b:#f2606e;--h:#ffb0b8;--t:#6e1222}
+  #ov .btn.off{--o:#3e4552;--l:#788294;--b:#a6aebc;--h:#d6dce6;--t:#3e4552}
   #ov .btns{display:flex;flex-wrap:wrap;margin:10px 0 0}
-  #ov input,#ov textarea{box-sizing:border-box;font:inherit;font-size:16px;width:100%;background:#14151f;color:#fff;border:3px solid #6b7399;padding:8px;margin:6px 0;border-radius:0}
+  #ov input,#ov textarea{box-sizing:border-box;font:inherit;font-size:16px;width:100%;background:#111317;color:#fff;border:2px solid #0b0c0f;box-shadow:inset 0 2px 0 #000;padding:8px;margin:6px 0;border-radius:0;outline:none}
+  #ov input:focus,#ov textarea:focus{border-color:#ffc21a}
   #ov textarea{height:110px;resize:none}
-  #ov .hero{display:flex;gap:12px;align-items:center;background:rgba(255,255,255,.06);padding:10px;margin:6px 0}
-  #ov .portrait{background:#1b1d2c;border:3px solid #14151f;padding:4px;flex:none}
+  #ov .hero{display:flex;gap:12px;align-items:center;background:#262a32;padding:10px;margin:6px 0;box-shadow:0 0 0 2px #0b0c0f}
+  #ov .portrait{background:#111317;border:2px solid #0b0c0f;padding:4px;flex:none}
   #ov .heroinfo{flex:1;min-width:0}
   #ov .nm{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #ov .sm{font-family:var(--font-s);font-size:12px;margin-top:2px}
-  #ov .bar{height:10px;background:#14151f;margin:5px 0;border:2px solid #14151f;box-sizing:content-box}
-  #ov .bar .fill{height:100%;background:#7cff6b}
+  #ov .bar{height:12px;background:#8c8c8c;margin:5px 0;border:2px solid #0b0c0f;box-sizing:content-box}
+  #ov .bar .fill{height:100%;background:linear-gradient(#ffe066 0 3px,#f8a430 3px 9px,#d0621e 9px)}
   #ov .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
   #ov .slots.hot{grid-template-columns:repeat(4,1fr)}
   #ov .slots.ores{grid-template-columns:repeat(3,1fr)}
-  #ov .slot{background:rgba(255,255,255,.07);padding:6px 4px;text-align:center;border:2px solid #14151f;min-width:0}
+  #ov .slot{background:#1d2027;padding:6px 4px;text-align:center;border:2px solid #0b0c0f;min-width:0}
   #ov .slot.empty{opacity:.45}
   #ov .slot .minis{display:flex;gap:4px;justify-content:center;margin-top:4px}
-  #ov .slot .btn.mini{font-family:var(--font-s);font-size:12px;padding:4px 6px;margin:0;min-width:0}
+  #ov .slot .btn.mini{font-family:var(--font-s);font-size:12px;padding:4px 6px 6px;margin:0;min-width:0}
   #ov .slot .ico{image-rendering:pixelated;display:block;margin:0 auto 2px}
   #ov .slot .nm2{font-family:var(--font-s);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #ov .slot .pips{font-family:var(--font-s);font-size:12px;line-height:1;color:#ffd34d;letter-spacing:1px;margin-top:2px}
+  #ov .slot .pips{font-family:var(--font-s);font-size:12px;line-height:1;color:#ffc21a;letter-spacing:1px;margin-top:2px}
   #ov .pnl.wide{width:min(600px,96vw)}
-  #ov .tabs{display:flex;gap:8px;margin:0 0 12px}
-  #ov .tabs .btn.tab{flex:1;margin:0;background:#3a3f5e;color:#c9cfe6;box-shadow:inset -3px -3px 0 #23263a,0 0 0 3px #14151f}
-  #ov .tabs .btn.tab.on{background:#ffd34d;color:#14151f;box-shadow:inset -3px -3px 0 #c98f1a,0 0 0 3px #14151f}
-  #ov .tabs .btn.tab.x{flex:0 0 44px;background:#c0392b;color:#fff;box-shadow:inset -3px -3px 0 #7a1f17,0 0 0 3px #14151f}
-  #ov .slot{border-width:3px;border-style:solid}
+  #ov .tabs{display:flex;gap:8px;margin:12px 0 12px}
+  #ov .tabs .btn.tab{flex:1;margin:0;--o:#0b0c0f;--l:#262a32;--b:#3a404c;--h:#4c5362;--t:#c6cedc}
+  #ov .tabs .btn.tab.on{--o:#0b0c0f;--l:#c48600;--b:#ffc21a;--h:#ffe27a;--t:#1a1a1a}
+  #ov .tabs .btn.tab.x{flex:0 0 44px;--o:#84182a;--l:#c43a4c;--b:#f2606e;--h:#ffb0b8;--t:#6e1222}
   #ov .row.smelt{gap:6px;flex-wrap:wrap}
   #ov .row.smelt .ico{image-rendering:pixelated;filter:drop-shadow(0 3px 0 rgba(0,0,0,.45))}
   #ov .row.smelt .arrow{color:#ff9a4d;font-size:16px}
   #ov .row.smelt .minis{display:flex;gap:4px}
-  #ov .btn.mini{font-family:var(--font-s);font-size:12px;padding:4px 8px;margin:0;min-height:32px}
+  #ov .btn.mini{font-family:var(--font-s);font-size:12px;padding:4px 8px 6px;margin:0;min-height:32px;box-shadow:inset 0 2px 0 var(--h),inset 0 -4px 0 var(--l)}
   #ov .btn.mini.off{opacity:.45}
   #ov .slot .ico{filter:drop-shadow(0 3px 0 rgba(0,0,0,.45))}
   #ov table{width:100%;border-collapse:collapse}
   #ov td{padding:3px 0}
-  #ov td:first-child{color:#9aa3c8}
+  #ov td:first-child{color:#98a0b2}
   #ov td:last-child{text-align:right}
+  /* 설정: 소리 크기 칸 막대 (상태바와 같은 모양) */
+  #ov .vol{display:flex;align-items:center;gap:6px;margin:8px 0;flex-wrap:nowrap}
+  #ov .vol .lbl{flex:1;min-width:64px}
+  #ov .vol .btn{min-width:44px;padding:6px 0 10px;margin:0}
+  #ov .seg{display:flex;gap:2px;background:#0b0c0f;padding:2px}
+  #ov .seg i{display:block;width:12px;height:20px;background:linear-gradient(#a8a8a8 0 4px,#8c8c8c 4px 16px,#6a6a6a 16px)}
+  #ov .seg i.on{background:linear-gradient(#ffe066 0 4px,#f8a430 4px 16px,#d0621e 16px)}

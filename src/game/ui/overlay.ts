@@ -1,6 +1,7 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../save/transfer.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { S } from "../core/state.ts";
+import { sfx } from "../core/sound.ts";
 import { createAccount, loginAccount } from "../save/account.ts";
 import { importAccount } from "../save/transfer.ts";
 import { keys, touch } from "../systems/input.ts";
@@ -18,7 +19,7 @@ export function el(tag, cls, text) {
 }
 export function mkBtn(text, fn, cls) {
   const b = el("button", "btn" + (cls ? " " + cls : ""), text);
-  b.addEventListener("click", fn);
+  b.addEventListener("click", (ev) => { sfx("click"); return fn(ev); });
   return b;
 }
 export function showOv(root) {
@@ -99,7 +100,7 @@ export async function openAccountScreen(note) {
         openAccountScreen("'" + d.name + "' 계정을 가져왔어요");
       } catch (e) { impErr.textContent = e.message || "가져오기에 실패했어요"; }
     }, "pri"));
-  }));
+  }, "info"));
   root.appendChild(bs);
   root.appendChild(impBox);
   root.appendChild(el("p", "dim", "저장 위치: 이 기기의 브라우저. 계정 이름만으로 접근하며 비밀번호는 없어요."));

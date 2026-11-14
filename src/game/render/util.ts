@@ -37,29 +37,121 @@ export function txt(s: string, x: number, y: number, col?: string, size?: number
   ctx.fillStyle = shadow || "#14151f"; ctx.fillText(s, Math.round(x) + o, Math.round(y) + o);
   ctx.fillStyle = col || "#fff"; ctx.fillText(s, Math.round(x), Math.round(y));
 }
+// ---- 안전 노랑 UI 색 (docs/decisions.md "UI 스타일") ----
+//   숯색 철판 + 공사장 노랑. 1칸 = 2px (그림 1픽셀을 2배로 그린 크기)
+export const SY = {
+  ink: "#0b0c0f", body: "#2a2e37", hi: "#3c424e", lo: "#1a1d23",
+  well: "#1d2027", wellDk: "#111317", wellLt: "#3a404c", row: "#262a32", row2: "#22252d",
+  y: "#ffc21a", yHi: "#ffe27a", yLo: "#c48600", yDk: "#e0a400",
+  txt: "#f2f4f8", dim: "#98a0b2", mute: "#6a7080", gold: "#ffc21a", red: "#ff7a6a", green: "#8ee05a", blue: "#6cc8f2", warn: "#ff9a5a",
+};
+// 모서리를 1칸 깎은 상자 (도트 느낌의 둥근 모서리)
+export function pxBox(x: number, y: number, w: number, h: number, col: string) {
+  ctx.fillStyle = col; ctx.fillRect(x + 2, y, w - 4, h); ctx.fillRect(x, y + 2, w, h - 4);
+}
+// 창 · 카드: 검은 테두리 + 숯색 판 + 위 밝은 줄 + 아래 어두운 줄
 export function panel(x: number, y: number, w: number, h: number, fill?: string) {
   x |= 0; y |= 0; w |= 0; h |= 0;
-  const u = 3;
-  ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(x + u, y + u * 2, w - 2 * u, h);
-  ctx.fillStyle = "#14151f"; ctx.fillRect(x + u, y, w - 2 * u, h); ctx.fillRect(x, y + u, w, h - 2 * u);
-  ctx.fillStyle = "#6b7399"; ctx.fillRect(x + u, y + u, w - 2 * u, h - 2 * u);
-  ctx.fillStyle = fill || "#2b2f45"; ctx.fillRect(x + 2 * u, y + 2 * u, w - 4 * u, h - 4 * u);
-  ctx.fillStyle = "rgba(255,255,255,0.07)"; ctx.fillRect(x + 2 * u, y + 2 * u, w - 4 * u, u);
+  ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(x + 4, y + h, w - 4, 4);
+  pxBox(x, y, w, h, SY.ink);
+  ctx.fillStyle = fill || SY.body; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(x + 2, y + 2, w - 4, 2);
+  ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(x + 2, y + h - 6, w - 4, 4);
 }
+// 안쪽으로 파인 칸 (목록 판, 아이콘 칸)
+export function well(x: number, y: number, w: number, h: number, fill?: string) {
+  ctx.fillStyle = SY.ink; ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+  ctx.fillStyle = fill || SY.well; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = SY.wellDk; ctx.fillRect(x, y, w, 2);
+}
+// 경고 줄무늬 (노랑/검정 빗금). 같은 크기는 한 번 그려 두고 재사용
+const HAZ_CACHE: Record<string, HTMLCanvasElement> = {};
+export function hazard(x: number, y: number, w: number, h: number, a?: string, b?: string) {
+  w |= 0; h |= 0; if (w <= 0 || h <= 0) return;
+  const key = w + "x" + h + (a || "") + (b || "");
+  let cv2 = HAZ_CACHE[key];
+  if (!cv2) {
+    cv2 = document.createElement("canvas"); cv2.width = w; cv2.height = h;
+    const g = cv2.getContext("2d");
+    if (g) for (let yy = 0; yy < h; yy += 2) for (let xx = 0; xx < w; xx += 2) {
+      g.fillStyle = (((xx + yy) >> 3) & 1) ? (b || "#1a1a1a") : (a || SY.y); g.fillRect(xx, yy, 2, 2);
+    }
+    HAZ_CACHE[key] = cv2;
+  }
+  ctx.drawImage(cv2, x | 0, y | 0);
+}
+// 칸 막대 (연료·화물·단계·소리 크기): 칸마다 위 밝음 / 가운데 / 아래 어두움 3단. 빈 칸은 회색
+//   kind: fuel 주황 · low 빨강 · cargo 파랑 · lv 초록 · xp 보라
+export const SEG_COL = {
+  fuel: ["#ffe066", "#f8a430", "#d0621e"], low: ["#ffb4a4", "#f0503a", "#a01e16"], cargo: ["#b4f0ff", "#46b8f0", "#1a76c4"],
+  lv: ["#c8f690", "#7cd84a", "#3e9a2a"], xp: ["#e6d0ff", "#b58cff", "#6a3ec4"], empty: ["#a8a8a8", "#8c8c8c", "#6a6a6a"],
+};
+export function segBar(x: number, y: number, n: number, filled: number, kind: string, sw?: number, h?: number) {
+  sw = sw || 10; h = h || 20;
+  const u = h >= 16 ? 2 : 1, W2 = n * sw + 2;
+  ctx.fillStyle = SY.ink; ctx.fillRect(x, y, W2, h);
+  for (let i = 0; i < n; i++) {
+    const c = i < filled ? SEG_COL[kind] : SEG_COL.empty, sx = x + 2 + i * sw, iw = sw - 2;
+    ctx.fillStyle = c[1]; ctx.fillRect(sx, y + 2, iw, h - 4);
+    ctx.fillStyle = c[0]; ctx.fillRect(sx, y + 2, iw, 2 * u);
+    ctx.fillStyle = c[2]; ctx.fillRect(sx, y + h - 2 - 2 * u, iw, 2 * u);
+  }
+  return W2;
+}
+// 예전 막대(가로로 차오름) — 칸 막대 모양으로 그림
 export function pbar(x, y, w, h, ratio, col, hi) {
-  ctx.fillStyle = "#14151f"; ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = "#3a3f58"; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.fillStyle = SY.ink; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = "#8c8c8c"; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
   const fw = Math.floor((w - 4) * Math.max(0, Math.min(1, ratio)));
   ctx.fillStyle = col; ctx.fillRect(x + 2, y + 2, fw, h - 4);
   ctx.fillStyle = hi; ctx.fillRect(x + 2, y + 2, fw, 2);
-  ctx.fillStyle = "rgba(20,21,31,0.5)";
+  ctx.fillStyle = SY.ink;
   for (let i = x + 12; i < x + w - 2; i += 10) ctx.fillRect(i, y + 2, 2, h - 4);
 }
 export function keycap(x, y, label) {
-  ctx.fillStyle = "#14151f"; ctx.fillRect(x, y, 26, 26);
-  ctx.fillStyle = "#7a82a6"; ctx.fillRect(x + 2, y + 2, 22, 22);
-  ctx.fillStyle = "#d7dcf0"; ctx.fillRect(x + 2, y + 2, 22, 18);
-  txt(label, x + 13, y + 3, "#14151f", 14, "center", "rgba(0,0,0,0)");
+  pxBox(x, y, 26, 26, SY.ink);
+  ctx.fillStyle = "#5a6070"; ctx.fillRect(x + 2, y + 2, 22, 22);
+  ctx.fillStyle = "#c6cedc"; ctx.fillRect(x + 2, y + 2, 22, 18);
+  txt(label, x + 13, y + 3, SY.ink, 14, "center", "rgba(0,0,0,0)");
+}
+// 7x7 글리프(# = 칠함)를 2배로 그림. 버튼 안 기호(X, 화살표 등)
+export const GLYPH = {
+  x: ["#.....#", ".#...#.", "..#.#..", "...#...", "..#.#..", ".#...#.", "#.....#"],
+  left: ["...#...", "..##...", ".######", "#######", ".######", "..##...", "...#..."],
+  right: ["...#...", "...##..", "######.", "#######", "######.", "...##..", "...#..."],
+  minus: [".......", ".......", ".......", "#######", ".......", ".......", "......."],
+  plus: ["...#...", "...#...", "...#...", "#######", "...#...", "...#...", "...#..."],
+  bag: ["..###..", ".#...#.", "#######", "#.....#", "#..#..#", "#.....#", "#######"],
+  trophy: ["#######", "#.###.#", ".#####.", "..###..", "...#...", "..###..", ".#####."],
+  menu: ["#######", ".......", ".......", "#######", ".......", ".......", "#######"],
+};
+export function glyph(g: string[], x: number, y: number, col: string, k?: number) {
+  k = k || 2; ctx.fillStyle = col;
+  for (let j = 0; j < g.length; j++) for (let i = 0; i < g[j].length; i++) if (g[j][i] === "#") ctx.fillRect(x + i * k, y + j * k, k, k);
+}
+// 버튼 색 (레퍼런스 버튼표): 테두리 · 아래 턱 · 몸통 · 윗빛 · 글자
+//   초록 = 진행·구매 / 파랑 = 저장·정보 / 주황 = 설정·메뉴 / 빨강 = 닫기·뒤로 / 회색 = 못 누름
+export const BTN_PAL = {
+  green: ["#2c6a22", "#5aa83a", "#8ee05a", "#c4f690", "#1f5418"], blue: ["#0e4f86", "#1a86c4", "#40c4f0", "#a8eeff", "#0b3f6c"],
+  orange: ["#94400a", "#e0780e", "#ffa82a", "#ffd684", "#7a3006"], red: ["#84182a", "#c43a4c", "#f2606e", "#ffb0b8", "#6e1222"],
+  steel: ["#3e4552", "#788294", "#a6aebc", "#d6dce6", "#3e4552"],
+};
+// 버튼 하나 그리기 (글자 위치 계산까지). 돌려주는 값: 글자를 놓을 가운데 y
+export function btnPx(x: number, y: number, w: number, h: number, col: string, pressed?: boolean) {
+  const c = BTN_PAL[col] || BTN_PAL.steel;
+  let lip = h >= 34 ? 6 : 4;
+  if (pressed) { y += lip - 2; h -= lip - 2; lip = 2; }
+  pxBox(x, y, w, h, c[0]);
+  ctx.fillStyle = c[2]; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.fillStyle = c[1]; ctx.fillRect(x + 2, y + h - 2 - lip, w - 4, lip);
+  ctx.fillStyle = c[3]; ctx.fillRect(x + 4, y + 2, w - 8, 2);
+  return y + (h - lip) / 2;
+}
+// 작은 정보 판 (HUD 의 돈 · 깊이)
+export function plate(x: number, y: number, w: number, h: number) {
+  pxBox(x, y, w, h, SY.ink);
+  ctx.fillStyle = SY.body; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.fillStyle = SY.hi; ctx.fillRect(x + 2, y + 2, w - 4, 2);
 }
 export function icon(img, x, y) { ctx.drawImage(img, Math.round(x), Math.round(y), 32, 32); }
 

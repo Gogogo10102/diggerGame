@@ -8,11 +8,12 @@ import { CATS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
 import { BAR_KEYS, furnaceAct, openFurnace } from "./furnace.ts";
-import { SELL_COLS, SELL_KEYS, buyItem, craftItem, openCraft, sellItem, sellStash } from "./town.ts";
+import { SELL_KEYS, SELL_ORES, buyItem, craftItem, openCraft, sellItem, sellStash } from "./town.ts";
 import { useConsumable } from "./update.ts";
 import { openQuests } from "../ui/dom.ts";
 import { closeMenu, openInventory, openMenu } from "../ui/menu.ts";
 import { hideOv, openAccountScreen } from "../ui/overlay.ts";
+import { sfx } from "../core/sound.ts";
 import { mapKey, mapPointerDown, mapPointerMove, mapPointerUp, mapZoom, openMap } from "../render/minimap.ts";
 
 // =====================================================================
@@ -26,6 +27,7 @@ addEventListener("keydown", (e) => {
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
   if (S.state === "title") { openAccountScreen(); return; }
   if ((S.state === "shop" || S.state === "craft" || S.state === "furnace") && townKey(e)) return;
+  if ((S.state === "shop" || S.state === "craft" || S.state === "furnace") && /^Arrow|^Key[WASD]$|^Page/.test(e.code)) sfx("tick");   // 목록 고르는 소리
   if (S.state === "furnace") {                          // 용광로 창 조작: ↑↓ 고르기 · 1/5/Enter 넣기 · U 강화 · Backspace 비우기
     const len = BAR_KEYS.length;
     if (e.code === "Escape" || e.code === "KeyE") { if (!e.repeat) closeShop(); return; }
@@ -66,12 +68,11 @@ addEventListener("keydown", (e) => {
     if (e.code === "PageUp") { setTab(S.craftTab - 1); return; }
     if (e.code === "PageDown") { setTab(S.craftTab + 1); return; }
     if (/^Digit[1-9]$/.test(e.code)) { const t = Number(e.code.slice(5)) - 1; if (t < n) setTab(t); return; }
-    if (onSell) {
-      const cols = SELL_COLS, len = SELL_KEYS.length;
-      if (e.code === "ArrowLeft" || e.code === "KeyA") S.sellSel = Math.max(0, S.sellSel - 1);
-      else if (e.code === "ArrowRight" || e.code === "KeyD") S.sellSel = Math.min(len - 1, S.sellSel + 1);
-      else if (e.code === "ArrowUp" || e.code === "KeyW") S.sellSel = Math.max(0, S.sellSel - cols);
-      else if (e.code === "ArrowDown" || e.code === "KeyS") S.sellSel = Math.min(len - 1, S.sellSel + cols);
+    if (onSell) {                                       // 판매: ←→ 원석/주괴 분류 · ↑↓ 고르기
+      const len = SELL_KEYS.length, nOre = SELL_ORES;
+      if (e.code === "ArrowLeft" || e.code === "KeyA" || e.code === "ArrowRight" || e.code === "KeyD") S.sellSel = S.sellSel < nOre ? nOre : 0;
+      else if (e.code === "ArrowUp" || e.code === "KeyW") S.sellSel = Math.max(0, S.sellSel - 1);
+      else if (e.code === "ArrowDown" || e.code === "KeyS") S.sellSel = Math.min(len - 1, S.sellSel + 1);
       else if (e.code === "Enter") sellItem(SELL_KEYS[S.sellSel], Infinity);
       else if (e.code === "Space") sellItem(SELL_KEYS[S.sellSel], 1);
       else if (e.code === "KeyF") sellStash();
@@ -150,6 +151,10 @@ stage.addEventListener("pointerdown", (e) => {
   const x = e.clientX, y = e.clientY;
   const hit = (b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
   if (S.state === "map") { mapPointerDown(x, y, e.pointerId); return; }
+  if (S.state === "shop" || S.state === "craft" || S.state === "furnace") {   // 버튼 소리 (사기·팔기 등은 결과에 따라 따로 소리남)
+    const b = shopBtn.find(hit);
+    if (b && !/^(buy|sell|sellall|craft|smelt|fup|fclear)$/.test(b.act)) sfx(b.act === "sel" || b.act === "node" || b.act === "fsel" || b.act === "sellsel" ? "tick" : "click");
+  }
   if (S.state === "craft") {                           // 제작소 메뉴: 탭 처리
     for (const b of shopBtn) {
       if (!hit(b)) continue;
@@ -157,7 +162,12 @@ stage.addEventListener("pointerdown", (e) => {
       else if (b.act === "tab") { S.craftTab = b.arg; S.craftSel = 0; }
       else if (b.act === "node") S.craftSel = b.i;
       else if (b.act === "sellsel") S.sellSel = b.i;
-      else if (b.act === "sell") sellItem(b.arg[0], b.arg[1]);
+      else if (b.act === "scat") S.sellSel = b.arg ? SELL_ORES : 0;
+      else if (b.act === "spage") {                                  // 판매 목록 쪽 넘기기
+        const base = S.sellSel >= SELL_ORES ? SELL_ORES : 0, end = base ? SELL_KEYS.length : SELL_ORES, per = S.sellPer || 5;
+        S.sellSel = Math.max(base, Math.min(end - 1, base + (Math.floor((S.sellSel - base) / per) + b.arg) * per));
+      }
+      else if (b.act === "sell") { const k = SELL_KEYS.indexOf(b.arg[0]); if (k >= 0) S.sellSel = k; sellItem(b.arg[0], b.arg[1]); }
       else if (b.act === "craft") craftItem(b.arg);
       else if (b.act === "sellall") sellStash();
       else if (b.act === "close") closeShop();
@@ -171,7 +181,7 @@ stage.addEventListener("pointerdown", (e) => {
       if (!hit(b)) continue;
       if (b.act === "town") switchTown(b.arg);
       else if (b.act === "fsel") S.furnaceSel = b.i;
-      else if (b.act === "smelt") furnaceAct("smelt", b.arg);
+      else if (b.act === "smelt") { if (b.i !== undefined) S.furnaceSel = b.i; furnaceAct("smelt", b.arg); }
       else if (b.act === "fup") furnaceAct("up");
       else if (b.act === "fclear") furnaceAct("clear");
       else if (b.act === "close") closeShop();
@@ -186,7 +196,7 @@ stage.addEventListener("pointerdown", (e) => {
       if (b.act === "town") switchTown(b.arg);
       else if (b.act === "tab") { S.shopTab = b.arg; S.shopSel = 0; }
       else if (b.act === "sel") S.shopSel = b.i;              // 줄을 누르면 고르기, 아래 [구매] 버튼으로 사기
-      else if (b.act === "buy") buyItem(b.arg);
+      else if (b.act === "buy") { const k = CATS[S.shopTab].ids.indexOf(b.arg); if (k >= 0) S.shopSel = k; buyItem(b.arg); }
       else if (b.act === "page") {
         const np = Math.max(0, Math.min(Math.ceil(CATS[S.shopTab].ids.length / SHOP_PER) - 1, Math.floor(S.shopSel / SHOP_PER) + b.arg));
         S.shopSel = np * SHOP_PER;
@@ -198,10 +208,10 @@ stage.addEventListener("pointerdown", (e) => {
     return;
   }
   if (S.promptBtn && P.dead <= 0 && hit(S.promptBtn)) { if (S.nearItems) openShop(); else if (S.nearCraft) openCraft(); else if (S.nearFurnace) openFurnace(); else switchTown("sell"); return; }   // 상점/제작소 열기 버튼
-  if (S.menuBtn && hit(S.menuBtn)) { openMenu(); return; }
-  if (S.bagBtn && hit(S.bagBtn)) { openInventory(); return; }
-  if (S.questBtn && hit(S.questBtn)) { openQuests(); return; }                      // 메뉴 버튼
-  if (S.miniBtn && hit(S.miniBtn)) { openMap(); return; }                            // 미니맵 → 큰 지도
+  if (S.menuBtn && hit(S.menuBtn)) { sfx("click"); openMenu(); return; }
+  if (S.bagBtn && hit(S.bagBtn)) { sfx("click"); openInventory(); return; }
+  if (S.questBtn && hit(S.questBtn)) { sfx("click"); openQuests(); return; }                      // 메뉴 버튼
+  if (S.miniBtn && hit(S.miniBtn)) { sfx("click"); openMap(); return; }                            // 미니맵 → 큰 지도
   for (const b of S.hotBtns) if (hit(b)) { if (P.dead <= 0) useConsumable(b.id); return; }   // 소모품 슬롯
   if (S.stick) return;
   S.stick = { id: e.pointerId, ox: x, oy: y, x, y };
@@ -255,7 +265,7 @@ export function townKey(e) {                                       // [ / ] 로 
   return true;
 }
 export function openShop() {
-  S.state = "shop"; S.shopSel = 0;
+  S.state = "shop"; S.shopSel = 0; sfx("open");
   S.stick = null; touch.l = touch.r = touch.u = touch.d = false;   // 조이스틱 해제
 }
 export function closeShop() { S.state = "play"; }

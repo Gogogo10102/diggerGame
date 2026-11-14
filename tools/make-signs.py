@@ -87,13 +87,13 @@ def plate(name, text, icon, pal, col):
 
 # 마을 창 탭 이름 (판 없이 아이콘 + 글자). 게임에서는 1배로 그림. 고른 탭(on) / 나머지(off) 두 벌
 TABS = [("shop", "상점", "chest"), ("craft", "제작", "drill"), ("furnace", "용광로", "furnace"), ("sell", "판매", "coin")]
-TAB_COL = {"on": ("#ffd34d", "#fff3a8"), "off": ("#9aa3c8", "#c9cfe6")}
+TAB_COL = {"on": ("#ffc21a", "#ffe27a"), "off": ("#fff3d0", "#ffffff")}   # 고른 탭: 숯색 바탕에 노랑 / 나머지: 진한 노랑 바탕에 흰 글자
 
 def tab(name, text, icon, state):
     lt = letters(text, *TAB_COL[state], size=14)                   # 탭은 1배로 그려서 간판보다 조금 큰 글자
     ic = Image.open(os.path.join(ICON_DIR, icon + ".png")).convert("RGBA")
     ic = ic.crop(ic.getbbox())
-    if state == "off":                                               # 고르지 않은 탭은 아이콘도 살짝 어둡게
+    if state == "off" and False:                                     # (예전) 고르지 않은 탭은 아이콘도 살짝 어둡게
         px = ic.load()
         for y in range(ic.height):
             for x in range(ic.width):

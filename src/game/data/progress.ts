@@ -1,5 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../save/config.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
+import { sfx } from "../core/sound.ts";
 import { TILE } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -26,7 +27,7 @@ export function addXP(n) {
   const L = levelOf(S.acct.xp);
   if (L.lv > before) {
     S.MINER_LV = L.lv; recalcStats();
-    S.bannerText = "레벨 업!  Lv." + L.lv; S.bannerT = 3.5;
+    S.bannerText = "레벨 업!  Lv." + L.lv; S.bannerT = 3.5; sfx("levelup");
     floaters.push({ x: P.x, y: P.y - 44, text: "LEVEL UP! Lv." + L.lv, color: "#ffd34d", life: 1.8 });
     for (let k = 0; k < 14; k++) spawn(P.x + (Math.random() - 0.5) * 20, P.y, (Math.random() - 0.5) * 160, -60 - Math.random() * 120, 0.8, ["#ffd34d", "#fff3a8", "#7cff6b"][k % 3], 4, 300);
   }

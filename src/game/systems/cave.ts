@@ -1,5 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./furnace.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
+import { sfx } from "../core/sound.ts";
 import { ICON, sprite } from "../art/sprites.ts";
 import { H, HH, HW, ORE_COL, PX, SURF, T, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
@@ -97,7 +98,7 @@ export function collapseRun(u) {
   }
   floaters.push({ x: ((u.c0 + u.c1 + 1) / 2) * T, y: u.r * T - 10, text: "붕괴!", color: "#ff9a90", life: 1.5 });
   if (S.acct) S.acct.stats.collapses = (S.acct.stats.collapses || 0) + 1;
-  if (Math.abs(u.r - pr) <= 15 && Math.abs(pc - (u.c0 + u.c1) / 2) <= 15) S.shakeT = Math.max(S.shakeT, 0.4);
+  if (Math.abs(u.r - pr) <= 15 && Math.abs(pc - (u.c0 + u.c1) / 2) <= 15) { S.shakeT = Math.max(S.shakeT, 0.4); sfx("rumble"); }
   if (near) {
     P.fuel -= maxFuel() * 0.2;
     P.vy = -200 * PX;
@@ -221,6 +222,7 @@ export function discoverCave(c, r) {
   if (S.acct) S.acct.stats.caves = (S.acct.stats.caves || 0) + 1;
   addXP(10 + Math.min(40, q.length >> 3));
   say("동굴 발견! 숨어 있던 공간이 드러났어요");
+  sfx("cave");
   floaters.push({ x: P.x, y: P.y - 42, text: "동굴 발견!", color: "#8fd3ff", life: 1.6 });
   S.shakeT = Math.max(S.shakeT || 0, 0.12);
   return q.length;

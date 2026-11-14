@@ -1,5 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./cave.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
+import { sfx } from "../core/sound.ts";
 import { H, HH, HW, PX, SURF, T, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -99,7 +100,7 @@ export function landChunk(ch, off) {
     if (k.rub) regenT[i] = REGEN_MIN + Math.random() * (REGEN_MAX - REGEN_MIN);
   }
   spawnDust((ch.cells[0].c + 0.5) * T, (ch.cells[0].r + off + 1) * T - 2, Math.min(8, 2 + (ch.cells.length >> 1)), Math.min(T * 4, ch.cells.length * 6));
-  if (Math.abs(ch.cells[0].c * T - P.x) < 12 * T && Math.abs((ch.cells[0].r + off) * T - P.y) < 12 * T) S.shakeT = Math.max(S.shakeT, 0.25);
+  if (Math.abs(ch.cells[0].c * T - P.x) < 12 * T && Math.abs((ch.cells[0].r + off) * T - P.y) < 12 * T) { S.shakeT = Math.max(S.shakeT, 0.25); sfx("rumble", { vol: 0.6 }); }
 }
 export function updateChunks(dt) {
   S.floatScanT += dt;
@@ -122,6 +123,7 @@ export function updateChunks(dt) {
           ch.hit = true; P.fuel -= maxFuel() * 0.2; P.vy = -200 * PX;
           floaters.push({ x: P.x, y: P.y - 30, text: "낙석! 연료 -20%", color: "#ff6b6b", life: 1.4 });
           S.shakeT = Math.max(S.shakeT, 0.5);
+          sfx("land");
           break;
         }
       }

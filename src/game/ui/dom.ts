@@ -32,7 +32,7 @@ export function charTabs(active) {
 }
 export function charFooter(root) {
   const bs = el("div", "btns");
-  bs.appendChild(mkBtn("닫기", closeMenu, "pri"));
+  bs.appendChild(mkBtn("닫기", closeMenu, "back"));
   bs.appendChild(mkBtn("뒤로", () => renderMenu()));
   root.appendChild(bs);
 }

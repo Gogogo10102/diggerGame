@@ -25,7 +25,7 @@ src/
   main.ts              게임 루프 시작점 (마지막 모듈 menu.ts 를 import)
   style.css            HTML 창/버튼 스타일
   game/
-    core/   config(상수·타일 id) world(지도) player(P) stats state(S)
+    core/   config(상수·타일 id) world(지도) player(P) stats state(S) sound(효과음 합성)
     art/    sprites(타일·광물 그림) itemIcons buildings assets(PNG 불러오기)
     data/   items recipes consumables progress(레벨·업적·칭호)
     systems/furnace cave floating(떠 있는 흙) collapseFx drops input town update
@@ -34,7 +34,7 @@ src/
     ui/     dom inventory overlay menu
 public/assets/         게임 그림 PNG + manifest.json
 tests/                 harness.cjs(가짜 DOM/캔버스) smoke.cjs(테스트)
-tools/                 build-test-html.mjs  make-manifest.mjs
+tools/                 build-test-html.mjs  make-manifest.mjs  make-icons.py(+pixicon.py)  make-buildings.py  make-signs.py
 docs/                  plan.md decisions.md
 ```
 
@@ -48,7 +48,7 @@ docs/                  plan.md decisions.md
    util → draw → townUI → minimap → save/config → progress → dom → inventory → worldSave → account → transfer →
    overlay → menu → main.
    - 새 모듈을 넣을 때: 들어갈 자리 앞 모듈을 import 하고, 뒤 모듈의 사슬 import 를 새 모듈로 바꿉니다.
-   - `state.ts`, `assets.ts` 는 사슬 밖(누구나 import 가능).
+   - `state.ts`, `assets.ts`, `sound.ts`(효과음) 는 사슬 밖(누구나 import 가능).
    - 증상: `Cannot access 'X' before initialization` 가 나면 순서 문제입니다.
 
 2. **바뀌는 전역 값은 `S` 에.** 여러 모듈이 다시 대입하는 값(화면 상태, 타이머, 선택 탭 등)은
@@ -82,8 +82,13 @@ docs/                  plan.md decisions.md
 - 글자 크기는 **12 / 16 / 32px 만** 씁니다. 12px = 갈무리11, 16·32px = Neo둥근모. 도트 글꼴은 설계 크기의 정수배가 아니면 흐려집니다.
   캔버스는 `txt(글, x, y, 색, 크기)` 를 쓰면 자동으로 가까운 단계에 맞춰집니다. 글자 폭을 잴 때는 `setFont(크기)` 후 `measureText`.
 - 도트 그림은 `drawPx(그림, x, y, 칸크기)` 로 정수 배율로만 키웁니다(1.5배 금지).
-- 마을 창(상점·제작·용광로·판매)은 `render/townUI.ts` 의 공용 틀(`townFrame` + `townFooter`)을 씁니다.
-  "본문에서 고르기 → 아래 상세 칸에 설명과 버튼" 흐름을 지켜 주세요. 버튼은 `uiBtn`.
+- **UI 스타일 = 안전 노랑**: 숯색 판(`SY.body`) + 검은 테두리 + 노란 머리띠·경고 줄무늬, 고른 것은 노랑. 색은 `render/util.ts` 의 `SY`.
+- **버튼 색 = 뜻**: 초록 진행·구매 / 파랑 저장·정보 / 주황 설정·메뉴 / 빨강 닫기·뒤로·삭제 / 회색 못 누름.
+  캔버스는 `uiBtn`(kind: go·plain·gold·danger·steel) 또는 `btnPx`, HTML 창은 `mkBtn(글, 함수, "pri"|"info"|"back"|"del"|"off")` (없으면 주황).
+- **양 표시는 칸 막대**(`segBar`): 연료·화물·경험치·단계·소리 크기. 아이콘은 막대 왼쪽 끝에 겹침.
+- 마을 창(상점·제작·용광로·판매)은 `render/townUI.ts` 의 공용 틀 `townFrame(…, 분류목록, 고른분류, 분류동작)` 을 씁니다.
+  "왼쪽 분류 → 오른쪽 목록(줄마다 버튼)" 흐름을 지켜 주세요. 상세 칸이 필요하면 `townFooter`.
+- **효과음**: 새 동작을 넣으면 `sfx("이름")` 도 같이 (`core/sound.ts` 의 목록에서 고르거나 추가). 테스트 환경에선 소리 없이 지나감.
 
 ## 그림(에셋) 다루는 법
 - 게임은 그림을 코드로도 그리지만, `public/assets/<경로>.png` 가 있으면 그 파일로 **덮어씁니다**
@@ -104,6 +109,7 @@ docs/                  plan.md decisions.md
   불빛·연기 위치는 `art/buildings.ts` 의 `BLD_FX` (그림 크기가 같을 때만 그림). 용광로 아궁이·쇳물 홈은 그림에 구멍을 뚫어 두고 그 뒤에 불을 그립니다.
 - 광물 id: 2 구리, 3 철, 4 금, 5 다이아, 6 석탄, 8 은, 9 에메랄드, 10 루비, 11 미스릴.
 - 현재 원석·주괴 그림은 **임시 확정(v1)** 입니다. 나중에 다시 작업 예정.
+- 아이템·소모품·화면 아이콘(`items/`, `ui/icon/`)은 `python3 tools/make-icons.py` 로 다시 만들 수 있습니다(밝은 플랫 스타일). 고친 뒤 `npm run assets:manifest`.
 - 아직 코드로만 그리는 것: 캐릭터(로봇, 장비에 따라 모양이 바뀜).
 
 ## 협업
