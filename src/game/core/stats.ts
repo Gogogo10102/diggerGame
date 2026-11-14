@@ -50,11 +50,11 @@ export const cargoCap = () => STAT.cargo;
 export const drillMult = () => STAT.drill;
 export const cargoCount = () => Object.values(P.cargo).reduce((a, b) => a + b, 0);
 S.dig = null;
-export const ZOOMS = [0, 1, 1.5, 2, 2.5, 3];                  // 0 = 자동. 0.5 단위라야 도트가 깨지지 않음
+export const ZOOMS = [0, 1, 1.5, 2];                          // 0 = 자동. 0.5 단위라야 도트가 깨지지 않음 (타일이 커서 1배가 기본)
 S.zoomSel = 0;
 export function autoZoom() {
   const short = Math.min(cv.width, cv.height), n = short < 520 ? 7 : 8.5;   // 짧은 쪽에 보이는 타일 수 목표
-  return Math.max(1, Math.min(3, Math.floor(2 * short / (T * n)) / 2));
+  return Math.max(1, Math.min(2, Math.floor(2 * short / (T * n)) / 2));
 }
 export const curZoom = () => (S.zoomSel > 0 ? ZOOMS[S.zoomSel] : autoZoom());
 export const zoomName = () => (S.zoomSel > 0 ? ZOOMS[S.zoomSel] + "x" : "자동(" + autoZoom() + "x)");

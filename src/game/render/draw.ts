@@ -3,7 +3,7 @@ import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, itemIcon } from "../art/itemIcons.ts";
 import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, getMiner, grassTiles, hardTiles, hv, stoneTiles, sunImg } from "../art/sprites.ts";
-import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, LAYERS, MINE_COL, SURF, T, TILE, W, layerOf } from "../core/config.ts";
+import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
@@ -84,16 +84,16 @@ export function draw() {
     if (id === 7) ctx.drawImage(bedrock, px, py, T, T);
     else if (id === 12) ctx.drawImage(stoneTiles[(c * 7 + r * 13) & 1], px, py, T, T);
     else if (id === 16) ctx.drawImage(hardTiles[(c * 7 + r * 13) & 1], px, py, T, T);
-    else if (id === 13) ctx.drawImage(r === SURF ? plinthTop : plinthLow, px, py, T, T);
-    else {
+    else if (id === 13 && r === SURF && BUILD_COLS.some((b) => c >= b[0] && c <= b[1])) ctx.drawImage(plinthTop, px, py, T, T);   // 건물 바로 아래 한 줄만 돌 기단 (그 아래는 흙처럼)
+    else {                                                         // 건물 사이 마을 땅(13)은 잔디 흙처럼 보이게
       ctx.drawImage(dirtTiles[layerOf(r - SURF)][hv(c, r) % DIRT_VAR], px, py, T, T);
-      if (id > 1) {
+      if (id > 1 && ORE_SPR[id]) {
         const ov = ORE_SPR[id][hv(c, r) & 3];
         ctx.drawImage(ov.img, px, py, T, T);
         const sp = SPARK_ORES[id] ? ov.spark : null;
         if (sp) {
           const k = (S.animT * 1.6 + (c * 5 + r * 3) * 0.37) % 3;
-          if (k < 0.5) { const q = sp[(c + r) % sp.length], a = Math.sin(k / 0.5 * Math.PI); ctx.globalAlpha = a; ctx.fillStyle = "#fff"; ctx.fillRect(px + q[0] * 2, py + q[1] * 2 - 2, 2, 6); ctx.fillRect(px + q[0] * 2 - 2, py + q[1] * 2, 6, 2); ctx.globalAlpha = 1; }
+          if (k < 0.5) { const q = sp[(c + r) % sp.length], a = Math.sin(k / 0.5 * Math.PI); ctx.globalAlpha = a; ctx.fillStyle = "#fff"; ctx.fillRect(px + q[0] * AS, py + q[1] * AS - 2, 2, 6); ctx.fillRect(px + q[0] * AS - 2, py + q[1] * AS, 6, 2); ctx.globalAlpha = 1; }
         }
       }
       if (r === SURF) ctx.drawImage(grassTiles[hv(c, 9) & 1], px, py, T, T);
@@ -115,7 +115,7 @@ export function draw() {
             ctx.fillStyle = "#2b5022"; ctx.fillRect(px, py + 4, T, 2);
             ctx.fillStyle = "rgba(20,12,6,0.25)"; ctx.fillRect(px, py + 6, T, 4);
             ctx.fillStyle = "#3a6b2e";
-            for (let k = 0; k < 4; k++) { const hh = 2 + ((hv(c * 4 + k, 51) >> 2) % 3) * 2; ctx.fillRect(px + k * 8 + 2, py - hh, 2, hh); }
+            for (let k = 0; k < 4; k++) { const hh = 2 + ((hv(c * 4 + k, 51) >> 2) % 3) * 2; ctx.fillRect(px + k * (T / 4) + 2, py - hh, 2, hh); }
           }
           // 천장·벽 그늘(동굴 깊이감)
           if (r > SURF && solidTile(tiles[(r - 1) * W + c])) { ctx.fillStyle = "rgba(0,0,0,0.34)"; ctx.fillRect(px, py, T, 8); ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.fillRect(px, py + 8, T, 8); }
@@ -194,48 +194,51 @@ export function draw() {
       };
       // 건물 칸 가운데에 맞춰 놓을 자리 (그림 크기가 바뀌어도 땅에 붙음)
       const spot = (img, k) => {
-        const w = img.width * 2, h = img.height * 2, cw = (BUILD_COLS[k][1] - BUILD_COLS[k][0] + 1) * T;
+        const w = img.width * AS, h = img.height * AS, cw = (BUILD_COLS[k][1] - BUILD_COLS[k][0] + 1) * T;
         return { x: BUILD_COLS[k][0] * T - camX + Math.floor((cw - w) / 2), y: base - h, w, h, fx: BLD_FX[["shop", "craft", "furnace"][k]] };
       };
       const fit = (q, img) => q.fx && img.width === q.fx.w && img.height === q.fx.h;   // 새 그림일 때만 불빛 위치가 맞음
-      const at = (q, a) => [q.x + a[0] * 2, q.y + a[1] * 2];
+      const at = (q, a) => [q.x + a[0] * AS, q.y + a[1] * AS];
 
       const sh = spot(S.itemShopImg, B_SHOP), cr = spot(S.craftShopImg, B_CRAFT), fu = spot(furnaceImg, B_FURN);
       // 용광로 불·쇳물은 건물 그림 '뒤'에 먼저 그림 → 그림에 뚫린 아궁이·홈 사이로 보임 (창살은 그림 위에 남음)
       const busy = !!(S.acct && S.acct.furnace && S.acct.furnace.q.length);
       if (fit(fu, furnaceImg)) {
-        const m = fu.fx.mouth, [mx, my] = at(fu, m), mw = m[2] * 2, mh = m[3] * 2;
+        const m = fu.fx.mouth, [mx, my] = at(fu, m), mw = m[2] * AS, mh = m[3] * AS;
         const fl = (k) => Math.round((Math.sin(S.animT * (7 + k) + k * 1.7) * 0.5 + 0.5) * 4) * 2;
         ctx.fillStyle = "#1c0d0a"; ctx.fillRect(mx, my, mw, mh);
         ctx.fillStyle = busy ? "#d8401a" : "#4a1a0e"; ctx.fillRect(mx, my + mh * 0.38 - fl(1), mw, mh * 0.62 + fl(1));
         ctx.fillStyle = busy ? "#ff8a1f" : "#6e2812"; ctx.fillRect(mx + 6, my + mh * 0.5 - fl(2), mw - 12, mh * 0.5 + fl(2));
         ctx.fillStyle = busy ? "#ffd34d" : "#94391a"; ctx.fillRect(mx + 14, my + mh * 0.62 - fl(3), mw - 28, mh * 0.38 + fl(3));
         if (busy) { ctx.fillStyle = "#fff3a8"; ctx.fillRect(mx + 22, my + mh * 0.74 - fl(4), mw - 44, mh * 0.26 + fl(4)); }
-        const tr = fu.fx.trough, [tx, ty] = at(fu, tr);
-        ctx.fillStyle = busy ? "#ff8a1f" : "#2a1a14"; ctx.fillRect(tx, ty, tr[2] * 2, tr[3] * 2);
-        if (busy) { ctx.fillStyle = "#fff3a8"; ctx.fillRect(tx + (((S.animT * 30) | 0) % (tr[2] * 2 - 2)), ty, 2, tr[3] * 2); }
+        const tr = fu.fx.trough;                                     // 쇳물 홈 (그림에 있을 때만)
+        if (tr) {
+          const [tx, ty] = at(fu, tr);
+          ctx.fillStyle = busy ? "#ff8a1f" : "#2a1a14"; ctx.fillRect(tx, ty, tr[2] * AS, tr[3] * AS);
+          if (busy) { ctx.fillStyle = "#fff3a8"; ctx.fillRect(tx + (((S.animT * 30) | 0) % (tr[2] * AS - 2)), ty, 2, tr[3] * AS); }
+        }
       }
       ctx.drawImage(S.itemShopImg, sh.x, sh.y, sh.w, sh.h);
       ctx.drawImage(S.craftShopImg, cr.x, cr.y, cr.w, cr.h);
       ctx.drawImage(furnaceImg, fu.x, fu.y, fu.w, fu.h);
-      if (fit(sh, S.itemShopImg)) smoke(...at(sh, sh.fx.smoke), "#c9ced8");
+      if (fit(sh, S.itemShopImg) && sh.fx.smoke) smoke(...at(sh, sh.fx.smoke), "#c9ced8");
       if (fit(cr, S.craftShopImg)) {
-        smoke(...at(cr, cr.fx.smoke), "#9aa0b4");
+        if (cr.fx.smoke) smoke(...at(cr, cr.fx.smoke), "#9aa0b4");
         const g = cr.fx.forge, [gx, gy] = at(cr, g);                 // 대장간 불빛 깜빡임
         ctx.globalAlpha = 0.14 + 0.08 * Math.sin(S.animT * 9) + 0.05 * Math.sin(S.animT * 23);
-        ctx.fillStyle = "#ffb040"; ctx.fillRect(gx, gy, g[2] * 2, g[3] * 2);
+        ctx.fillStyle = "#ffb040"; ctx.fillRect(gx, gy, g[2] * AS, g[3] * AS);
         ctx.globalAlpha = 1;
       }
       if (fit(fu, furnaceImg)) {
-        smoke(...at(fu, fu.fx.smoke), busy ? "#8a90a0" : "#c9ced8");
+        if (fu.fx.smoke) smoke(...at(fu, fu.fx.smoke), busy ? "#8a90a0" : "#c9ced8");
         ctx.fillStyle = busy ? "rgba(255,138,31,0.22)" : "rgba(255,90,31,0.07)";   // 아궁이 앞 땅에 비친 불빛
         ctx.fillRect(fu.x + 40, base - 4, fu.w - 80, 4);
       }
       // 광산 입구 표지판 (글자 없이 로고만)
-      const sx = MINE_COL * T + 8 - camX, sy = SURF * T - camY;
-      ctx.fillStyle = "#14151f"; ctx.fillRect(sx + 18, sy - 50, 8, 50);
-      ctx.fillStyle = "#8a5a3c"; ctx.fillRect(sx + 20, sy - 50, 4, 50);
-      if (SIGN_IMG.mine.width > 1) drawSign(SIGN_IMG.mine, sx + 22, sy - 54);
+      const sx = (MINE_COL - 1) * T + T / 2 - 22 - camX, sy = SURF * T - camY;   // 마을 끝 칸, 광산 터 바로 앞
+      ctx.fillStyle = "#14151f"; ctx.fillRect(sx + 18, sy - 64, 8, 64);
+      ctx.fillStyle = "#8a5a3c"; ctx.fillRect(sx + 20, sy - 64, 4, 64);
+      if (SIGN_IMG.mine.width > 1) drawSign(SIGN_IMG.mine, sx + 22, sy - 76, null, null, 3);
       else {                                                       // 로고 PNG가 없을 때만 나무판 + 화살표
         ctx.fillStyle = "#14151f"; ctx.fillRect(sx + 2, sy - 70, 40, 30);
         ctx.fillStyle = "#c08a5c"; ctx.fillRect(sx + 4, sy - 68, 36, 26);
@@ -546,9 +549,9 @@ export function drawHUD(vw, vh, depth) {
 }
 
 // 간판 로고: 그림 1픽셀 = 건물 도트 1픽셀이라 2배로 그림. (cx, cy) 가운데 기준. 그림이 없으면 글자로 대신
-export function drawSign(img, cx, cy, label, col) {
+export function drawSign(img, cx, cy, label, col, scale) {
   if (img.width > 1) {
-    const w = img.width * 2, h = img.height * 2;
+    const k = scale || AS, w = img.width * k, h = img.height * k;
     ctx.drawImage(img, Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
   } else if (label) txt(label, cx, cy - 8, col, 16, "center");
 }

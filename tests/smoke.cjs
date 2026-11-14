@@ -78,7 +78,7 @@ async function login(t, name) {
   ok(worldHash(t) !== hashB, "복원: Tester의 월드(Second와 다름)");
   ok(t.ev("acct.stats.mined[6]") === 3, "복원: 채굴 통계");
   ok(t.ev("P.cargo[6]") === 2 && t.ev("P.cargo[11]") === 1, "복원: 화물");
-  ok(Math.abs(t.ev("P.x") - (5 * 32 + 16)) < 1 && Math.abs(t.ev("P.y") - (20 * 32 + 16)) < 1, "복원: 위치");
+  ok(Math.abs(t.ev("P.x") - (5 * 64 + 16)) < 1 && Math.abs(t.ev("P.y") - (20 * 64 + 16)) < 1, "복원: 위치");
   ok(t.ev("P.fuel") === 33, "복원: 연료");
 
   console.log("[5] 자동 저장 / 페이지 숨김 저장 / 통계");
@@ -370,7 +370,8 @@ async function login(t, name) {
   const t11 = boot(path); t11.run(5); await login(t11, "Found"); t11.run(10);
   ok(t11.ev("BUILD_COLS.every((b) => { for (let c = b[0]; c <= b[1]; c++) for (let r = SURF; r <= SURF + 1; r++) if (tiles[r*W+c] !== 13) return false; return true; })"), "건물 아래 2줄은 전부 기초석");
   ok(t11.ev("(() => { for (let c = MINE_COL; c < W - 1; c++) if (tiles[SURF*W+c] === 13) return false; return true; })()"), "광산 터(마을 오른쪽)는 그대로 팔 수 있음");
-  ok(t11.ev("BUILD_COLS[1][0] === BUILD_COLS[0][1] + 1 && BUILD_COLS[2][0] === BUILD_COLS[1][1] + 1 && MINE_COL >= 20 && W - MINE_COL >= 20"), "건물 세 개가 왼쪽에 붙어 있고 오른쪽에 넓은 광산 터");
+  ok(t11.ev("BUILD_COLS[1][0] >= BUILD_COLS[0][1] + 2 && BUILD_COLS[2][0] >= BUILD_COLS[1][1] + 2 && MINE_COL >= BUILD_COLS[2][1] + 2 && W - MINE_COL >= 20"), "건물 세 개가 왼쪽에 한 칸 이상씩 띄워져 있고 오른쪽에 넓은 광산 터");
+  ok(t11.ev("tiles[SURF*W + BUILD_COLS[0][1] + 1] === 13 && tiles[(SURF+1)*W + BUILD_COLS[1][1] + 1] === 13"), "건물 사이 마을 땅도 못 팜(기초석)");
   ok(t11.ev("tiles[(SURF+2)*W+5] !== 13"), "기초석 아래 땅은 일반 지형");
   t11.ev("P.x = 5 * T + 16; P.y = SURF * T - 14; P.vx = P.vy = 0"); t11.run(10);
   t11.key("ArrowDown"); t11.run(600); t11.keyup("ArrowDown");
@@ -387,20 +388,20 @@ async function login(t, name) {
   ok(t11.ev("tiles[(SURF)*W+5] === 13 && tiles[(SURF+1)*W+5] === 13 && tiles[(SURF)*W+15] === 13"), "예전 저장의 뚫린 건물 아래를 기초석으로 복구");
   // 확대
   const t12 = boot(path, { w: 1000, h: 640 }); t12.run(5);
-  ok(t12.ev("curZoom()") === 2, "데스크톱 자동 확대 2x");
+  ok(t12.ev("curZoom()") === 1, "데스크톱 자동 확대 1x (타일 64px)");
   const t13 = boot(path, { w: 390, h: 844, touch: true }); t13.run(5);
-  ok(t13.ev("curZoom()") === 1.5, "폰(세로) 자동 확대 1.5x");
+  ok(t13.ev("curZoom()") === 1, "폰(세로) 자동 확대 1x");
   const t14 = boot(path, { w: 800, h: 360, touch: true }); t14.run(5);
-  ok(t14.ev("curZoom()") === 1.5, "폰(가로) 자동 확대 1.5x");
+  ok(t14.ev("curZoom()") === 1, "폰(가로) 자동 확대 1x");
   const t15 = boot(path, { w: 2560, h: 1440 }); t15.run(5);
-  ok(t15.ev("curZoom()") === 3, "큰 화면은 최대 3x");
+  ok(t15.ev("curZoom()") === 2, "큰 화면은 최대 2x");
   await login(t12, "Zoom"); t12.run(10);
   t12.key("KeyZ"); t12.key("KeyZ"); await t12.tick();
   ok(t12.ev("zoomSel") === 2 && t12.ev("curZoom()") === 1.5, "Z 키로 확대 단계 변경");
   t12.run(20);
   const cam = t12.ev("JSON.stringify(getCam(cv.width / curZoom(), cv.height / curZoom()))");
   ok(JSON.parse(cam).x % 2 === 0 && JSON.parse(cam).y % 2 === 0, "카메라는 짝수 픽셀(확대 시 타일 틈 방지)");
-  ok(t12.ev("[1,1.5,2,2.5,3].every((z) => (z * 16 * 2) % 1 === 0)"), "확대 단계는 도트가 정수 픽셀");
+  ok(t12.ev("ZOOMS.slice(1).every((z) => (z * AS) % 1 === 0 && (z * 2) % 1 === 0)"), "확대 단계는 타일·캐릭터 도트 모두 정수 픽셀");
   const t16 = boot(path, { w: 390, h: 844, touch: true }); t16.run(5);
   t16.ptr("pointerdown", 200, 400); await t16.tick();
   t16.find((n) => n.tag === "input").value = "Ph"; await t16.click("계정 만들기");
@@ -703,7 +704,7 @@ async function login(t, name) {
   // 묻히면 사라짐(붕괴/낙하)
   t30.ev("spawnDrop(5, 28 * T + 16, (SURF + 23) * T + 16, 1)"); t30.run(30);
   ok(t30.ev("drops.length") === 1, "떨어진 광물 유지");
-  t30.ev("tiles[(SURF+23)*W+28] = 1"); t30.run(2);
+  t30.ev("tiles[Math.floor(drops[0].y / T) * W + Math.floor(drops[0].x / T)] = 1"); t30.run(2);
   ok(t30.ev("drops.length") === 0, "그 자리가 흙으로 채워지면 사라짐");
   // 폭발로 캔 광물도 화물칸이 가득하면 떨어짐
   t30.ev("P.cargo = { 6: cargoCap() }; tiles[(SURF+24)*W+30] = 4; bombs.push({ id: 'dyn_s', c: 30, r: SURF + 23, t: 0.001, rad: 1 }); P.x = 40 * T; P.y = (SURF + 10) * T");
@@ -732,8 +733,8 @@ async function login(t, name) {
 
   console.log("[25] 용광로 / 주괴");
   const t31 = boot(path, { w: 1000, h: 640 }); t31.run(5); await login(t31, "Smelter"); t31.run(10);
-  ok(t31.ev("BUILD_COLS.length") === 3 && t31.ev("BUILD_COLS[B_FURN][0]") === t31.ev("BUILD_COLS[B_CRAFT][1] + 1") && t31.ev("tiles[SURF*W + BUILD_COLS[B_FURN][0]]") === 13, "제작소 옆에 용광로 건물(기초석 포함), 정비소 없음");
-  ok(t31.ev("MINE_COL") === t31.ev("BUILD_COLS[B_FURN][1] + 1") && t31.ev("W - MINE_COL") >= 18, "광산 터는 용광로 오른쪽");
+  ok(t31.ev("BUILD_COLS.length") === 3 && t31.ev("BUILD_COLS[B_FURN][0]") > t31.ev("BUILD_COLS[B_CRAFT][1]") && t31.ev("tiles[SURF*W + BUILD_COLS[B_FURN][0]]") === 13, "제작소 옆에 용광로 건물(기초석 포함), 정비소 없음");
+  ok(t31.ev("MINE_COL") > t31.ev("BUILD_COLS[B_FURN][1]") && t31.ev("W - MINE_COL") >= 18, "광산 터는 용광로 오른쪽");
   ok(t31.ev("RECIPE_CATS.every((c) => c.ids.every((id) => Object.keys(ITEMS[id].mats).every((m) => !BAR_OF[m])))"), "제작 재료에 금속 원석 대신 주괴 사용");
   ok(t31.ev("ITEMS.coal_boiler.mats.fe") === 3 && t31.ev("ITEMS.coal_boiler.mats[6]") === 20, "석탄 보일러: 철 주괴 3 + 석탄 20");
   // 용광로 열기
@@ -882,7 +883,7 @@ async function login(t, name) {
   t40.ev("genWorld(1)");
   t40.ev("applyAccount(" + JSON.stringify(sv40) + ")");
   ok(t40.ev("tiles[(SURF+1500)*W+301]") === 0 && t40.ev("tiles[(SURF+1501)*W+301]") === 14 && chunkStr(9, 47) === before40, "불러오면 판 칸·지지대·나머지 모양 그대로");
-  ok(t40.ev("Math.floor(P.x / T)") === Math.floor(sv40.player.x / 32) && Math.abs(t40.ev("P.y") - sv40.player.y) < 1 && t40.ev("P.y") > t40.ev("(SURF + 1400) * T"), "불러오면 깊은 곳 그 자리에서 시작 (" + Math.floor(sv40.player.y / 32) + "행)");
+  ok(t40.ev("Math.floor(P.x / T)") === Math.floor(sv40.player.x / sv40.player.ts) && Math.abs(t40.ev("P.y") - sv40.player.y) < 1 && t40.ev("P.y") > t40.ev("(SURF + 1400) * T"), "불러오면 깊은 곳 그 자리에서 시작 (" + Math.floor(sv40.player.y / sv40.player.ts) + "행)");
   // 미니맵 / 큰 지도
   t40.run(2);
   ok(t40.ev("!!miniBtn"), "미니맵 표시");
@@ -901,6 +902,9 @@ async function login(t, name) {
   ok(t40.ev("state") === "map", "미니맵을 누르면 큰 지도");
   t40.key("KeyM"); t40.run(1);
   ok(t40.ev("mapColor(300, SURF + 1500)") !== t40.ev("MAP_UNSEEN") && t40.ev("mapColor(300, SURF + 2200)") === t40.ev("MAP_UNSEEN"), "지도는 본 칸만 색칠");
+  // 광물 위치는 지도에 안 나옴: 같은 지층의 흙·광물·돌은 같은 색, 빈칸만 길 색
+  t40.ev("(() => { const r = SURF + 1500; for (let c = 290; c <= 296; c++) seen[r*W+c] = 1; tiles[r*W+290] = 1; tiles[r*W+291] = 11; tiles[r*W+292] = 5; tiles[r*W+293] = 12; tiles[r*W+294] = 0; })()");
+  ok(t40.ev("(() => { const r = SURF + 1500, a = mapColor(290, r); return a === mapColor(291, r) && a === mapColor(292, r) && a === mapColor(293, r) && mapColor(294, r) === MAP_PATH && a !== MAP_PATH; })()"), "지도에 광물 위치는 안 보이고 길만 보임");
 
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });

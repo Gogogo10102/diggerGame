@@ -89,6 +89,8 @@ docs/                  plan.md decisions.md
 - 새 그림 추가: PNG 저장 → `assetTable()` 에 경로 한 줄 → `npm run assets:manifest`.
   manifest.json 에는 파일마다 내용 지문이 있어서, 그림을 고치면 주소(`?v=지문`)가 바뀌어 브라우저가 예전 그림을 쓰지 않습니다.
   그림을 고친 뒤에도 `npm run assets:manifest` 를 돌리세요(`npm run build` 는 자동으로 돌림).
+- **크기 기준:** 타일 T=64px(16px 그림 × `AS`=4), 캐릭터는 32px(그림 × 2). 확대 배율은 0.5 단위만(둘 다 도트가 정수).
+  속도·중력처럼 px 단위 숫자는 타일 32px 시절 값 × `PX`(=T/32) 로 써서, 한 칸 지나는 데 걸리는 시간이 타일 크기와 상관없게 합니다.
 - 경로 규칙: `ores/icon/<광물id>.png`(인벤토리 아이콘), `ores/world/<id>_<변형>.png`(땅속 광물),
   `ores/drop/<id>.png`(바닥에 떨어진 것), `bars/<cu|fe|ag|au|mi>.png`(주괴), `items/<아이템id>.png`,
   `ui/icon/<이름>.png`, `tiles/...`, `buildings/...`, `sky/...`,

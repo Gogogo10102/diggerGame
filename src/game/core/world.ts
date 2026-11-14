@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./config.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { BUILD_COLS, H, SEED, SURF, TILE, W } from "./config.ts";
+import { BUILD_COLS, H, SEED, SURF, TILE, W, inTown } from "./config.ts";
 
 // =====================================================================
 //  월드 생성 (시드 기반)
@@ -154,8 +154,8 @@ export function genChunk(cx, cy) {
       if (!gap) putStone(r * W + c, c, r);
     }
   }
-  for (let r = Math.max(y0, SURF); r <= SURF + 1 && r < y1; r++) for (let c = x0; c < x1; c++) {   // 건물 아래 기초석
-    if (BUILD_COLS.some((b) => c >= b[0] && c <= b[1])) tiles[r * W + c] = 13;
+  for (let r = Math.max(y0, SURF); r <= SURF + 1 && r < y1; r++) for (let c = x0; c < x1; c++) {   // 마을 땅은 기초석(못 팜)
+    if (inTown(c)) tiles[r * W + c] = 13;
   }
   for (let r = y0; r < y1; r++) baseTiles.set(tiles.subarray(r * W + x0, r * W + x1), r * W + x0);
   genMask[k] = 1;
@@ -181,9 +181,8 @@ export function genWorld(seed) {
 export function fixFoundation() {
   for (let c = 0; c < W; c++) for (let r = SURF; r <= SURF + 1; r++) {
     if (!isGen(c, r)) continue;
-    const inBuild = BUILD_COLS.some((b) => c >= b[0] && c <= b[1]);
-    if (inBuild) tiles[r * W + c] = 13;
-    else if (tiles[r * W + c] === 13) tiles[r * W + c] = 1;     // 예전 배치(정비소 있던 시절)의 기초석이 광산 터에 남지 않게 흙으로
+    if (inTown(c)) tiles[r * W + c] = 13;
+    else if (tiles[r * W + c] === 13) tiles[r * W + c] = 1;     // 예전 배치의 기초석이 광산 터에 남지 않게 흙으로
   }
 }
 export function resetSeen() {

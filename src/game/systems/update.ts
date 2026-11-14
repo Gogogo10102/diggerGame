@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./town.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, HW, LAYERS, MINE_COL, ORE_COL, SURF, T, TILE, W, inB, layerOf } from "../core/config.ts";
+import { B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, HW, inB, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bombs, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, say, spawn, updateFx } from "../core/stats.ts";
@@ -68,7 +68,7 @@ export function explode(b) {
   const d = Math.hypot(P.x / T - (b.c + 0.5), P.y / T - (b.r + 0.5));
   if (P.dead <= 0 && d < R + 0.9) {
     P.fuel -= maxFuel() * 0.3;
-    P.vy = -320; P.vx = (P.x < x ? -1 : 1) * 240;
+    P.vy = -320 * PX; P.vx = (P.x < x ? -1 : 1) * 240 * PX;
     floaters.push({ x: P.x, y: P.y - 30, text: "폭발! 연료 -30%", color: "#ff6b6b", life: 1.4 });
   }
   if (got > 0) floaters.push({ x: x, y: y - 20, text: "광물 +" + got, color: "#ffd34d", life: 1.4 });
@@ -132,14 +132,14 @@ export function update(dt) {
 
   const dir = (R_() ? 1 : 0) - (L_() ? 1 : 0);
   if (dir !== 0) P.facing = dir;
-  const target = dir * 170 * STAT.speed;
-  const acc = 1400 * dt;
+  const target = dir * 170 * PX * STAT.speed;
+  const acc = 1400 * PX * dt;
   if (P.vx < target) P.vx = Math.min(target, P.vx + acc);
   else if (P.vx > target) P.vx = Math.max(target, P.vx - acc);
 
   const thrusting = U_() && P.fuel > 0;
-  if (thrusting) P.vy = Math.max(-Math.min(480, 260 * (1 + (STAT.thrust - 1) * 0.5)), P.vy - 1800 * STAT.thrust * dt);
-  P.vy = Math.min(520, P.vy + 900 * dt);
+  if (thrusting) P.vy = Math.max(-Math.min(480, 260 * (1 + (STAT.thrust - 1) * 0.5)) * PX, P.vy - 1800 * PX * STAT.thrust * dt);
+  P.vy = Math.min(520 * PX, P.vy + 900 * PX * dt);
 
   P.x += P.vx * dt;
   if (collide(P.x, P.y)) {
