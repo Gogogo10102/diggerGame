@@ -414,7 +414,7 @@ async function login(t, name) {
   console.log("[19] 지반 붕괴 / 지지대 / 광물 재생");
   const t20 = boot(path); t20.run(5); await login(t20, "Cave"); t20.run(10);
   const R = 42;
-  const setup = (c0, c1, extra) => t20.ev("(() => { graceT = 0; unstable = []; warn.fill(0); for (let r = SURF + 38; r <= SURF + 46; r++) for (let c = 2; c < 30; c++) { tiles[r*W+c] = 1; rub[r*W+c] = 0; } for (let c = " + c0 + "; c <= " + c1 + "; c++) tiles[(SURF+" + R + ")*W+c] = 0; " + (extra || "") + " })()");
+  const setup = (c0, c1, extra) => t20.ev("(() => { graceT = 0; unstable = []; warn.fill(0); for (let r = SURF + 38; r <= SURF + 46; r++) for (let c = 2; c < 30; c++) { tiles[r*W+c] = 1; baseTiles[r*W+c] = 1; rub[r*W+c] = 0; } for (let c = " + c0 + "; c <= " + c1 + "; c++) tiles[(SURF+" + R + ")*W+c] = 0; " + (extra || "") + " })()");
   const far = () => t20.ev("P.dead = 0; P.fuel = maxFuel(); P.x = 26 * T + 16; P.y = (SURF + 60) * T + 16; tiles[(SURF+60)*W+26] = 0; P.vx = P.vy = 0");
   const scans = (n) => { for (let i = 0; i < n; i++) t20.ev("scanCave(0.5)"); };
   const cell = (c) => t20.ev("tiles[(SURF+" + R + ")*W+" + c + "]");
@@ -928,11 +928,14 @@ async function login(t, name) {
   t50.ev("keys.ArrowUp = false");
   ok(t50.ev("tiles[(SURF+19)*W+30]") === 0, "위 칸을 끝까지 파냄");
 
-  // 동굴: 켠 월드로 다시 만들기
+  // 동굴: 켠 월드로 다시 만들기 (지표 근처 비교용으로 끈 월드의 같은 줄들을 먼저 기록)
+  const nearRows = "(() => { let a = ''; for (let r = SURF; r < CAVE_TOP; r++) for (let c = 1; c < 6 * CH; c++) a += tiles[r * W + c] === 0 ? '0' : '1'; return a; })()";   // 빈칸 여부만 (동굴 벽 광물은 지표 근처에도 드러날 수 있음)
+  t50.ev("WGEN.caveOff = true; genWorld(acct.seed); ensureRect(0, 0, 6 * CH - 1, 12 * CH - 1)");
+  const nearOff = t50.ev(nearRows);
   t50.ev("WGEN.caveOff = false; genWorld(acct.seed); ensureRect(0, 0, 6 * CH - 1, 12 * CH - 1)");
   const caveInfo = JSON.parse(t50.ev("JSON.stringify((() => { const vis = new Uint8Array(W * H); let big = 0, cells = 0; for (let r = CAVE_TOP; r < 12 * CH; r++) for (let c = 1; c < 6 * CH; c++) { const i = r * W + c; if (vis[i] || !natAir(i)) continue; const q = [i]; vis[i] = 1; for (let k = 0; k < q.length; k++) { const j = q[k]; for (const n of [j - 1, j + 1, j - W, j + W]) if (!vis[n] && natAir(n) && (n % W) < 6 * CH && n / W < 12 * CH) { vis[n] = 1; q.push(n); } } if (q.length >= 12) { big++; cells += q.length; } } return { big, cells }; })())"));
   ok(caveInfo.big >= 5, "땅속에 동굴이 군데군데 있음 (" + caveInfo.big + "개, " + caveInfo.cells + "칸)");
-  ok(t50.ev("(() => { for (let r = SURF; r < CAVE_TOP; r++) for (let c = 1; c < 6 * CH; c++) { const i = r * W + c; if (natAir(i) && (natAir(i - 1) || natAir(i + 1))) return false; } return true; })()"), "지표 가까이엔 동굴 없음");
+  ok(t50.ev(nearRows) === nearOff, "지표 가까이엔 동굴 없음 (동굴을 꺼도 켜도 같은 땅)");   // 흙 속 1칸짜리 빈 구멍은 원래 있음(2%)
   // 동굴을 넣어도 광맥은 그대로 (기존 월드의 광맥 모양 유지)
   const vOn = t50.ev("JSON.stringify(chunkFeatures(3, 9).veins)");
   t50.ev("WGEN.caveOff = true; WGEN.feat.clear()");
@@ -959,6 +962,40 @@ async function login(t, name) {
   t50.ev("chunks.length = 0; for (let k = 0; k < 10; k++) scanFloating(0.5)");
   ok(t50.ev("chunks.length") === 0, "판 칸에 안 닿은 자연 지형은 떨어지지 않음");
   ok(t50.ev("QUESTS.some((q) => q.group === 'cave')"), "동굴 탐험 업적");
+
+  console.log("[29] 안전 노랑 UI · 칸 막대 HUD · 효과음");
+  const t60 = boot(path, { w: 1000, h: 640 }); t60.run(5); await login(t60, "Yellow"); t60.run(10);
+  ok(t60.ev("typeof sfx") === "function" && t60.ev("sfxVol") === 6, "효과음 기본 크기 6");
+  t60.ev("sfx('dig'); sfx('ore'); sfx('buy'); sfx('없는소리')"); ok(true, "Web Audio 가 없어도 효과음 호출에 오류 없음");
+  const mbtn = t60.ev("menuBtn"), bbtn = t60.ev("bagBtn"), qbtn = t60.ev("questBtn");
+  ok(mbtn && bbtn && qbtn && bbtn.x < qbtn.x && qbtn.x < mbtn.x && mbtn.x + mbtn.w <= 1000, "오른쪽 위 사각 버튼 3개 (가방 · 업적 · 메뉴)");
+  ok(t60.canvasTexts().some((x) => /^\d+\/\d+$/.test(x)), "연료·화물 칸 막대 옆 숫자");
+  ok(t60.canvasTexts().some((x) => x === "1m" || /^\d+m$/.test(x)), "깊이 표시");
+  // 상점: 왼쪽 분류 → 오른쪽 목록, 줄마다 구매 버튼
+  t60.ev("P.x = 4 * T; P.y = SURF * T - 20; P.vx = P.vy = 0; P.money = 1000"); t60.run(5);
+  t60.key("KeyE"); t60.run(1);
+  ok(t60.ev("state") === "shop" && t60.ev("shopBtn.filter((b) => b.act === 'tab').length") === t60.ev("CATS.length"), "상점: 왼쪽에 분류 버튼 " + t60.ev("CATS.length") + "개");
+  ok(t60.ev("shopBtn.filter((b) => b.act === 'buy').length") === t60.ev("SHOP_PER"), "목록 줄마다 구매 버튼");
+  t60.tapAct("buy", "steel_drill"); t60.run(1);
+  ok(t60.ev("!!P.items.steel_drill") && t60.ev("P.money") === 920, "줄의 구매 버튼으로 바로 구매");
+  t60.tapAct("tab", 2); t60.run(1);
+  ok(t60.ev("shopTab") === 2 && t60.canvasTexts().some((x) => x.includes("확장 화물칸")), "분류를 누르면 오른쪽 목록이 바뀜");
+  // 판매: 원석 / 주괴 분류
+  t60.ev("P.stash = { 2: 5 }; P.bars = { fe: 2 }; switchTown('sell')"); t60.run(1);
+  ok(t60.ev("shopBtn.filter((b) => b.act === 'scat').length") === 2 && t60.canvasTexts().some((x) => x.includes("구리")), "판매: 원석/주괴 분류 + 원석 목록");
+  const m60 = t60.ev("P.money");
+  t60.tapAct("sell", [2, 1]); t60.run(1);
+  ok(t60.ev("P.stash[2]") === 4 && t60.ev("P.money") > m60, "줄의 1개 버튼으로 판매");
+  t60.tapAct("scat", 1); t60.run(1);
+  ok(t60.ev("sellSel") === t60.ev("SELL_ORES") && t60.canvasTexts().some((x) => x.includes("철 주괴")), "주괴 분류로 바꾸면 주괴 목록");
+  t60.key("ArrowLeft"); ok(t60.ev("sellSel") === 0, "← 키로 원석 분류");
+  t60.key("Escape"); t60.run(1);
+  // 설정: 효과음 크기 (− 칸 막대 +)
+  t60.ev("openMenu()"); await t60.click("설정");
+  await t60.click("−"); ok(t60.ev("sfxVol") === 5 && t60.ev("lsGet('sfx')") === "5", "설정: 효과음 크기 줄이기 + 기기에 저장");
+  await t60.click("효과음: 켜짐"); ok(t60.ev("sfxVol") === 0, "효과음 끄기");
+  await t60.click("효과음: 꺼짐"); ok(t60.ev("sfxVol") === 6, "효과음 다시 켜기");
+  ok(t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('items/')).length") >= 88, "아이템 아이콘 그림 파일 연결");
 
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });

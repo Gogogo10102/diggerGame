@@ -1,5 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../data/recipes.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
+import { sfx } from "../core/sound.ts";
 import { B } from "../art/itemIcons.ts";
 import { ICON, oreIcon, sprite } from "../art/sprites.ts";
 import { BUILD_COLS, B_FURN, SURF, T, TILE } from "../core/config.ts";
@@ -164,16 +165,19 @@ export function updateFurnace(dt) {
 // 용광로 창 열기 (마을 창의 "용광로" 탭. 그리기는 render/townUI.ts)
 export function openFurnace() {
   stashCargo();                                                   // 들고 온 광물은 창고로 (메시지는 stashCargo가 띄움)
-  S.state = "furnace"; keysReset();
+  S.state = "furnace"; keysReset(); sfx("open");
   S.stick = null; touch.l = touch.r = touch.u = touch.d = false;
   const F = S.acct && S.acct.furnace;
   if (F && F.q.length) S.furnaceSel = Math.max(0, BAR_KEYS.indexOf(F.q[F.q.length - 1].m));
 }
 // 창 안의 버튼/키에서 부르는 동작 (결과 메시지는 아래 상세 칸에 표시)
 export function furnaceAct(kind, arg) {
+  const F = S.acct.furnace, q0 = F.q.length, lv0 = F.lv;
   if (kind === "smelt") say(furnaceSmelt(BAR_KEYS[S.furnaceSel], arg));
   else if (kind === "up") say(furnaceUpgrade());
   else if (kind === "clear") say(furnaceClear());
+  const okk = kind === "smelt" ? F.q.length > q0 : kind === "up" ? F.lv > lv0 : q0 > 0;
+  sfx(okk ? (kind === "clear" ? "click" : "buy") : "error");               // 됐으면 띵, 안 됐으면 삐
 }
 // 지금 고른 주괴를 몇 개까지 넣을 수 있는지
 export function furnaceCan(k) {

@@ -12,7 +12,7 @@ import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
-import { ctx, cv, gg, gridCv, icon, keycap, lg, lightCv, panel, pbar, setFont, txt } from "./util.ts";
+import { GLYPH, SY, btnPx, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt } from "./util.ts";
 import { WARN_TIME } from "../systems/cave.ts";
 import { DEBRIS_T, debrisT, dust } from "../systems/collapseFx.ts";
 import { drawDrops } from "../systems/drops.ts";
@@ -21,7 +21,7 @@ import { BARS, furnaceImg, matHave, matIcon, matName } from "../systems/furnace.
 import { STICK_R, U_, shopBtn, touch } from "../systems/input.ts";
 import { drawCraftModal, drawFurnaceModal, drawShopModal, fitText } from "./townUI.ts";
 import { drawMapModal, drawMinimap } from "./minimap.ts";
-import { SELL_COLS, SELL_KEYS, stashValue, unitPrice } from "../systems/town.ts";
+import { SELL_KEYS, stashValue, unitPrice } from "../systems/town.ts";
 import { ov } from "../ui/overlay.ts";
 
 // =====================================================================
@@ -406,86 +406,97 @@ export function draw() {
   if (S.state === "title") drawTitle(SW, SH);
 }
 
-// 소모품 단축 슬롯 (1~6 키 / 터치로 탭)
+// 소모품 단축 슬롯 (1~8 키 / 터치로 탭)
 export function drawHotbar(vw, vh) {
   S.hotBtns = []; S.hotLeft = 1e9;
   if (S.state !== "play") return;
-  const sz = vw < 560 ? 40 : 48, gap = vw < 560 ? 2 : 4, n = HOT.length, tw = n * sz + (n - 1) * gap, isz = sz === 48 ? 32 : 28;
+  const sz = vw < 560 ? 40 : 48, gap = vw < 560 ? 2 : 4, n = HOT.length, tw = n * sz + (n - 1) * gap, isz = 32;
   const x0 = Math.max(8, vw - 12 - tw), y0 = vh - 12 - sz;
   S.hotLeft = x0;
   HOT.forEach((id, i) => {
     const x = x0 + i * (sz + gap), cnt = P.inv[id] || 0;
-    ctx.fillStyle = "#14151f"; ctx.fillRect(x, y0, sz, sz);
-    ctx.fillStyle = cnt > 0 ? "#3a3f5e" : "#23263a"; ctx.fillRect(x + 2, y0 + 2, sz - 4, sz - 4);
-    ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fillRect(x + 2, y0 + 2, sz - 4, 3);
+    pxBox(x, y0, sz, sz, SY.ink);
+    ctx.fillStyle = cnt > 0 ? SY.body : SY.well; ctx.fillRect(x + 2, y0 + 2, sz - 4, sz - 4);
+    ctx.fillStyle = cnt > 0 ? SY.hi : SY.wellDk; ctx.fillRect(x + 2, y0 + 2, sz - 4, 2);
     ctx.globalAlpha = cnt > 0 ? 1 : 0.35;
-    ctx.drawImage(ICON[id], x + ((sz - isz) >> 1), y0 + 3, isz, isz);
+    ctx.drawImage(ICON[id], x + ((sz - isz) >> 1), y0 + (sz === 48 ? 4 : 2), isz, isz);
     ctx.globalAlpha = 1;
-    txt(String(i + 1), x + 5, y0 + 3, "#9aa3c8", 14);
-    txt("x" + cnt, x + sz - 5, y0 + sz - 17, cnt > 0 ? "#fff" : "#7a82a6", 14, "right");
+    txt(String(i + 1), x + 5, y0 + 3, SY.dim, 12);
+    txt("x" + cnt, x + sz - 4, y0 + sz - 15, cnt > 0 ? "#fff" : SY.mute, 12, "right");
     S.hotBtns.push({ x: x - 2, y: y0 - 2, w: sz + 4, h: sz + 4, id });
   });
 }
 
+// 큰 수는 "12.3만" 처럼 줄여서
+function hudMoney(n) { return n >= 100000 ? (n / 10000).toFixed(n >= 1000000 ? 0 : 1) + "만" : Number(n).toLocaleString("en-US"); }
+// 칸 막대 + 왼쪽에 겹쳐 그린 아이콘 (번개 막대 모양)
+function hudBar(x, y, img, n, filled, kind, label, labelCol) {
+  const w = segBar(x + 22, y, n, filled, kind, 10, 20);
+  ctx.drawImage(img, x, y - 6, 32, 32);
+  txt(label, x + 22 + w + 6, y + 3, labelCol || "#fff", 12, "left", SY.ink);
+  return x + 22 + w;
+}
+
 export function drawHUD(vw, vh, depth) {
   shopBtn.length = 0;
-  // 좌상단 상태 카드: 레벨 · 연료 · 돈 · 화물 · 깊이를 한 장에 모음
-  const cw = 268, chh = 112;
-  panel(10, 10, cw, chh);
+  const wide = vw >= 640;
+  const blink = ((S.animT * 4) | 0) % 2;
+  // 왼쪽 위: 연료 · 화물 칸 막대 (아이콘이 막대 왼쪽 끝에 겹침)
+  const fr = Math.max(0, P.fuel / maxFuel()), low = fr < 0.25;
+  const fSeg = Math.ceil(fr * 12 - 1e-9);
+  hudBar(10, 12, ICON.fuel, 12, low && blink ? Math.max(0, fSeg - 1) : fSeg, low ? "low" : "fuel", Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), low ? SY.red : "#fff");
+  const cc = cargoCount(), cap = cargoCap(), full = cc >= cap;
+  hudBar(10, 44, ICON.crate, 12, Math.min(12, Math.ceil(cc / cap * 12 - 1e-9)), full && blink ? "low" : "cargo", cc + "/" + cap, full ? SY.red : "#fff");
+  // 레벨 + 경험치 + 칭호
   const Lx = levelOf(S.acct ? S.acct.xp : 0);
-  ctx.fillStyle = "#14151f"; ctx.fillRect(20, 20, 50, 34);                 // 레벨 배지
-  ctx.fillStyle = "#4b3d8c"; ctx.fillRect(22, 22, 46, 30);
-  ctx.fillStyle = "#6f5cc4"; ctx.fillRect(22, 22, 46, 4);
-  txt("Lv", 45, 24, "#c9bcff", 12, "center");
-  txt(String(Lx.lv), 45, 37, "#ffd34d", 14, "center");
-  // 연료
-  ctx.drawImage(ICON.fuel, 76, 20, 32, 32);
-  const fr = P.fuel / maxFuel();
-  const blink = fr < 0.25 && ((S.animT * 4) | 0) % 2;
-  const fbx = 112, fbw = cw + 10 - fbx - 12;
-  if (fr > 0.5) pbar(fbx, 27, fbw, 18, fr, "#5ee06a", "#a4ff9b");
-  else if (fr > 0.25) pbar(fbx, 27, fbw, 18, fr, "#ffcd3c", "#fff3a8");
-  else pbar(fbx, 27, fbw, 18, fr, blink ? "#ff9a90" : "#ff5a4d", "#ffd0cb");
-  txt(Math.ceil(P.fuel) + " / " + Math.round(maxFuel()), fbx + fbw / 2, 29, "#fff", 12, "center");
-  // 돈 / 화물 / 깊이
-  const money = P.money >= 100000 ? (P.money / 10000).toFixed(P.money >= 1000000 ? 0 : 1) + "만" : String(P.money);
-  const full = cargoCount() >= cargoCap();
-  ctx.drawImage(ICON.coin, 18, 60, 32, 32);   txt("$" + money, 52, 69, "#ffd34d", 14);
-  ctx.drawImage(ICON.crate, 112, 60, 32, 32); txt(cargoCount() + "/" + cargoCap(), 146, 69, full && blink ? "#ff9a90" : full ? "#ff6b6b" : "#fff", 14);
-  ctx.drawImage(ICON.depth, 192, 60, 32, 32); txt((Math.floor(depth) + 1) + "m", 226, 69, "#9fd8ff", 14);
-  // 칭호 + 경험치
-  txt(fitText(titleName() || "칭호 없음", 100), 20, 97, titleName() ? "#ffd34d" : "#7a82a6", 12);
-  pbar(126, 99, cw + 10 - 126 - 12, 10, Lx.lv >= MAX_LV ? 1 : Lx.cur / Lx.need, "#b58cff", "#e3d0ff");
-
-  // 우측 상단: 가방 / 업적 / 메뉴 버튼 한 줄 + 그 아래 깊이 미터
+  plate(10, 74, 50, 24);
+  txt("Lv." + Lx.lv, 35, 80, SY.gold, 12, "center", SY.ink);
+  const xpN = 10, xpF = Lx.lv >= MAX_LV ? xpN : Math.floor(xpN * Lx.cur / Lx.need);
+  segBar(66, 78, xpN, xpF, "xp", 8, 14);
+  txt(fitText(titleName() || "칭호 없음", Math.max(40, (wide ? 300 : vw - 230) - 6), 12), 66 + xpN * 8 + 8, 79, titleName() ? SY.gold : SY.mute, 12, "left", SY.ink);
+  // 돈 · 깊이: 넓은 화면은 위 가운데(깊이) · 오른쪽 위(돈), 좁은 화면은 왼쪽 줄 아래에
+  const dTxt = (Math.floor(depth) + 1) + "m", mTxt = hudMoney(P.money);
   const bs = 44, bg = 6, bx0 = vw - 10 - 3 * bs - 2 * bg, by0 = 10;
+  if (wide) {
+    setFont(16); const dw = Math.ceil(ctx.measureText(dTxt).width) + 48;
+    plate(Math.floor(vw / 2 - dw / 2), 10, dw, 34); ctx.drawImage(ICON.depth, Math.floor(vw / 2 - dw / 2) + 8, 19, 16, 16);
+    txt(dTxt, Math.floor(vw / 2 - dw / 2) + 30, 19, "#9fd8ff", 16);
+    const mw = Math.ceil(ctx.measureText(mTxt).width) + 50, mx0 = bx0 - 10 - mw;
+    plate(mx0, by0, mw, bs); ctx.drawImage(ICON.coin, mx0 + 8, by0 + 6, 32, 32);
+    txt(mTxt, mx0 + mw - 10, by0 + 14, SY.gold, 16, "right");
+  } else {
+    ctx.drawImage(ICON.coin, 10, 102, 24, 24); txt(mTxt, 38, 106, SY.gold, 16, "left", SY.ink);
+    setFont(16); const mw = Math.ceil(ctx.measureText(mTxt).width);
+    ctx.drawImage(ICON.depth, 38 + mw + 14, 106, 16, 16); txt(dTxt, 38 + mw + 34, 106, "#9fd8ff", 16, "left", SY.ink);
+  }
+
+  // 오른쪽 위: 가방(초록) · 업적(파랑) · 메뉴(주황) 사각 버튼 + 그 아래 미니맵 · 깊이 미터
   S.menuBtn = null; S.bagBtn = null; S.questBtn = null;
   if (S.state === "play") {
-    [[ICON.bag, "I", "bag"], [ICON.trophy, "Q", "quest"], [ICON.menu, "Esc", "menu"]].forEach(([img, key, kind], i) => {
+    [["green", GLYPH.bag, "bag", "#1f5418"], ["blue", GLYPH.trophy, "quest", "#0b3f6c"], ["orange", GLYPH.menu, "menu", "#7a3006"]].forEach(([col, g, kind, tc], i) => {
       const x = bx0 + i * (bs + bg);
-      panel(x, by0, bs, bs);
-      ctx.drawImage(img, x + 6, by0 + 6, 32, 32);
-      if (!S.usedTouch) txt(key, x + 4, by0 + bs - 15, "#9aa3c8", 12);
+      const cy = btnPx(x, by0, bs, bs, col);
+      glyph(g, x + Math.floor((bs - 21) / 2), Math.round(cy - 10.5), tc, 3);
       const hitR = { x: x - 3, y: by0 - 3, w: bs + 6, h: bs + 6 };
       if (kind === "bag") S.bagBtn = hitR; else if (kind === "quest") S.questBtn = hitR; else S.menuBtn = hitR;
     });
   }
-  if (S.saveFlash > 0 && S.state !== "title") txt(S.saveFail ? "저장 실패!" : "저장됨", bx0 - 10, by0 + 15, S.saveFail ? "#ff6b6b" : "#7cff6b", 14, "right");
+  if (S.saveFlash > 0 && S.state !== "title") txt(S.saveFail ? "저장 실패!" : "저장됨", bx0 - 10, by0 + (wide ? bs + 6 : 15), S.saveFail ? "#ff6b6b" : "#7cff6b", 12, "right", SY.ink);
   const mh = Math.min(260, vh - 64 - 150), mx = vw - 10 - 36, my = by0 + bs + 10;
   drawMinimap(vw, vh, my);
   if (mh >= 70) {
     panel(mx, my, 36, mh);
     const bx = mx + 12, by = my + 10, bw = 12, bhh = mh - 20, total = H - SURF;
-    ctx.fillStyle = "#14151f"; ctx.fillRect(bx - 2, by - 2, bw + 4, bhh + 4);
+    ctx.fillStyle = SY.ink; ctx.fillRect(bx - 2, by - 2, bw + 4, bhh + 4);
     for (let i = 0; i < LAYERS.length; i++) {
       const a = LAYERS[i].from, b = i < LAYERS.length - 1 ? LAYERS[i + 1].from : total;
       ctx.fillStyle = LAYERS[i].base;
       ctx.fillRect(bx, Math.floor(by + bhh * a / total), bw, Math.ceil(bhh * (b - a) / total));
     }
     const mk = Math.floor(by + bhh * Math.max(0, Math.min(1, depth / total)));
-    ctx.fillStyle = "#14151f";
+    ctx.fillStyle = SY.ink;
     ctx.fillRect(bx - 18, mk - 8, 4, 16); ctx.fillRect(bx - 14, mk - 6, 4, 12); ctx.fillRect(bx - 10, mk - 4, 4, 8); ctx.fillRect(bx - 6, mk - 2, 4, 4);
-    ctx.fillStyle = "#ffd34d";
+    ctx.fillStyle = SY.y;
     ctx.fillRect(bx - 16, mk - 6, 4, 12); ctx.fillRect(bx - 12, mk - 4, 4, 8); ctx.fillRect(bx - 8, mk - 2, 4, 4);
   }
 
@@ -493,7 +504,8 @@ export function drawHUD(vw, vh, depth) {
   if (S.cavWarn > 0 && S.state === "play" && P.dead <= 0) {
     const w = Math.min(320, vw - 24), x = Math.floor((vw - w) / 2), y = S.bannerT > 0 ? 80 : 14;
     const blink = ((S.animT * 5) | 0) % 2;
-    panel(x, y, w, 52, blink ? "#5a2530" : "#3a2f58");
+    panel(x, y, w, 52, blink ? "#5a2530" : SY.body);
+    hazard(x + 2, y + 2, (w - 4) & ~1, 6);
     txt("! 지반이 불안정해요 !", vw / 2, y + 9, blink ? "#ff9a90" : "#ffd34d", 14, "center");
     pbar(x + 20, y + 30, w - 40, 12, Math.min(1, S.cavWarn), "#ff5a4d", "#ffd0cb");
   }
@@ -502,7 +514,8 @@ export function drawHUD(vw, vh, depth) {
   if (S.bannerT > 0) {
     const w = 300, x = (vw - w) / 2;
     const slide = Math.min(1, S.bannerT * 3, (3.5 - S.bannerT) * 3);
-    panel(x, -60 + 76 * slide, w, 56, "#3a2f58");
+    panel(x, -60 + 76 * slide, w, 56);
+    ctx.fillStyle = SY.y; ctx.fillRect(x + 2, -60 + 76 * slide + 2, w - 4, 4);
     txt(S.bannerText, vw / 2, -60 + 76 * slide + 19, "#ffd34d", 14, "center");
   }
 
@@ -524,8 +537,8 @@ export function drawHUD(vw, vh, depth) {
     const pw = Math.ceil(ctx.measureText(label).width) + 56, ph = 48;
     const px = Math.floor((vw - pw) / 2), py = vh - 124 - helpLift;
     S.promptBtn = { x: px, y: py, w: pw, h: ph };
-    panel(px, py, pw, ph, "#3a2f58");
-    txt(label, vw / 2, py + 17, "#ffd34d", 14, "center");
+    const cy = btnPx(px, py, pw, ph, "green");
+    txt(label, vw / 2, cy - 8, "#1f5418", 16, "center", "rgba(0,0,0,0)");
   }
 
   // 토스트
@@ -542,7 +555,7 @@ export function drawHUD(vw, vh, depth) {
   if (helpOn) {
     const hy = helpUp ? vh - 100 : vh - 44;
     ctx.globalAlpha = 0.85;
-    panel(12, hy, helpW, 32, "#23263a");
+    panel(12, hy, helpW, 32, SY.well);
     ctx.globalAlpha = 1;
     txt(helpStr, 28, hy + 10, "#c9cfe6", 12);
   }

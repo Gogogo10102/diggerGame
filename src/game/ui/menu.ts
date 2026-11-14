@@ -13,6 +13,7 @@ import { exportCode } from "../save/transfer.ts";
 import { chunks } from "../systems/floating.ts";
 import { SENS_NAME } from "../systems/input.ts";
 import { charFooter, charTabs } from "./dom.ts";
+import { sfx } from "../core/sound.ts";
 import { lsGet, lsSet, renderInventory } from "./inventory.ts";
 import { el, fmtTime, hideOv, keysReset, mkBtn, openAccountScreen, showOv } from "./overlay.ts";
 
@@ -37,11 +38,11 @@ export function renderMenu(note) {
   if (note) root.appendChild(el("p", "msg", note));
   const bs = el("div", "btns");
   bs.appendChild(mkBtn("계속하기", closeMenu, "pri"));
-  bs.appendChild(mkBtn("지금 저장", async () => { const ok = await saveNow(true); renderMenu(ok ? "저장했어요" : "저장에 실패했어요"); }));
+  bs.appendChild(mkBtn("지금 저장", async () => { const ok = await saveNow(true); renderMenu(ok ? "저장했어요" : "저장에 실패했어요"); }, "info"));
   bs.appendChild(mkBtn("캐릭터 정보 (장비·업적·통계)", () => renderInventory()));
   bs.appendChild(mkBtn("새 광산 찾기", renderNewMine));
   bs.appendChild(mkBtn("설정", () => renderSettings()));
-  bs.appendChild(mkBtn("저장 코드 내보내기", renderExport));
+  bs.appendChild(mkBtn("저장 코드 내보내기", renderExport, "info"));
   bs.appendChild(mkBtn("계정 전환", async () => { await saveNow(true); openAccountScreen(); }));
   root.appendChild(bs);
   showOv(root);
@@ -50,7 +51,22 @@ export function renderSettings(note) {
   const root = el("div");
   root.appendChild(el("h2", null, "설정"));
   if (note) root.appendChild(el("p", "msg", note));
+  // 효과음 크기: − [칸 막대] +  (0 = 끔)
+  const setVol = (v) => {
+    S.sfxVol = Math.max(0, Math.min(10, v)); lsSet("sfx", String(S.sfxVol));
+    renderSettings(S.sfxVol > 0 ? "효과음 크기 " + S.sfxVol + " / 10" : "효과음을 껐어요");
+    sfx("pickup");                                                  // 바뀐 크기로 미리 듣기
+  };
+  const vol = el("div", "vol");
+  vol.appendChild(el("span", "lbl", "효과음"));
+  vol.appendChild(mkBtn("−", () => setVol(S.sfxVol - 1)));
+  const seg = el("div", "seg");
+  for (let i = 0; i < 10; i++) seg.appendChild(el("i", i < S.sfxVol ? "on" : ""));
+  vol.appendChild(seg);
+  vol.appendChild(mkBtn("+", () => setVol(S.sfxVol + 1)));
+  root.appendChild(vol);
   const bs = el("div", "btns");
+  bs.appendChild(mkBtn("효과음: " + (S.sfxVol > 0 ? "켜짐" : "꺼짐"), () => setVol(S.sfxVol > 0 ? 0 : 6), S.sfxVol > 0 ? "pri" : "off"));
   bs.appendChild(mkBtn("화면 확대: " + zoomName(), () => {
     S.zoomSel = (S.zoomSel + 1) % ZOOMS.length; lsSet("zoom", String(S.zoomSel));
     renderSettings("화면 확대를 '" + zoomName() + "'(으)로 바꿨어요");
@@ -63,7 +79,7 @@ export function renderSettings(note) {
     S.showHelp = !S.showHelp; S.helpPinned = S.showHelp;
     renderSettings(S.showHelp ? "도움말을 계속 표시해요" : "도움말을 숨겼어요");
   }));
-  bs.appendChild(mkBtn("뒤로", () => renderMenu(), "pri"));
+  bs.appendChild(mkBtn("뒤로", () => renderMenu(), "back"));
   root.appendChild(bs);
   showOv(root);
 }
@@ -75,7 +91,7 @@ export function renderNewMine() {
   root.appendChild(el("p", "msg", "현재 광산 #" + (S.acct.mineNo || 1) + " → 새 광산 #" + ((S.acct.mineNo || 1) + 1) + " (되돌릴 수 없어요)"));
   const bs = el("div", "btns");
   bs.appendChild(mkBtn("새 광산으로 떠나기", newMine, "pri"));
-  bs.appendChild(mkBtn("취소", () => renderMenu()));
+  bs.appendChild(mkBtn("취소", () => renderMenu(), "back"));
   root.appendChild(bs);
   showOv(root);
 }
@@ -140,13 +156,14 @@ export function renderExport() {
   bs.appendChild(mkBtn("복사", async () => {
     try { await navigator.clipboard.writeText(code); msgEl.textContent = "복사했어요"; }
     catch (e) { ta.focus(); ta.select(); msgEl.textContent = "선택했어요. 길게 눌러 복사하세요"; }
-  }, "pri"));
-  bs.appendChild(mkBtn("뒤로", () => renderMenu()));
+  }, "info"));
+  bs.appendChild(mkBtn("뒤로", () => renderMenu(), "back"));
   root.appendChild(bs);
   showOv(root);
 }
 
 { const raw = lsGet("sens"), v = raw === null ? -1 : Number(raw); if (v === 0 || v === 1 || v === 2) S.sensIdx = v; }
+{ const raw = lsGet("sfx"), v = raw === null ? -1 : Number(raw); if (Number.isInteger(v) && v >= 0 && v <= 10) S.sfxVol = v; }
 { const raw = lsGet("zoom"), v = raw === null ? -1 : Number(raw); if (Number.isInteger(v) && v >= 0 && v < ZOOMS.length) S.zoomSel = v; }
 // 탭을 닫거나 숨길 때 마지막으로 저장
 document.addEventListener("visibilitychange", () => { if (document.hidden) saveNow(true); });
