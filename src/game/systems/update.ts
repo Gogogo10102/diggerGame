@@ -8,7 +8,7 @@ import { ensureAround, hardOf, seen, solid, tiles } from "../core/world.ts";
 import { CONS, visR } from "../data/consumables.ts";
 import { checkQuests, onMined } from "../data/progress.ts";
 import { saveNow } from "../save/account.ts";
-import { placeSupport, updateCave } from "./cave.ts";
+import { discoverCave, placeSupport, updateCave } from "./cave.ts";
 import { drops, spawnDrop, updateDrops } from "./drops.ts";
 import { updateChunks } from "./floating.ts";
 import { updateFurnace } from "./furnace.ts";
@@ -160,10 +160,13 @@ export function update(dt) {
   const rightBlk = collide(P.x + 1, P.y);
 
   // 채굴 대상
-  let tgt = null, downDig = false;
+  let tgt = null, downDig = false, upDig = false;
   const rows = [Math.floor(P.y / T), Math.floor((P.y - HH + 1) / T), Math.floor((P.y + HH - 1) / T)];
+  const headBlk = collide(P.x, P.y - 1);
   if (D_() && grounded) {
     tgt = [Math.floor(P.x / T), Math.floor((P.y + HH + 1) / T)]; downDig = true;
+  } else if (U_() && headBlk && !L_() && !R_()) {                  // 천장에 머리가 닿은 채 위로 → 위 칸을 팜
+    tgt = [Math.floor(P.x / T), Math.floor((P.y - HH - 1) / T)]; upDig = true;
   } else if (L_() && leftBlk) {
     const c = Math.floor((P.x - HW - 1) / T);
     for (const r of rows) if (solid(c, r)) { tgt = [c, r]; break; }
@@ -175,6 +178,7 @@ export function update(dt) {
   }
 
   let digging = false;
+  const digDir = downDig ? "down" : upDig ? "up" : P.facing < 0 ? "left" : "right";
   if (tgt && tgt[0] >= 0 && tgt[0] < W && tgt[1] >= 0 && tgt[1] < H && tiles[tgt[1] * W + tgt[0]] > 0) {
     const id = tiles[tgt[1] * W + tgt[0]];
     const info = TILE[id];
@@ -187,12 +191,13 @@ export function update(dt) {
       if (!S.dig || S.dig.c !== tgt[0] || S.dig.r !== tgt[1]) S.dig = { c: tgt[0], r: tgt[1], t: 0 };
       S.dig.t += dt;
       S.digPT -= dt;
-      if (S.digPT <= 0) { S.digPT = 0.06; chips(S.dig.c, S.dig.r, id, 2, 1); }
+      if (S.digPT <= 0) { S.digPT = 0.06; chips(S.dig.c, S.dig.r, id, 2, 1, digDir); }
       if (S.dig.t >= hardOf(id, S.dig.r) / drillMult()) {
         tiles[tgt[1] * W + tgt[0]] = 0;
         onMined(id);
-        chips(tgt[0], tgt[1], id, 12, 1.4);
+        chips(tgt[0], tgt[1], id, 12, 1.4, digDir);
         S.dig = null;
+        discoverCave(tgt[0], tgt[1]);                              // 뚫은 칸 옆이 숨은 동굴이면 동굴 전체가 드러남
         if (info.value > 0) {
           const ox = (tgt[0] + 0.5) * T, oy = (tgt[1] + 0.5) * T;
           const lucky = STAT.lucky > 0 && Math.random() < STAT.lucky;
@@ -211,7 +216,7 @@ export function update(dt) {
   }
   if (!digging) S.dig = null;
   P.digging = digging;
-  P.mode = digging && downDig ? "down" : "side";
+  P.mode = digging && downDig ? "down" : digging && upDig ? "up" : "side";
 
   // 추진 파티클
   if (thrusting && Math.random() < 0.7) {

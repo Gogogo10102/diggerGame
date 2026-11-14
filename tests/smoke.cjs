@@ -9,6 +9,8 @@ async function login(t, name) {
   const inp = t.find((n) => n.tag === "input");
   inp.value = name;
   await t.click("계정 만들기");
+  // 대부분의 테스트는 굴을 직접 파서 확인하므로 자연 동굴은 끈 월드로 (동굴 테스트 [28]은 켬)
+  t.ev("WGEN.caveOff = true; genWorld(acct.seed); fixFoundation()");
 }
 
 (async () => {
@@ -905,6 +907,58 @@ async function login(t, name) {
   // 광물 위치는 지도에 안 나옴: 같은 지층의 흙·광물·돌은 같은 색, 빈칸만 길 색
   t40.ev("(() => { const r = SURF + 1500; for (let c = 290; c <= 296; c++) seen[r*W+c] = 1; tiles[r*W+290] = 1; tiles[r*W+291] = 11; tiles[r*W+292] = 5; tiles[r*W+293] = 12; tiles[r*W+294] = 0; })()");
   ok(t40.ev("(() => { const r = SURF + 1500, a = mapColor(290, r); return a === mapColor(291, r) && a === mapColor(292, r) && a === mapColor(293, r) && mapColor(294, r) === MAP_PATH && a !== MAP_PATH; })()"), "지도에 광물 위치는 안 보이고 길만 보임");
+
+  console.log("[28] 파기 방향 이펙트 / 위로 파기 / 동굴");
+  const t50 = boot(path, { w: 1000, h: 640 }); t50.run(5); await login(t50, "Cave"); t50.run(10);
+  // 작은 방: (30, SURF+20)에 서 있고 오른쪽·위가 흙
+  const room = () => t50.ev("(() => { graceT = 99; for (let r = SURF + 16; r <= SURF + 24; r++) for (let c = 26; c <= 34; c++) tiles[r*W+c] = 1; tiles[(SURF+20)*W+30] = 0; tiles[(SURF+20)*W+29] = 0; P.x = 30 * T + T / 2; P.y = (SURF + 21) * T - HH - 1; P.vx = P.vy = 0; P.fuel = maxFuel(); parts.length = 0; })()");
+  room();
+  t50.ev("keys.ArrowRight = true"); t50.run(20);
+  ok(t50.ev("P.digging") && t50.ev("P.mode") === "side" && t50.ev("parts.length") > 0, "옆으로 파는 중");
+  ok(t50.ev("parts.filter((q) => q.vx < 0).length") > t50.ev("parts.filter((q) => q.vx > 0).length"), "오른쪽을 파면 파편이 왼쪽(플레이어 쪽)으로 튐");
+  ok(t50.ev("parts.every((q) => q.x <= 31 * T + 8)"), "파편은 판 칸의 플레이어 쪽 면에서 나옴");
+  t50.ev("keys.ArrowRight = false");
+  room();
+  t50.ev("keys.ArrowUp = true"); for (let i = 0; i < 120 && !t50.ev("collide(P.x, P.y - 1)"); i++) t50.run(1);
+  ok(t50.ev("collide(P.x, P.y - 1)"), "위로 날아 천장에 머리가 닿음");
+  t50.ev("parts.length = 0"); t50.run(16);
+  ok(t50.ev("P.digging") && t50.ev("P.mode") === "up" && t50.ev("dig && dig.r") === t50.ev("SURF + 19"), "천장에 닿은 채 위를 누르면 위 칸을 팜");
+  ok(t50.ev("parts.filter((q) => q.vy > 0).length") > t50.ev("parts.filter((q) => q.vy < 0).length"), "위를 파면 파편이 아래로 쏟아짐");
+  for (let i = 0; i < 600 && t50.ev("tiles[(SURF+19)*W+30]") !== 0; i++) t50.run(1);
+  t50.ev("keys.ArrowUp = false");
+  ok(t50.ev("tiles[(SURF+19)*W+30]") === 0, "위 칸을 끝까지 파냄");
+
+  // 동굴: 켠 월드로 다시 만들기
+  t50.ev("WGEN.caveOff = false; genWorld(acct.seed); ensureRect(0, 0, 6 * CH - 1, 12 * CH - 1)");
+  const caveInfo = JSON.parse(t50.ev("JSON.stringify((() => { const vis = new Uint8Array(W * H); let big = 0, cells = 0; for (let r = CAVE_TOP; r < 12 * CH; r++) for (let c = 1; c < 6 * CH; c++) { const i = r * W + c; if (vis[i] || !natAir(i)) continue; const q = [i]; vis[i] = 1; for (let k = 0; k < q.length; k++) { const j = q[k]; for (const n of [j - 1, j + 1, j - W, j + W]) if (!vis[n] && natAir(n) && (n % W) < 6 * CH && n / W < 12 * CH) { vis[n] = 1; q.push(n); } } if (q.length >= 12) { big++; cells += q.length; } } return { big, cells }; })())"));
+  ok(caveInfo.big >= 5, "땅속에 동굴이 군데군데 있음 (" + caveInfo.big + "개, " + caveInfo.cells + "칸)");
+  ok(t50.ev("(() => { for (let r = SURF; r < CAVE_TOP; r++) for (let c = 1; c < 6 * CH; c++) { const i = r * W + c; if (natAir(i) && (natAir(i - 1) || natAir(i + 1))) return false; } return true; })()"), "지표 가까이엔 동굴 없음");
+  // 동굴을 넣어도 광맥은 그대로 (기존 월드의 광맥 모양 유지)
+  const vOn = t50.ev("JSON.stringify(chunkFeatures(3, 9).veins)");
+  t50.ev("WGEN.caveOff = true; WGEN.feat.clear()");
+  const vOff = t50.ev("JSON.stringify(chunkFeatures(3, 9).veins)");
+  t50.ev("WGEN.caveOff = false; WGEN.feat.clear()");
+  ok(vOn === vOff, "동굴이 생겨도 광맥 배치는 예전과 같음");
+  // 순서와 상관없이 같은 모양 (동굴 포함)
+  const cs = (cx, cy) => t50.ev("(() => { let s = ''; for (let r = " + cy + " * CH; r < " + cy + " * CH + CH; r++) for (let c = " + cx + " * CH; c < " + cx + " * CH + CH; c++) s += String.fromCharCode(65 + tiles[r*W+c]); return s; })()");
+  const c7 = cs(4, 7);
+  t50.ev("genWorld(acct.seed); genChunk(5, 8); genChunk(4, 7)");
+  ok(cs(4, 7) === c7, "동굴이 있어도 구역 생성 순서와 상관없이 같은 모양");
+  // 동굴 하나를 골라 그 옆 흙을 파고 들어가면 '발견'
+  const target = JSON.parse(t50.ev("JSON.stringify((() => { ensureRect(0, 0, 6 * CH - 1, 12 * CH - 1); for (let r = CAVE_TOP + 4; r < 11 * CH; r++) for (let c = 4; c < 6 * CH - 4; c++) { const i = r * W + c; if (natAir(i) && tiles[i + 1] === 1 && tiles[i + 2] === 1 && tiles[i + 2 + W] !== 0) { const q = [i], v = new Set([i]); for (let k = 0; k < q.length && q.length < 200; k++) for (const n of [q[k] - 1, q[k] + 1, q[k] - W, q[k] + W]) if (!v.has(n) && natAir(n)) { v.add(n); q.push(n); } if (q.length >= 20) return { c, r }; } } return null; })())"));
+  ok(!!target, "발견 실험용 동굴 찾음");
+  t50.ev("seen.fill(0); stats0 = acct.stats.caves || 0; graceT = 99");
+  t50.ev("(() => { const c = " + target.c + ", r = " + target.r + "; tiles[r*W + c + 2] = 0; P.x = (c + 2) * T + T / 2; P.y = (r + 1) * T - HH - 1; P.vx = P.vy = 0; P.fuel = maxFuel(); })()");
+  ok(t50.ev("seen[" + target.r + " * W + " + target.c + "]") === 0, "동굴은 처음엔 안 보임");
+  t50.ev("keys.ArrowLeft = true"); for (let i = 0; i < 600 && t50.ev("tiles[" + target.r + " * W + " + (target.c + 1) + "]") !== 0; i++) t50.run(1); t50.ev("keys.ArrowLeft = false");
+  ok(t50.ev("acct.stats.caves") === t50.ev("stats0") + 1 && t50.ev("seen[" + target.r + " * W + " + target.c + "]") === 1, "흙을 뚫고 들어가면 동굴 발견 (통계 +1, 동굴 전체가 보임)");
+  ok(t50.ev("msg").includes("동굴 발견"), "동굴 발견 안내");
+  // 자연 동굴은 무너지거나 떨어지지 않음
+  t50.ev("graceT = 0; warn.fill(0); scanCave(0.5); scanCave(0.5)");
+  ok(t50.ev("unstable.filter((u) => { for (let c = u.c0; c <= u.c1; c++) if (natAir(u.r * W + c)) return true; return false; }).length") === 0, "자연 동굴 칸은 천장 붕괴 계산에 안 들어감");
+  t50.ev("chunks.length = 0; for (let k = 0; k < 10; k++) scanFloating(0.5)");
+  ok(t50.ev("chunks.length") === 0, "판 칸에 안 닿은 자연 지형은 떨어지지 않음");
+  ok(t50.ev("QUESTS.some((q) => q.group === 'cave')"), "동굴 탐험 업적");
 
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });
