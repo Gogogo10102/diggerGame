@@ -13,7 +13,6 @@ import { CATS, ITEMS } from "../data/items.ts";
 import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { GLYPH, SY, btnPx, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt } from "./util.ts";
-import { WARN_TIME } from "../systems/cave.ts";
 import { DEBRIS_T, debrisT, dust } from "../systems/collapseFx.ts";
 import { drawDrops } from "../systems/drops.ts";
 import { chunks, floatT, solidTile } from "../systems/floating.ts";
@@ -27,6 +26,117 @@ import { ov } from "../ui/overlay.ts";
 // =====================================================================
 //  렌더링
 // =====================================================================
+// =====================================================================
+//  부드러운 굴 가장자리 (Chipmatic 느낌)
+//  - 흙 칸에서 '보이는 빈칸'(판 굴·발견한 동굴) 쪽 면(옆벽·천장)을 그림 2~5칸(화면 8~20px) 깎아 내고, 깎인 자리에 굴 배경을 그림.
+//    바닥(흙 칸의 윗면)은 캐릭터가 딛는 곳이라 평평하게 둠(모서리만 둥글게).
+//    그래서 한 칸을 파면 옆 흙들이 같이 작아지면서 통로가 블록보다 넓고 둥글어 보임. (충돌은 그대로 칸 단위)
+//  - 깎는 깊이는 '세상 좌표'로 정해서 이웃 칸끼리 굴 벽이 끊김 없이 이어짐. 볼록한 모서리는 둥글게.
+//  - 파는 중인 칸은 드릴 쪽부터 진행도만큼 더 깎여 들어감.
+//  - 아직 못 본 동굴 쪽은 깎지 않음(동굴 위치가 새면 안 됨).
+// =====================================================================
+const EDGE_CACHE = new Map();
+function edgeHash(a, b) {
+  let h = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return (h >>> 16) & 3;
+}
+// 경계선 line 위, 그림 좌표 along 에서 깎는 깊이 (2~5칸). 6칸마다 정한 값을 부드럽게 이어서 이빨처럼 들쭉날쭉하지 않고 물결처럼
+function edgeDepth(along, line) {
+  const k = Math.floor(along / 6), f = (along - k * 6) / 6, s2 = f * f * (3 - 2 * f);
+  const v = edgeHash(k, line) * (1 - s2) + edgeHash(k + 1, line) * s2;    // 0~3
+  return 2 + Math.round(v);
+}
+const seenAir = (c, r) => isAir(c, r) && seen[r * W + c] === 1;
+function edgePaths(c, r, bits, dig, digSide) {
+  const key = c + "," + r + "," + bits + "," + dig + "," + digSide;
+  let e = EDGE_CACHE.get(key);
+  if (e) return e;
+  const aT = bits & 1, aB = bits & 2, aL = bits & 4, aR = bits & 8, dTL = bits & 16, dTR = bits & 32, dBL = bits & 64, dBR = bits & 128;
+  const cut = new Uint8Array(256), X0 = c * 16, Y0 = r * 16, RC = 6;
+  const extra = (side) => (side === digSide ? dig : 0);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const X = X0 + x, Y = Y0 + y;
+    let k = 0;
+    if (digSide === 1 && y < extra(1)) k = 1;            // 윗면 = 위 굴의 바닥: 캐릭터가 딛고 서는 곳이라 깎지 않음(뜬 것처럼 보이지 않게)
+    if ((aB || digSide === 2) && 15 - y < (aB ? edgeDepth(X, r * 2 + 2) : 0) + extra(2)) k = 1;
+    if ((aL || digSide === 4) && x < (aL ? edgeDepth(Y, 100003 + c * 2) : 0) + extra(4)) k = 1;
+    if ((aR || digSide === 8) && 15 - x < (aR ? edgeDepth(Y, 100003 + c * 2 + 2) : 0) + extra(8)) k = 1;
+    // 볼록한 모서리(두 면이 빈칸)는 둥글게
+    const rnd = (cx, cy) => (cx - x - 0.5) * (cx - x - 0.5) + (cy - y - 0.5) * (cy - y - 0.5) > RC * RC;
+    if (aT && aL && x < RC && y < RC && rnd(RC, RC)) k = 1;
+    if (aT && aR && x >= 16 - RC && y < RC && rnd(16 - RC, RC)) k = 1;
+    if (aB && aL && x < RC && y >= 16 - RC && rnd(RC, 16 - RC)) k = 1;
+    if (aB && aR && x >= 16 - RC && y >= 16 - RC && rnd(16 - RC, 16 - RC)) k = 1;
+    // 대각선만 빈칸인 안쪽 모서리: 이웃 칸들이 깎인 만큼 이어서 깎되 꼭짓점 한 칸은 남겨 살짝 둥글게
+    //   (xx, yy) = 그 모서리에서 잰 거리, dx/dy = 이웃 칸들이 깎인 깊이
+    const notch = (xx, yy, dx, dy) => xx < dx && yy < dy && !(xx === dx - 1 && yy === dy - 1);
+    const dL = () => edgeDepth(Y, 100003 + c * 2), dR = () => edgeDepth(Y, 100003 + c * 2 + 2);
+    const dT = () => edgeDepth(X, r * 2), dB = () => edgeDepth(X, r * 2 + 2);
+    if (dTL && !aT && !aL && notch(x, y, dL(), 1)) k = 1;
+    if (dTR && !aT && !aR && notch(15 - x, y, dR(), 1)) k = 1;
+    if (dBL && !aB && !aL && notch(x, 15 - y, dL(), dB())) k = 1;
+    if (dBR && !aB && !aR && notch(15 - x, 15 - y, dR(), dB())) k = 1;
+    cut[y * 16 + x] = k;
+  }
+  const cutP = new Path2D(), line = new Path2D(), lit = new Path2D(), shade = new Path2D(), u = AS;
+  for (let y = 0; y < 16; y++) {
+    let x0 = -1;
+    for (let x = 0; x <= 16; x++) {
+      const on = x < 16 && cut[y * 16 + x];
+      if (on && x0 < 0) x0 = x;
+      if (!on && x0 >= 0) { cutP.rect(x0 * u, y * u, (x - x0) * u, u); x0 = -1; }
+    }
+  }
+  const isCut = (x, y) => x >= 0 && x < 16 && y >= 0 && y < 16 && cut[y * 16 + x] === 1;
+  if (aT) for (let x = 0; x < 16; x++) if (!cut[x]) { line.rect(x * u, 0, u, 2); lit.rect(x * u, 2, u, 2); }   // 깎지 않은 바닥에도 윤곽 + 빛
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    if (cut[y * 16 + x]) continue;
+    const px = x * u, py = y * u;
+    if (isCut(x, y - 1)) { line.rect(px, py, u, 2); lit.rect(px, py + 2, u, 2); }      // 바닥 면: 윤곽 + 위에서 오는 빛
+    if (isCut(x, y + 1)) { line.rect(px, py + u - 2, u, 2); shade.rect(px, py - 2, u, 4); }   // 천장 면: 윤곽 + 그늘
+    if (isCut(x - 1, y)) line.rect(px, py, 2, u);
+    if (isCut(x + 1, y)) { line.rect(px + u - 2, py, 2, u); shade.rect(px + u - 4, py, 2, u); }
+  }
+  e = { cut: cutP, line, lit, shade, any: cut.some((v) => v) };
+  if (EDGE_CACHE.size > 6000) EDGE_CACHE.clear();
+  EDGE_CACHE.set(key, e);
+  return e;
+}
+function softEdge(c, r, px, py, id) {
+  if (typeof Path2D === "undefined") return;
+  let bits = 0;
+  if (seenAir(c, r - 1)) bits |= 1;
+  if (seenAir(c, r + 1)) bits |= 2;
+  if (seenAir(c - 1, r)) bits |= 4;
+  if (seenAir(c + 1, r)) bits |= 8;
+  if (seenAir(c - 1, r - 1)) bits |= 16;
+  if (seenAir(c + 1, r - 1)) bits |= 32;
+  if (seenAir(c - 1, r + 1)) bits |= 64;
+  if (seenAir(c + 1, r + 1)) bits |= 128;
+  // 파는 중인 칸: 드릴이 닿은 쪽(플레이어 쪽)부터 진행도만큼 더 깎음 (0~8칸)
+  let dig = 0, side = 0;
+  if (S.dig && S.dig.c === c && S.dig.r === r) {
+    const need = Math.max(0.01, hardOf(id, r) / drillMult());
+    dig = Math.min(8, Math.round(Math.min(1, S.dig.t / need) * 8));
+    const pc = P.x / T, pr = P.y / T;
+    side = Math.abs(pc - (c + 0.5)) > Math.abs(pr - (r + 0.5)) ? (pc < c + 0.5 ? 4 : 8) : (pr < r + 0.5 ? 1 : 2);
+  }
+  if (!bits && !dig) return;
+  const e = edgePaths(c, r, bits, dig, side);
+  if (!e.any) return;
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.save(); ctx.clip(e.cut);
+  ctx.drawImage(backTiles[layerOf(r - SURF)][(c * 5 + r * 3) & 3], 0, 0, T, T);
+  ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(0, 0, T, T);   // 깎인 자리는 굴 안쪽이라 살짝 어둡게
+  ctx.restore();
+  ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.fill(e.shade);
+  ctx.fillStyle = "rgba(255,230,190,0.16)"; ctx.fill(e.lit);
+  ctx.fillStyle = "#0f0905"; ctx.fill(e.line);
+  ctx.restore();
+}
+
 export function getCam(vw, vh) {
   let x = P.x - vw / 2, y = P.y - vh / 2;
   if (W * T <= vw) x = -(vw - W * T) / 2;
@@ -117,10 +227,8 @@ export function draw() {
             ctx.fillStyle = "#3a6b2e";
             for (let k = 0; k < 4; k++) { const hh = 2 + ((hv(c * 4 + k, 51) >> 2) % 3) * 2; ctx.fillRect(px + k * (T / 4) + 2, py - hh, 2, hh); }
           }
-          // 천장·벽 그늘(동굴 깊이감)
-          if (r > SURF && solidTile(tiles[(r - 1) * W + c])) { ctx.fillStyle = "rgba(0,0,0,0.34)"; ctx.fillRect(px, py, T, 8); ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.fillRect(px, py + 8, T, 8); }
-          if (c > 0 && solidTile(tiles[r * W + c - 1])) { ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.fillRect(px, py, 6, T); }
-          if (c < W - 1 && solidTile(tiles[r * W + c + 1])) { ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.fillRect(px + T - 6, py, 6, T); }
+          // 천장 쪽은 살짝 어둡게 (굴 벽 모양은 흙 칸 쪽에서 깎아서 그림 → softEdge)
+          if (r > SURF && solidTile(tiles[(r - 1) * W + c])) { ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fillRect(px, py, T, 12); }
         } else if (r === SURF - 1 && id === 0 && tiles[SURF * W + c] !== 13 && solidTile(tiles[SURF * W + c])) {
           const dc = decoFor(c);
           if (dc) ctx.drawImage(dc, px, py, T, T);
@@ -139,17 +247,8 @@ export function draw() {
         ctx.restore();
         ctx.fillStyle = "rgba(0,0,0," + (0.35 * (1 - k)).toFixed(2) + ")"; ctx.fillRect(px, py, T, T);
       } else drawSolid(id, c, r, px, py);
-      // 터널 가장자리: 어두운 윤곽 + 안쪽 하이라이트/그림자
-      const aT = isAir(c, r - 1) && r - 1 >= SURF, aB = isAir(c, r + 1), aL = isAir(c - 1, r), aR = isAir(c + 1, r);
-      if (aT) { ctx.fillStyle = "rgba(255,230,190,0.16)"; ctx.fillRect(px, py + 2, T, 2); }
-      if (aL) { ctx.fillStyle = "rgba(255,230,190,0.10)"; ctx.fillRect(px + 2, py, 2, T); }
-      if (aB) { ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.fillRect(px, py + T - 6, T, 4); }
-      if (aR) { ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.fillRect(px + T - 6, py, 4, T); }
-      ctx.fillStyle = "#0f0905";
-      if (aT) ctx.fillRect(px, py, T, 2);
-      if (aB) ctx.fillRect(px, py + T - 2, T, 2);
-      if (aL) ctx.fillRect(px, py, 2, T);
-      if (aR) ctx.fillRect(px + T - 2, py, 2, T);
+      // 굴 가장자리: 빈칸 쪽 면을 2~3칸(그림 기준) 깎고 모서리를 둥글게 → 블록이 사라지는 게 아니라 굴이 넓어지는 느낌
+      if (r > SURF && id !== 7 && id !== 13) softEdge(c, r, px, py, id);
     }
   }
   // 지표 굴 가장자리: 잔디가 옆면을 감싸고 굴 쪽으로 살짝 늘어져서 끊기지 않고 이어져 보이게
@@ -259,18 +358,7 @@ export function draw() {
     }
   }
 
-  // 지반 붕괴 징후: 천장에 균열이 생기고 떨리다가 무너짐
-  for (const u of S.unstable) {
-    if (!(u.t > 0)) continue;
-    const k = Math.min(1, (u.t + S.scanT) / WARN_TIME);
-    for (let c = u.c0; c <= u.c1; c++) {
-      const px = c * T - camX, py = (u.r - 1) * T - camY;
-      if (px < -T || px > vw || py < -T || py > vh) continue;
-      const sh = k > 0.35 ? (((((S.animT * 30) | 0) + c) % 2) ? 1 : -1) : 0;
-      ctx.drawImage(cracks[k < 0.35 ? 0 : k < 0.7 ? 1 : 2], px + sh, py, T, T);
-      if (k > 0.55 && ((S.animT * 6) | 0) % 2) { ctx.globalAlpha = 0.25; ctx.fillStyle = "#ff3b2f"; ctx.fillRect(px, py, T, T); ctx.globalAlpha = 1; }
-    }
-  }
+
 
   // 설치한 다이너마이트
   for (const b of bombs) {
@@ -406,7 +494,7 @@ export function draw() {
   if (S.state === "title") drawTitle(SW, SH);
 }
 
-// 소모품 단축 슬롯 (1~8 키 / 터치로 탭)
+// 소모품 단축 슬롯 (1~6 키 / 터치로 탭)
 export function drawHotbar(vw, vh) {
   S.hotBtns = []; S.hotLeft = 1e9;
   if (S.state !== "play") return;
@@ -501,14 +589,6 @@ export function drawHUD(vw, vh, depth) {
   }
 
   // 지반 불안정 경고
-  if (S.cavWarn > 0 && S.state === "play" && P.dead <= 0) {
-    const w = Math.min(320, vw - 24), x = Math.floor((vw - w) / 2), y = S.bannerT > 0 ? 80 : 14;
-    const blink = ((S.animT * 5) | 0) % 2;
-    panel(x, y, w, 52, blink ? "#5a2530" : SY.body);
-    hazard(x + 2, y + 2, (w - 4) & ~1, 6);
-    txt("! 지반이 불안정해요 !", vw / 2, y + 9, blink ? "#ff9a90" : "#ffd34d", 14, "center");
-    pbar(x + 20, y + 30, w - 40, 12, Math.min(1, S.cavWarn), "#ff5a4d", "#ffd0cb");
-  }
 
   // 지층 배너
   if (S.bannerT > 0) {
@@ -525,7 +605,7 @@ export function drawHUD(vw, vh, depth) {
   const helpOn = S.showHelp && S.state === "play" && (S.helpPinned || S.playT < 30);
   const helpStr = S.usedTouch
     ? "드래그로 조작 · 아래 슬롯: 소모품 · 오른쪽 위: 가방/업적/메뉴"
-    : "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-8 소모품 · I 가방 · Q 업적 · M 지도 · Z 확대 · H 도움말";
+    : "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-6 소모품 · I 가방 · Q 업적 · M 지도 · Z 확대 · H 도움말";
   setFont(12);
   const helpW = Math.ceil(ctx.measureText(helpStr).width) + 32;
   const helpUp = helpOn && 12 + helpW > S.hotLeft - 8;      // 슬롯과 겹치면 도움말을 슬롯 위로 올리고, 안내창도 같이 올림

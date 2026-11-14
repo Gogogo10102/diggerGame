@@ -33,10 +33,11 @@ export const CONS = {
   dyn_s: { name: "다이너마이트", kind: "bomb", rad: 1, cost: 60, desc: "설치 2.5초 후 폭발 · 3x3" },
   dyn_l: { name: "강력 다이너마이트", kind: "bomb", rad: 2, cost: 200, desc: "설치 2.5초 후 폭발 · 5x5" },
   dyn_x: { name: "초강력 폭약", kind: "bomb", rad: 3, cost: 600, desc: "설치 2.5초 후 폭발 · 7x7" },
-  sup_w: { name: "나무 지지대", kind: "support", steel: false, cost: 15, desc: "약한 천장을 받쳐요 · 약 4칸마다" },
-  sup_s: { name: "강철 지지대", kind: "support", steel: true, cost: 60, desc: "양옆 1칸까지 보강 · 약 7칸마다" },
+  sup_w: { name: "나무 지지대", kind: "support", steel: false, cost: 15, desc: "(더 이상 팔지 않음)" },
+  sup_s: { name: "강철 지지대", kind: "support", steel: true, cost: 60, desc: "(더 이상 팔지 않음)" },
 };
-export const HOT = ["fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x", "sup_w", "sup_s"];
+// 단축 슬롯(1~6) = 상점 소모품. 지지대(sup_w/sup_s)는 지반 붕괴를 없애면서 뺐음 (옛 세이브 호환용으로 CONS 에만 남김)
+export const HOT = ["fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x"];
 {
   const ids = [];
   for (const id of HOT) {

@@ -66,7 +66,7 @@ export function renderInventory(note) {
   }
   root.appendChild(grid);
   // 소모품
-  root.appendChild(el("p", "msg", "소모품 (숫자 키 1~8)"));
+  root.appendChild(el("p", "msg", "소모품 (숫자 키 1~6)"));
   const hot = el("div", "slots hot");
   HOT.forEach((id, i) => {
     const n = P.inv[id] || 0;
@@ -74,7 +74,7 @@ export function renderInventory(note) {
     s.appendChild(iconEl(ICON[id], 36));
     s.appendChild(el("div", "nm2", (i + 1) + ". " + CONS[id].name));
     s.appendChild(el("div", "dim sm", "x" + n));
-    const usable = n > 0 || CONS[id].kind === "support";
+    const usable = n > 0;
     s.addEventListener("click", () => { if (usable) { closeMenu(); useConsumable(id); } });
     if (usable) s.style.cursor = "pointer";
     hot.appendChild(s);

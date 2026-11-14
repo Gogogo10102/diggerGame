@@ -36,7 +36,7 @@
   #ov .bar{height:12px;background:#8c8c8c;margin:5px 0;border:2px solid #0b0c0f;box-sizing:content-box}
   #ov .bar .fill{height:100%;background:linear-gradient(#ffe066 0 3px,#f8a430 3px 9px,#d0621e 9px)}
   #ov .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
-  #ov .slots.hot{grid-template-columns:repeat(4,1fr)}
+  #ov .slots.hot{grid-template-columns:repeat(3,1fr)}
   #ov .slots.ores{grid-template-columns:repeat(3,1fr)}
   #ov .slot{background:#1d2027;padding:6px 4px;text-align:center;border:2px solid #0b0c0f;min-width:0}
   #ov .slot.empty{opacity:.45}
