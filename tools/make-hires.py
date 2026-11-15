@@ -336,80 +336,25 @@ def cloud():
     return im[24:56]
 
 # ---------------------------------------------------------------------
-#  캐릭터: 드릴 로봇 부품 (그림 120x120 = 화면 그대로, 몸통 칸 36~84, 발 = y 84)
-#   옆에서 본 약간 3D: 옆면은 밝게, 앞면(오른쪽)·궤도 윗면·뒤쪽 궤도가 살짝 보임. 굵은 외곽선(2px)
-#   통통한 노란 몸 + 회색 머리·파란 외눈 + 귀 같은 안테나 두 개, 관절 없는 통짜 팔 끝에 드릴
-#   body_<자세>  : 색 그대로 (몸·머리·어깨·팔·드릴 척)
-#   trk_<0|1>    : 궤도 (회색 → 게임에서 궤도 단계 색으로 바꿔 칠함)
-#   cw · lamp    : 등 탱크(화물칸 단계 색) · 안테나 끝 불빛(조명 색)
-#   bit_<자세>_<0|1> : 드릴 원뿔(회색 → 드릴 단계 색), 홈이 밀린 두 장면
+#  캐릭터: 드릴 로봇 부품 → tools/robot3d.py (작은 3D 장면을 3/4 각도로 비춰 도트로 끊음)
+#   body_<자세> 색 그대로 / trk_<0|1> 궤도 · cw 등 탱크 · lamp 안테나 끝 · bit_<자세>_<0|1> 드릴 원뿔 은 회색
 # ---------------------------------------------------------------------
-MN = 120
-def P(f):                                        # 화면 px 좌표로 쓴 도형 → 16칸 좌표계
-    return lambda U, V: f(U * MN / 16, V * MN / 16)
 GRAY = ["#202020", "#505050", "#808080", "#c0c0c0", "#ffffff"]
-def thick_outline(im):
-    """바깥에 1px 더 짙은 테두리 (화면에서 작게 보여도 도트 윤곽이 또렷하게)"""
-    a = im[..., 3] > 0
-    d = a.copy()
-    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)): d |= np.roll(np.roll(a, dy, 0), dx, 1)
-    out = im.copy(); out[d & ~a] = [14, 15, 20, 255]
-    return out
 def miner_parts():
-    MAT["sy"] = ["#5a3400", "#c47e00", "#ffbe1a", "#ffe27a", "#fff6c8"]
-    MAT["syd"] = ["#3a2200", "#8a5600", "#c98a10", "#e8b030", "#ffe08a"]      # 앞면(그늘진 면) 노랑
-    MAT["chr"] = ["#0e1014", "#22252d", "#3a3f4b", "#5a6170", "#8a92a2"]
-    MAT["hd"] = ["#2a2f3a", "#6a7384", "#b4bcca", "#e2e7ef", "#ffffff"]
-    MAT["eye"] = ["#0a2a5a", "#1a5ac0", "#4aa8ff", "#b8e4ff", "#ffffff"]
-    MAT["gry"] = GRAY
+    import robot3d
+    ramps = {"sy": ["#5a3400", "#c47e00", "#ffbe1a", "#ffe27a", "#fff6c8"], "chr": ["#0e1014", "#22252d", "#3a3f4b", "#5a6170", "#8a92a2"],
+             "hd": ["#2a2f3a", "#6a7384", "#b4bcca", "#e2e7ef", "#ffffff"], "eye": ["#0a2a5a", "#1a5ac0", "#4aa8ff", "#b8e4ff", "#ffffff"],
+             "steel": ["#1e222c", "#464e60", "#7a8496", "#b6bfce", "#f0f4fa"], "gry": GRAY}
+    ramps = {k: [list(hexrgb(c).astype(int)) for c in v] for k, v in ramps.items()}
     out = {}
-    def R_(lays): return render(lays, MN, "B", [])
-    s16 = lambda v: v * 16 / MN
-    stripes = [L(P(U_(*[rect(x, 66.5, x + 4, 69.5) for x in range(42, 77, 9)])), "chr", "fix", 2, sep=False)]
-    fender = [L(P(rrect(37, 61, 81, 71, 3)), "sy", "flat", 2), L(P(rect(38, 67, 80, 70)), "syd", "fix", 1, sep=False)] + stripes
-    shell = [L(P(rrect(37, 34, 74, 66, 12)), "sy", "dome", 2.6, rr=2.4, spec=[(s16(44), s16(41))]),       # 몸 옆면
-             L(P(D_(rrect(37, 34, 74, 66, 12), rect(0, 0, 64, 120))), "syd", "dome", 2.2, rr=1.2),         # 앞면(오른쪽, 그늘)
-             L(P(rrect(46, 50, 60, 63, 3)), "chr", "flat", 1),                                              # 배 쪽 어두운 판
-             L(P(U_(rect(49, 54, 57, 55.4), rect(49, 57.5, 57, 58.9))), "chr", "fix", 3, sep=False)]
-    head = [L(P(rrect(41, 21, 66, 42, 7)), "hd", "flat", 3),
-            L(P(D_(rrect(42, 22, 65, 41, 6), rect(0, 0, 120, 25.5), rect(0, 0, 44.5, 120))), "hd", "fix", 3, sep=False),
-            L(P(D_(rrect(41, 21, 66, 42, 7), rect(0, 0, 58, 120))), "hd", "flat", 2),                      # 머리 앞면(살짝 그늘)
-            L(P(D_(rrect(41, 21, 66, 42, 7), rect(0, 25.5, 120, 120), rect(58, 0, 120, 120))), "hd", "fix", 4, sep=False),   # 윗면 빛
-            L(P(ell(60.5, 31, 5.6, 5.6)), "chr", "fix", 1, sep=False),
-            L(P(ell(60.5, 31, 4.3, 4.3)), "eye", "dome", 2.8, rr=0.5),
-            L(P(rect(58.4, 28.6, 60.4, 30.6)), "eye", "fix", 4, sep=False),
-            L(P(U_(rect(45, 34, 52, 35.2), rect(45, 37, 52, 38.2))), "hd", "fix", 1, sep=False),
-            L(P(line(57, 22, 58.5, 12, 3)), "hd", "flat", 2),                                            # 앞 안테나(귀)
-            L(P(line(48, 22, 46, 12, 3)), "hd", "flat", 1)]                                              # 뒤 안테나
-    pad = [L(P(ell(62, 52, 8, 8)), "sy", "dome", 2.7, rr=1.4, spec=[(s16(59), s16(48))]),                # 어깨(팔 뿌리)
-           L(P(D_(ell(62, 52, 8, 8), rect(0, 0, 66, 120))), "syd", "dome", 2.2, rr=0.7)]
-    # 관절 없는 통짜 팔 + 드릴 척. 척 자리·드릴 축 자리는 draw.ts 의 축 그리기와 맞춤
-    ARM = {"side": ((60, 56, 80, 56), (77, 45, 87, 67)), "down": ((66, 56, 76.5, 82), (63, 80, 90, 92)), "up": ((67, 50, 74, 30), (60, 19, 88, 32))}
-    for mode, ((ax0, ay0, ax1, ay1), (x0, y0, x1, y1)) in ARM.items():
-        arm = [L(P(line(ax0, ay0, ax1, ay1, 9 if mode == "side" else 10)), "steel", "dome", 2.4, rr=0.9),
-               L(P(rrect(x0, y0, x1, y1, 3.5)), "chr", "dome", 2.2, rr=0.7),
-               L(P(rect(x0 + 2, y0 + 2, x1 - 2, y0 + 3.2)), "chr", "fix", 4, sep=False)]
-        out["body_" + mode] = thick_outline(R_(fender + shell + head + arm + pad))
-    for leg in (0, 1):
-        lays = [L(P(rrect(44, 66, 88, 80, 6)), "gry", "flat", 0),              # 뒤쪽 궤도(멀리 있어 어둡게, 살짝 위·오른쪽)
-                L(P(rrect(35, 69, 83, 86, 7.5)), "gry", "flat", 1),
-                L(P(rect(41, 69, 77, 71.4)), "gry", "fix", 3, sep=False)]      # 궤도 윗면
-        for wx in (44, 54.5, 65, 75):
-            lays += [L(P(ell(wx, 78, 4.8, 4.8)), "gry", "dome", 2.8, rr=0.6), L(P(ell(wx, 78, 1.6, 1.6)), "gry", "fix", 1, sep=False)]
-        lays.append(L(P(U_(*[rect(37 + k * 7 + leg * 3.5, 84, 39.5 + k * 7 + leg * 3.5, 86) for k in range(6)])), "gry", "fix", 0, sep=False))
-        out["trk_%d" % leg] = thick_outline(R_(lays))
-    out["cw"] = thick_outline(R_([L(P(rrect(29, 40, 40, 62, 4)), "gry", "dome", 2.4, rr=1.0), L(P(rect(29, 49, 40, 51)), "gry", "fix", 1, sep=False)]))
-    out["lamp"] = thick_outline(R_([L(P(rrect(44, 8, 48.6, 13.5, 1.2)), "gry", "dome", 2.4, rr=0.4), L(P(rrect(56.4, 8, 61, 13.5, 1.2)), "gry", "dome", 3.2, rr=0.4)]))
-    cones = {"side": ([(84, 41.5), (84, 69.5), (117, 55.5)], 0), "down": ([(62.5, 91), (90.5, 91), (76.5, 117)], 1), "up": ([(59.5, 19), (87.5, 19), (73.5, 2)], 2)}
-    for mode, (pts, ax) in cones.items():
-        for d in (0, 1):
-            cone = P(poly(pts))
-            o = d * 5
-            if ax == 0: gro = U_(*[line(88 + k * 9 + o, 40, 92 + k * 9 + o, 71, 2.2) for k in range(4)])
-            elif ax == 1: gro = U_(*[line(60, 95 + k * 7 + o, 93, 99 + k * 7 + o, 2.2) for k in range(3)])
-            else: gro = U_(*[line(57, 15 - k * 5 - o, 90, 11 - k * 5 - o, 2.0) for k in range(3)])
-            out["bit_%s_%d" % (mode, d)] = R_([L(cone, "gry", "dome", 2.6, rr=1.8, spec=[((pts[0][0] + 4) * 16 / MN, (pts[0][1] + 4) * 16 / MN)]),
-                                               L(I_(P(gro), cone), "gry", "fix", 1, sep=False)])
+    for mode in ("side", "down", "up"):
+        for dig in (0, 1):
+            p = robot3d.parts_for(mode, 0, dig, ramps)
+            out["bit_%s_%d" % (mode, dig)] = p["bit"]
+            if dig == 0:
+                out["body_" + mode] = p["body"]
+                if mode == "side": out["cw"], out["lamp"], out["trk_0"] = p["cw"], p["lamp"], p["trk"]
+    out["trk_1"] = robot3d.parts_for("side", 1, 0, ramps)["trk"]
     return out
 
 # ---------------------------------------------------------------------
