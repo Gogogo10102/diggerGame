@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, stoneTiles, sunImg } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, stoneTiles, sunImg } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -12,7 +12,7 @@ import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
-import { GLYPH, SY, btnPx, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt } from "./util.ts";
+import { GLYPH, SY, blit, btnPx, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt } from "./util.ts";
 import { DEBRIS_T, debrisT, dust } from "../systems/collapseFx.ts";
 import { drawDrops } from "../systems/drops.ts";
 import { chunks, floatT, solidTile } from "../systems/floating.ts";
@@ -28,7 +28,7 @@ import { ov } from "../ui/overlay.ts";
 // =====================================================================
 // =====================================================================
 //  부드러운 굴 가장자리 (Chipmatic 느낌)
-//  - 흙 칸에서 '보이는 빈칸'(판 굴·발견한 동굴) 쪽 면(옆벽·천장)을 그림 2~5칸(화면 8~20px) 깎아 내고, 깎인 자리에 굴 배경을 그림.
+//  - 흙 칸에서 '보이는 빈칸'(판 굴·발견한 동굴) 쪽 면(옆벽·천장)을 화면 8~20px(2px 격자) 깎아 내고, 깎인 자리에 굴 배경을 그림.
 //    바닥(흙 칸의 윗면)은 캐릭터가 딛는 곳이라 평평하게 둠(모서리만 둥글게).
 //    그래서 한 칸을 파면 옆 흙들이 같이 작아지면서 통로가 블록보다 넓고 둥글어 보임. (충돌은 그대로 칸 단위)
 //  - 깎는 깊이는 '세상 좌표'로 정해서 이웃 칸끼리 굴 벽이 끊김 없이 이어짐. 볼록한 모서리는 둥글게.
@@ -41,62 +41,65 @@ function edgeHash(a, b) {
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return (h >>> 16) & 3;
 }
-// 경계선 line 위, 그림 좌표 along 에서 깎는 깊이 (2~5칸). 6칸마다 정한 값을 부드럽게 이어서 이빨처럼 들쭉날쭉하지 않고 물결처럼
+// 깎는 모양의 격자: 한 칸을 EDGE_G x EDGE_G 로 나눔 (32 → 화면 2px 단위. 고해상도 타일에 맞춰 촘촘하게)
+const EDGE_G = 32;
+// 경계선 line 위, 격자 좌표 along 에서 깎는 깊이 (4~10칸 = 화면 8~20px). 12칸마다 정한 값을 부드럽게 이어서 이빨처럼 들쭉날쭉하지 않고 물결처럼
 function edgeDepth(along, line) {
-  const k = Math.floor(along / 6), f = (along - k * 6) / 6, s2 = f * f * (3 - 2 * f);
+  const k = Math.floor(along / 12), f = (along - k * 12) / 12, s2 = f * f * (3 - 2 * f);
   const v = edgeHash(k, line) * (1 - s2) + edgeHash(k + 1, line) * s2;    // 0~3
-  return 2 + Math.round(v);
+  return 4 + Math.round(v * 2);
 }
 const seenAir = (c, r) => isAir(c, r) && seen[r * W + c] === 1;
 function edgePaths(c, r, bits, dig, digSide) {
   const key = c + "," + r + "," + bits + "," + dig + "," + digSide;
   let e = EDGE_CACHE.get(key);
   if (e) return e;
+  const G = EDGE_G, G1 = G - 1;
   const aT = bits & 1, aB = bits & 2, aL = bits & 4, aR = bits & 8, dTL = bits & 16, dTR = bits & 32, dBL = bits & 64, dBR = bits & 128;
-  const cut = new Uint8Array(256), X0 = c * 16, Y0 = r * 16, RC = 6;
+  const cut = new Uint8Array(G * G), X0 = c * G, Y0 = r * G, RC = 12;
   const extra = (side) => (side === digSide ? dig : 0);
-  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+  for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
     const X = X0 + x, Y = Y0 + y;
     let k = 0;
     if (digSide === 1 && y < extra(1)) k = 1;            // 윗면 = 위 굴의 바닥: 캐릭터가 딛고 서는 곳이라 깎지 않음(뜬 것처럼 보이지 않게)
-    if ((aB || digSide === 2) && 15 - y < (aB ? edgeDepth(X, r * 2 + 2) : 0) + extra(2)) k = 1;
+    if ((aB || digSide === 2) && G1 - y < (aB ? edgeDepth(X, r * 2 + 2) : 0) + extra(2)) k = 1;
     if ((aL || digSide === 4) && x < (aL ? edgeDepth(Y, 100003 + c * 2) : 0) + extra(4)) k = 1;
-    if ((aR || digSide === 8) && 15 - x < (aR ? edgeDepth(Y, 100003 + c * 2 + 2) : 0) + extra(8)) k = 1;
+    if ((aR || digSide === 8) && G1 - x < (aR ? edgeDepth(Y, 100003 + c * 2 + 2) : 0) + extra(8)) k = 1;
     // 볼록한 모서리(두 면이 빈칸)는 둥글게
     const rnd = (cx, cy) => (cx - x - 0.5) * (cx - x - 0.5) + (cy - y - 0.5) * (cy - y - 0.5) > RC * RC;
     if (aT && aL && x < RC && y < RC && rnd(RC, RC)) k = 1;
-    if (aT && aR && x >= 16 - RC && y < RC && rnd(16 - RC, RC)) k = 1;
-    if (aB && aL && x < RC && y >= 16 - RC && rnd(RC, 16 - RC)) k = 1;
-    if (aB && aR && x >= 16 - RC && y >= 16 - RC && rnd(16 - RC, 16 - RC)) k = 1;
-    // 대각선만 빈칸인 안쪽 모서리: 이웃 칸들이 깎인 만큼 이어서 깎되 꼭짓점 한 칸은 남겨 살짝 둥글게
+    if (aT && aR && x >= G - RC && y < RC && rnd(G - RC, RC)) k = 1;
+    if (aB && aL && x < RC && y >= G - RC && rnd(RC, G - RC)) k = 1;
+    if (aB && aR && x >= G - RC && y >= G - RC && rnd(G - RC, G - RC)) k = 1;
+    // 대각선만 빈칸인 안쪽 모서리: 이웃 칸들이 깎인 만큼 이어서 깎되 꼭짓점 쪽은 남겨 살짝 둥글게
     //   (xx, yy) = 그 모서리에서 잰 거리, dx/dy = 이웃 칸들이 깎인 깊이
-    const notch = (xx, yy, dx, dy) => xx < dx && yy < dy && !(xx === dx - 1 && yy === dy - 1);
+    const notch = (xx, yy, dx, dy) => xx < dx && yy < dy && !((xx - dx + 1) * (xx - dx + 1) + (yy - dy + 1) * (yy - dy + 1) < 4 && xx > dx - 3 && yy > dy - 3);
     const dL = () => edgeDepth(Y, 100003 + c * 2), dR = () => edgeDepth(Y, 100003 + c * 2 + 2);
-    const dT = () => edgeDepth(X, r * 2), dB = () => edgeDepth(X, r * 2 + 2);
-    if (dTL && !aT && !aL && notch(x, y, dL(), 1)) k = 1;
-    if (dTR && !aT && !aR && notch(15 - x, y, dR(), 1)) k = 1;
-    if (dBL && !aB && !aL && notch(x, 15 - y, dL(), dB())) k = 1;
-    if (dBR && !aB && !aR && notch(15 - x, 15 - y, dR(), dB())) k = 1;
-    cut[y * 16 + x] = k;
+    const dB = () => edgeDepth(X, r * 2 + 2);
+    if (dTL && !aT && !aL && notch(x, y, dL(), 2)) k = 1;
+    if (dTR && !aT && !aR && notch(G1 - x, y, dR(), 2)) k = 1;
+    if (dBL && !aB && !aL && notch(x, G1 - y, dL(), dB())) k = 1;
+    if (dBR && !aB && !aR && notch(G1 - x, G1 - y, dR(), dB())) k = 1;
+    cut[y * G + x] = k;
   }
-  const cutP = new Path2D(), line = new Path2D(), lit = new Path2D(), shade = new Path2D(), u = AS;
-  for (let y = 0; y < 16; y++) {
+  const cutP = new Path2D(), line = new Path2D(), lit = new Path2D(), shade = new Path2D(), u = T / G;
+  for (let y = 0; y < G; y++) {
     let x0 = -1;
-    for (let x = 0; x <= 16; x++) {
-      const on = x < 16 && cut[y * 16 + x];
+    for (let x = 0; x <= G; x++) {
+      const on = x < G && cut[y * G + x];
       if (on && x0 < 0) x0 = x;
       if (!on && x0 >= 0) { cutP.rect(x0 * u, y * u, (x - x0) * u, u); x0 = -1; }
     }
   }
-  const isCut = (x, y) => x >= 0 && x < 16 && y >= 0 && y < 16 && cut[y * 16 + x] === 1;
-  if (aT) for (let x = 0; x < 16; x++) if (!cut[x]) { line.rect(x * u, 0, u, 2); lit.rect(x * u, 2, u, 2); }   // 깎지 않은 바닥에도 윤곽 + 빛
-  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-    if (cut[y * 16 + x]) continue;
+  const isCut = (x, y) => x >= 0 && x < G && y >= 0 && y < G && cut[y * G + x] === 1;
+  if (aT) for (let x = 0; x < G; x++) if (!cut[x]) { line.rect(x * u, 0, u, 2); lit.rect(x * u, 2, u, 2); }   // 깎지 않은 바닥에도 윤곽 + 빛
+  for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
+    if (cut[y * G + x]) continue;
     const px = x * u, py = y * u;
     if (isCut(x, y - 1)) { line.rect(px, py, u, 2); lit.rect(px, py + 2, u, 2); }      // 바닥 면: 윤곽 + 위에서 오는 빛
-    if (isCut(x, y + 1)) { line.rect(px, py + u - 2, u, 2); shade.rect(px, py - 2, u, 4); }   // 천장 면: 윤곽 + 그늘
+    if (isCut(x, y + 1)) { line.rect(px, py + u - 2, u, 2); shade.rect(px, py - 4, u, 4); }   // 천장 면: 윤곽 + 그늘
     if (isCut(x - 1, y)) line.rect(px, py, 2, u);
-    if (isCut(x + 1, y)) { line.rect(px + u - 2, py, 2, u); shade.rect(px + u - 4, py, 2, u); }
+    if (isCut(x + 1, y)) { line.rect(px + u - 2, py, 2, u); shade.rect(px - 4, py, 4, u); }
   }
   e = { cut: cutP, line, lit, shade, any: cut.some((v) => v) };
   if (EDGE_CACHE.size > 6000) EDGE_CACHE.clear();
@@ -114,11 +117,11 @@ function softEdge(c, r, px, py, id) {
   if (seenAir(c + 1, r - 1)) bits |= 32;
   if (seenAir(c - 1, r + 1)) bits |= 64;
   if (seenAir(c + 1, r + 1)) bits |= 128;
-  // 파는 중인 칸: 드릴이 닿은 쪽(플레이어 쪽)부터 진행도만큼 더 깎음 (0~8칸)
+  // 파는 중인 칸: 드릴이 닿은 쪽(플레이어 쪽)부터 진행도만큼 더 깎음 (0~16칸 = 화면 0~32px)
   let dig = 0, side = 0;
   if (S.dig && S.dig.c === c && S.dig.r === r) {
     const need = Math.max(0.01, hardOf(id, r) / drillMult());
-    dig = Math.min(8, Math.round(Math.min(1, S.dig.t / need) * 8));
+    dig = Math.min(16, Math.round(Math.min(1, S.dig.t / need) * 16));
     const pc = P.x / T, pr = P.y / T;
     side = Math.abs(pc - (c + 0.5)) > Math.abs(pr - (r + 0.5)) ? (pc < c + 0.5 ? 4 : 8) : (pr < r + 0.5 ? 1 : 2);
   }
@@ -175,6 +178,11 @@ export function draw() {
     const k = Math.min(1, S.shakeT * 3) * 10;
     camX += Math.round((Math.random() - 0.5) * k / 2) * 2; camY += Math.round((Math.random() - 0.5) * k / 2) * 2;
   }
+  else if (P.digging && S.state === "play" && P.dead <= 0) {          // 파는 동안 화면도 잔잔하게 덜덜 (단단한 땅이면 더 세게)
+    const hardD = S.dig && hardOf(tiles[S.dig.r * W + S.dig.c], S.dig.r) >= 1.2 ? 2 : 1;
+    camX += (((S.animT * 50) | 0) % 2 ? 2 : -2) * (Math.random() < 0.5 ? 0 : 1);
+    camY += (((S.animT * 44) | 0) % 2 ? 2 : 0) * hardD;
+  }
   const surfY = Math.floor(SURF * T - camY);
 
   // 하늘
@@ -215,7 +223,7 @@ export function draw() {
       if (id > 1 && ORE_SPR[id]) {
         const ov = ORE_SPR[id][hv(c, r) & 3];
         ctx.drawImage(ov.img, px, py, T, T);
-        const sp = SPARK_ORES[id] ? ov.spark : null;
+        const sp = SPARK_ORES[id] ? (ov.img.width > 16 ? ORE_HI_SPARK[hv(c, r) & 3] : ov.spark) : null;
         if (sp) {
           const k = (S.animT * 1.6 + (c * 5 + r * 3) * 0.37) % 3;
           if (k < 0.5) { const q = sp[(c + r) % sp.length], a = Math.sin(k / 0.5 * Math.PI); ctx.globalAlpha = a; ctx.fillStyle = "#fff"; ctx.fillRect(px + q[0] * AS, py + q[1] * AS - 2, 2, 6); ctx.fillRect(px + q[0] * AS - 2, py + q[1] * AS, 6, 2); ctx.globalAlpha = 1; }
@@ -307,11 +315,13 @@ export function draw() {
         ctx.globalAlpha = 1;
       };
       // 건물 칸 가운데에 맞춰 놓을 자리 (그림 크기가 바뀌어도 땅에 붙음)
+      //  건물 그림: 폭 160px 이하 = 도트 원본(AS배로 키움) / 그보다 크면 고해상도(이미 AS배로 그린 것, 1:1)
+      const bk = (img) => (img.width > 160 ? 1 : AS);
       const spot = (img, k) => {
-        const w = img.width * AS, h = img.height * AS, cw = (BUILD_COLS[k][1] - BUILD_COLS[k][0] + 1) * T;
+        const w = img.width * bk(img), h = img.height * bk(img), cw = (BUILD_COLS[k][1] - BUILD_COLS[k][0] + 1) * T;
         return { x: BUILD_COLS[k][0] * T - camX + Math.floor((cw - w) / 2), y: base - h, w, h, fx: BLD_FX[["shop", "craft", "furnace"][k]] };
       };
-      const fit = (q, img) => q.fx && img.width === q.fx.w && img.height === q.fx.h;   // 새 그림일 때만 불빛 위치가 맞음
+      const fit = (q) => q.fx && q.w === q.fx.w * AS && q.h === q.fx.h * AS;   // 새 그림일 때만 불빛 위치가 맞음 (BLD_FX 는 도트 원본 좌표)
       const at = (q, a) => [q.x + a[0] * AS, q.y + a[1] * AS];
 
       const sh = spot(S.itemShopImg, B_SHOP), cr = spot(S.craftShopImg, B_CRAFT), fu = spot(furnaceImg, B_FURN);
@@ -409,17 +419,32 @@ export function draw() {
     const moving = Math.abs(P.vx) > 20 && P.grounded;
     const leg = moving ? ((S.animT * 10) | 0) % 2 : 0;
     const dg = P.digging ? ((S.animT * 24) | 0) % 2 : -1;
-    const img = getMiner(P.mode, leg, dg);
-    const shake = P.digging && ((S.animT * 40) | 0) % 2 ? 2 : 0;
-    // 기계라서 덜덜덜: 굴러갈 때·추진할 때·팔 때 몸이 2px 씩 떨림
+    // 기계라서 덜덜덜: 굴러갈 때·추진할 때 2px. 팔 때는 더 세게(앞뒤·위아래로 최대 4px 마구 떨림)
     const thr = U_() && P.fuel > 0;
-    const rattle = (moving || thr || P.digging) ? ((S.animT * (thr ? 30 : 22)) | 0) % 2 * 2 : 0;
-    const rx = thr && ((S.animT * 17) | 0) % 3 === 0 ? 2 : 0;
-    ctx.save();
-    ctx.translate(px + rx + (P.mode === "side" ? shake * P.facing : 0), py + HH - rattle + (P.mode === "down" ? shake : P.mode === "up" ? -shake : 0));
-    if (P.facing < 0) ctx.scale(-1, 1);
+    const fr = (S.animT * 60) | 0, jit = (k) => ((Math.imul(fr + k * 7919, 2654435761) >>> 24) % 5) - 2;   // -2~2
+    let ox = 0, oy = 0;
+    if (P.digging) { ox = jit(1) * 2; oy = jit(2) * 2; }
+    else if (moving || thr) { oy = -(((S.animT * (thr ? 30 : 22)) | 0) % 2) * 2; ox = thr && fr % 3 === 0 ? 2 : 0; }
+    // 드릴이 흙 쪽으로 파고드는 깊이: 진행도만큼 0→18px + 쿡쿡 찌르는 떨림
+    let push = 0;
+    if (P.digging && S.dig) {
+      const id = tiles[S.dig.r * W + S.dig.c], need = Math.max(0.01, hardOf(id, S.dig.r) / drillMult());
+      push = Math.min(1, S.dig.t / need) * 18 + (((S.animT * 18) | 0) % 2) * 4;
+    }
     const ms = MINER_SZ * 3, mb = MINER_BOX * 3;                     // 그림 x3: 몸통 48px(블록의 3/4) · 충돌 크기는 그대로
-    ctx.drawImage(img, -24 - mb, -48 - mb, ms, ms);
+    ctx.save();
+    ctx.translate(px + ox, py + HH + oy);
+    if (P.facing < 0) ctx.scale(-1, 1);
+    ctx.drawImage(getMiner(P.mode, leg, dg, "body"), -24 - mb, -48 - mb, ms, ms);
+    const pdx = P.mode === "side" ? push : 0, pdy = P.mode === "down" ? push : P.mode === "up" ? -push : 0;
+    if (push > 0) {                                                  // 모터와 드릴 사이 축(밀려 나간 만큼)
+      const L = Math.round(push) + 3;
+      const [sx, sy, sw, sh] = P.mode === "side" ? [21, -33, L, 9] : P.mode === "down" ? [12, 3, 9, L] : [9, -63 - L + 3, 9, L];
+      ctx.fillStyle = "#14151f"; ctx.fillRect(sx, sy, sw, sh);
+      ctx.fillStyle = "#9aa3b8"; ctx.fillRect(sx + (sw > sh ? 0 : 3), sy + (sw > sh ? 3 : 0), sw > sh ? sw : 3, sw > sh ? 3 : sh);
+      ctx.fillStyle = "#e3e8f2"; ctx.fillRect(sx + (sw > sh ? 0 : 3), sy + (sw > sh ? 3 : 0), sw > sh ? sw : 1, sw > sh ? 1 : sh);
+    }
+    ctx.drawImage(getMiner(P.mode, leg, dg, "drill"), Math.round(-24 - mb + pdx), Math.round(-48 - mb + pdy), ms, ms);
     ctx.restore();
     if (U_() && P.fuel > 0) drawThrustFlame(px, py + HH);
   }
@@ -523,7 +548,7 @@ export function drawHotbar(vw, vh) {
     ctx.fillStyle = cnt > 0 ? SY.body : SY.well; ctx.fillRect(x + 2, y0 + 2, sz - 4, sz - 4);
     ctx.fillStyle = cnt > 0 ? SY.hi : SY.wellDk; ctx.fillRect(x + 2, y0 + 2, sz - 4, 2);
     ctx.globalAlpha = cnt > 0 ? 1 : 0.35;
-    ctx.drawImage(ICON[id], x + ((sz - isz) >> 1), y0 + (sz === 48 ? 4 : 2), isz, isz);
+    blit(ICON[id], x + ((sz - isz) >> 1), y0 + (sz === 48 ? 4 : 2), isz, isz);
     ctx.globalAlpha = 1;
     txt(String(i + 1), x + 5, y0 + 3, SY.dim, 12);
     txt("x" + cnt, x + sz - 4, y0 + sz - 15, cnt > 0 ? "#fff" : SY.mute, 12, "right");
@@ -570,7 +595,7 @@ function drawOreBar(x, y, maxW, center) {
     for (const c of line) {
       const fl = (ORE_BAR_FLASH[c.id] || 0) > S.animT;
       if (fl) { ctx.fillStyle = "rgba(255,194,26,0.35)"; ctx.fillRect(cx - 4, ly + 3, c.w + 8, h - 6); }
-      ctx.drawImage(oreIcon[c.id], cx, ly + 6 - (fl ? 2 : 0), isz, isz);
+      blit(oreIcon[c.id], cx, ly + 6 - (fl ? 2 : 0), isz, isz);
       txt(c.s, cx + isz + 4, ly + Math.floor((h - 16) / 2), fl ? SY.y : "#fff", 16, "left", SY.ink);
       cx += c.w + 10;
     }
@@ -583,7 +608,7 @@ function hudMoney(n) { return n >= 100000 ? (n / 10000).toFixed(n >= 1000000 ? 0
 // 칸 막대 + 왼쪽에 겹쳐 그린 아이콘 (번개 막대 모양)
 function hudBar(x, y, img, n, filled, kind, label, labelCol) {
   const w = segBar(x + 22, y, n, filled, kind, 10, 20);
-  ctx.drawImage(img, x, y - 6, 32, 32);
+  blit(img, x, y - 6, 32, 32);
   txt(label, x + 22 + w + 6, y + 3, labelCol || "#fff", 12, "left", SY.ink);
   return x + 22 + w;
 }
@@ -613,15 +638,15 @@ export function drawHUD(vw, vh, depth) {
     // 위 가운데: 가진 광물 칸 (Chipmatic 처럼) + 그 아래 깊이
     const ob = drawOreBar(Math.floor(vw / 2), 10, Math.max(160, vw - 2 * 230), true);
     setFont(16); const dw = Math.ceil(ctx.measureText(dTxt).width) + 48;
-    plate(Math.floor(vw / 2 - dw / 2), ob + 6, dw, 30); ctx.drawImage(ICON.depth, Math.floor(vw / 2 - dw / 2) + 8, ob + 13, 16, 16);
+    plate(Math.floor(vw / 2 - dw / 2), ob + 6, dw, 30); blit(ICON.depth, Math.floor(vw / 2 - dw / 2) + 8, ob + 13, 16, 16);
     txt(dTxt, Math.floor(vw / 2 - dw / 2) + 30, ob + 13, "#9fd8ff", 16);
     const mw = Math.ceil(ctx.measureText(mTxt).width) + 50, mx0 = bx0 - 10 - mw;
-    plate(mx0, by0, mw, bs); ctx.drawImage(ICON.coin, mx0 + 8, by0 + 6, 32, 32);
+    plate(mx0, by0, mw, bs); blit(ICON.coin, mx0 + 8, by0 + 6, 32, 32);
     txt(mTxt, mx0 + mw - 10, by0 + 14, SY.gold, 16, "right");
   } else {
-    ctx.drawImage(ICON.coin, 10, 102, 24, 24); txt(mTxt, 38, 106, SY.gold, 16, "left", SY.ink);
+    blit(ICON.coin, 10, 102, 24, 24); txt(mTxt, 38, 106, SY.gold, 16, "left", SY.ink);
     setFont(16); const mw = Math.ceil(ctx.measureText(mTxt).width);
-    ctx.drawImage(ICON.depth, 38 + mw + 14, 106, 16, 16); txt(dTxt, 38 + mw + 34, 106, "#9fd8ff", 16, "left", SY.ink);
+    blit(ICON.depth, 38 + mw + 14, 106, 16, 16); txt(dTxt, 38 + mw + 34, 106, "#9fd8ff", 16, "left", SY.ink);
     S.hudBottom = drawOreBar(10, 134, vw - 20 - 46, false);      // 좁은 화면: 왼쪽 줄 아래에 광물 칸 (미니맵은 그 아래로)
   }
 

@@ -4,7 +4,8 @@
 # 스타일: "밝은 플랫" (같은 계열의 진한 색 테두리, 밝은 면, 명암 2~3단). docs/decisions.md 참고.
 # 처음 한 번 만들 때 쓴 스크립트이고, 이후에는 PNG를 도트 편집기로 직접 고쳐도 됩니다.
 #   필요: Python 3 + numpy + scipy + Pillow
-#   실행: python3 tools/make-icons.py   (그 다음 npm run assets:manifest)
+#   실행: python3 tools/make-icons.py [--size 32]   (그 다음 npm run assets:manifest)
+#   --size: 그림 크기(기본 32 = 고해상도. 16 이면 예전 도트 크기). 모양은 16칸 좌표라 크기와 상관없이 같음
 # 장비는 분류마다 같은 모양에 단계(0~7)별 재질 색만 바꿉니다:
 #   0 강철 · 1 티타늄 · 2 다이아 · 3 에메랄드 · 4 황금 · 5 루비 · 6 자수정 · 7 미스릴
 import os, sys
@@ -253,8 +254,9 @@ def trophy():
             L(rrect(4.0, 12.2, 12.0, 14.8, 0.6), "wood", "flat", 2),
             L(rect(6.0, 13.0, 10.0, 14.0), "gold", "fix", 3, sep=False)]
 
+ICON_N = int(sys.argv[sys.argv.index("--size") + 1]) if "--size" in sys.argv else 32
 def save(layers, path):
-    img = Image.fromarray(render(layers, 16, "A", []), "RGBA")
+    img = Image.fromarray(render(layers, ICON_N, "A", []), "RGBA")
     img.save(path)
 
 if __name__ == "__main__":

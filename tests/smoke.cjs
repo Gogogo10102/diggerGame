@@ -932,5 +932,15 @@ async function login(t, name) {
   await t60.click("효과음: 꺼짐"); ok(t60.ev("sfxVol") === 6, "효과음 다시 켜기");
   ok(t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('items/')).length") >= 88, "아이템 아이콘 그림 파일 연결");
 
+  // ---- 고해상도 그림 ----
+  const man = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "../public/assets/manifest.json"), "utf8"));
+  const minerKeys = t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('miner/'))");
+  ok(minerKeys.length === 13 && minerKeys.every((k) => man.files[k]), "캐릭터 고해상도 부품 13개가 그림 목록에 있음");
+  ok(["tiles/dirt/7_7.png", "tiles/back/7_3.png", "ores/world/11_3.png", "bars/mi.png"].every((k) => man.files[k]), "지층·광물·주괴 고해상도 그림 목록");
+  ok(t60.ev("getMiner('side', 0, 0).width") === 40, "부품 그림이 없으면 코드로 그린 40x40 캐릭터");
+  ok(t60.ev("(() => { for (const k in MINER_HI) MINER_HI[k].width = MINER_HI[k].height = 120; minerCache.clear(); const w = getMiner('down', 1, 1, 'drill').width; for (const k in MINER_HI) MINER_HI[k].width = MINER_HI[k].height = 1; minerCache.clear(); return w; })()") === 120,
+    "부품 그림을 읽으면 120x120 고해상도 캐릭터로 조립");
+  ok(t60.ev("ORE_HI_SPARK.length === 4 && ORE_HI_SPARK.every((v) => v.every(([x, y]) => x >= 0 && x < 16 && y >= 0 && y < 16))"), "고해상도 광물 반짝임 자리 4변형");
+
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });
