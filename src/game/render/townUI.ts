@@ -9,7 +9,7 @@ import { S } from "../core/state.ts";
 import { SHOP_PER } from "../core/stats.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
-import { GLYPH, SY, btnPx, ctx, glyph, hazard, keycap, panel, pxBox, segBar, setFont, txt, well } from "./util.ts";
+import { GLYPH, SY, blit, btnPx, ctx, glyph, hazard, keycap, panel, pxBox, segBar, setFont, txt, well } from "./util.ts";
 import { BARS, BAR_KEYS, FURNACE_LV, ORE_PER_BAR, barIcon, furnaceCan, matHave, matIcon, matName } from "../systems/furnace.ts";
 import { TOWN, shopBtn, townActive } from "../systems/input.ts";
 import { SELL_KEYS, SELL_ORES, stashValue, unitPrice } from "../systems/town.ts";
@@ -32,12 +32,14 @@ export const TC = {
 const NO_SH = "rgba(0,0,0,0)";
 
 // 도트 그림을 정수 배율로만 키워서 칸(box) 가운데에 그림. 1.5배처럼 어중간하게 키우면 픽셀 크기가 들쭉날쭉해짐
+//  고해상도 그림(칸보다 큰 그림)은 칸에 맞게 줄임 (blit 이 부드럽게 줄여 줌)
 export function drawPx(img, x, y, box, alpha) {
   if (!img || !img.width) return;
-  const s = Math.max(1, Math.floor(box / Math.max(img.width, img.height)));
-  const w = img.width * s, h = img.height * s;
+  const m = Math.max(img.width, img.height);
+  const s = m > box ? box / m : Math.floor(box / m);
+  const w = Math.round(img.width * s), h = Math.round(img.height * s);
   if (alpha !== undefined) ctx.globalAlpha = alpha;
-  ctx.drawImage(img, Math.round(x + (box - w) / 2), Math.round(y + (box - h) / 2), w, h);
+  blit(img, Math.round(x + (box - w) / 2), Math.round(y + (box - h) / 2), w, h);
   ctx.globalAlpha = 1;
 }
 

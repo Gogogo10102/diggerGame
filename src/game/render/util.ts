@@ -153,5 +153,12 @@ export function plate(x: number, y: number, w: number, h: number) {
   ctx.fillStyle = SY.body; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
   ctx.fillStyle = SY.hi; ctx.fillRect(x + 2, y + 2, w - 4, 2);
 }
-export function icon(img, x, y) { ctx.drawImage(img, Math.round(x), Math.round(y), 32, 32); }
+// 그림을 (w,h) 크기로 그림. 고해상도 그림을 더 작게 줄일 때만 부드럽게(이웃 픽셀만 고르면 선이 끊겨 보임), 키울 때는 도트 그대로
+export function blit(img: HTMLCanvasElement | HTMLImageElement, x: number, y: number, w: number, h: number) {
+  const down = img.width > w || img.height > h;
+  if (down) { ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; }
+  ctx.drawImage(img, x, y, w, h);
+  if (down) ctx.imageSmoothingEnabled = false;
+}
+export function icon(img, x, y) { blit(img, Math.round(x), Math.round(y), 32, 32); }
 

@@ -6,7 +6,7 @@
 //  - 그림을 바꾸려면: PNG를 수정해서 같은 경로에 덮어쓰기 → 새로고침. 크기는 원래와 달라도 됩니다.
 //  - 새 PNG를 추가했다면 manifest.json 에도 경로를 넣어 주세요 (npm run assets:manifest).
 // =====================================================================
-import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg } from "./sprites.ts";
+import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg, MINER_HI } from "./sprites.ts";
 import { ITEM_ICON } from "./itemIcons.ts";
 import { SIGN_IMG, TAB_IMG, plinthTop, plinthLow } from "./buildings.ts";
 import { barIcon, furnaceImg } from "../systems/furnace.ts";
@@ -39,6 +39,7 @@ export function assetTable() {
   for (const k in TAB_IMG) t["signs/tab_" + k + ".png"] = () => TAB_IMG[k];
   t["sky/sun.png"] = () => sunImg;
   t["sky/cloud.png"] = () => cloudImg;
+  for (const k in MINER_HI) t["miner/" + k + ".png"] = () => MINER_HI[k];
   return t;
 }
 
