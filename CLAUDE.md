@@ -34,7 +34,7 @@ src/
     ui/     dom inventory overlay menu
 public/assets/         게임 그림 PNG + manifest.json
 tests/                 harness.cjs(가짜 DOM/캔버스) smoke.cjs(테스트)
-tools/                 build-test-html.mjs  make-manifest.mjs  make-icons.py(+pixicon.py)  make-buildings.py  make-signs.py
+tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py  make-icons.py(+pixicon.py)  make-buildings.py  make-signs.py
 docs/                  plan.md decisions.md
 ```
 
@@ -98,8 +98,13 @@ docs/                  plan.md decisions.md
 - 새 그림 추가: PNG 저장 → `assetTable()` 에 경로 한 줄 → `npm run assets:manifest`.
   manifest.json 에는 파일마다 내용 지문이 있어서, 그림을 고치면 주소(`?v=지문`)가 바뀌어 브라우저가 예전 그림을 쓰지 않습니다.
   그림을 고친 뒤에도 `npm run assets:manifest` 를 돌리세요(`npm run build` 는 자동으로 돌림).
-- **크기 기준:** 타일 T=64px(16px 그림 × `AS`=4), 캐릭터(미니 굴착기)는 몸통 48px(16px 그림 × 3, 드릴 포함 그림은 40x40). 충돌 상자는 24px 그대로. 확대 배율은 0.5 단위만(도트가 정수).
+- **크기 기준:** 타일 T=64px, 캐릭터(미니 굴착기)는 몸통 48px(드릴 포함 120x120). 충돌 상자는 24px 그대로. 확대 배율은 0.5 단위만(도트가 정수).
   속도·중력처럼 px 단위 숫자는 타일 32px 시절 값 × `PX`(=T/32) 로 써서, 한 칸 지나는 데 걸리는 시간이 타일 크기와 상관없게 합니다.
+- **고해상도(1:1):** `public/assets` 의 그림은 화면 1px = 그림 1px 로 그립니다. 타일·땅속 광물 64x64, 광물 아이콘·주괴·아이템·화면 아이콘 32x32,
+  떨어진 광물 24x24, 해 64, 구름 80x32, 캐릭터 부품 120x120, 건물은 예전 도트의 4배 크기. (코드로 그린 대체 그림은 16px 도트 × AS)
+  - 그리는 쪽은 크기를 정해서 그리므로 그림 크기와 상관없음. 작게 줄일 때는 `blit`(util.ts)·`drawPx` 가 부드럽게 줄임.
+  - 건물 PNG 는 폭 160px 이하면 도트 원본(×AS), 넘으면 고해상도(1:1). 불빛 자리 `BLD_FX` 는 도트 원본 좌표 그대로.
+  - 땅속 광물 반짝임 자리는 고해상도 그림이면 `ORE_HI_SPARK`(make-hires.py 의 `ORE_HI_SLOTS` 와 짝).
 - 경로 규칙: `ores/icon/<광물id>.png`(인벤토리 아이콘), `ores/world/<id>_<변형>.png`(땅속 광물),
   `ores/drop/<id>.png`(바닥에 떨어진 것), `bars/<cu|fe|ag|au|mi>.png`(주괴), `items/<아이템id>.png`,
   `ui/icon/<이름>.png`, `tiles/...`, `buildings/...`, `sky/...`,
@@ -110,8 +115,12 @@ docs/                  plan.md decisions.md
   불빛·연기 위치는 `art/buildings.ts` 의 `BLD_FX` (그림 크기가 같을 때만 그림). 용광로 아궁이·쇳물 홈은 그림에 구멍을 뚫어 두고 그 뒤에 불을 그립니다.
 - 광물 id: 2 구리, 3 철, 4 금, 5 다이아, 6 석탄, 8 은, 9 에메랄드, 10 루비, 11 미스릴.
 - 현재 원석·주괴 그림은 **임시 확정(v1)** 입니다. 나중에 다시 작업 예정.
-- 아이템·소모품·화면 아이콘(`items/`, `ui/icon/`)은 `python3 tools/make-icons.py` 로 다시 만들 수 있습니다(밝은 플랫 스타일). 고친 뒤 `npm run assets:manifest`.
-- 아직 코드로만 그리는 것: 캐릭터(미니 굴착기, `sprites.ts` 의 `getMiner`. 장비 단계에 따라 드릴·궤도·평형추·등 색이 바뀌고, 파는 방향에 따라 드릴만 앞/아래/위로 돌아감).
+- 아이템·소모품·화면 아이콘(`items/`, `ui/icon/`)은 `python3 tools/make-icons.py` 로 다시 만들 수 있습니다(밝은 플랫 스타일, 기본 32px · `--size 16` 이면 예전 크기). 고친 뒤 `npm run assets:manifest`.
+- 흙·뒷벽·돌·풀·장식·균열·광물(땅속/아이콘/떨어진 것)·주괴·해·구름·캐릭터 부품은 `python3 tools/make-hires.py` 가 만듭니다.
+  지층 색·광물 색은 `config.ts`, 주괴 색은 `furnace.ts` 에서 읽어 오므로 색을 바꾸면 다시 돌리면 됩니다. 그 뒤 PNG 를 직접 고쳐도 됩니다.
+- 캐릭터(미니 굴착기, `sprites.ts` 의 `getMiner`): 부품 PNG `miner/*.png` 13개를 읽으면 그것으로 조립하고, 없으면 코드 도트(40x40 × 3)로 그립니다.
+  `body_<side|down|up>` 은 색 그대로, `trk_<0|1>`·`cw`·`lamp`·`bit_<자세>_<0|1>` 은 **회색**으로 그려 두면 장비 단계 색(`PAL`·`GLOW`)으로 바꿔 칠합니다
+  (밝기 24 미만 = 외곽선, 56/104/160/224 를 경계로 어둠·l·m·h·반짝). 부품 자리는 120x120 안에서 몸통 칸 36~84, 발 = y 84.
 
 ## 협업
 - 두 사람이 각자 Claude 계정으로 이 저장소를 씁니다(계정 공유 금지).

@@ -285,6 +285,10 @@ for (const id in ORE_STAMP) {
 export const oreTiles = {};                                   // (호환) 월드 텍스처 대표 이미지
 for (const id in ORE_SPR) oreTiles[id] = ORE_SPR[id][0].img;
 export const SPARK_ORES = { 4: 1, 5: 1, 8: 1, 9: 1, 10: 1, 11: 1 };
+// 고해상도 광물 그림(64px, tools/make-hires.py)의 반짝임 자리 (16칸 좌표, 변형마다 덩이 왼쪽 위 밝은 곳)
+//  make-hires.py 의 ORE_HI_SLOTS 와 같은 자리
+export const ORE_HI_SPARK = [[[3.6, 3.6], [10.9, 5.4], [5.3, 10.8], [11.5, 12]], [[4.4, 4.9], [10.3, 3.3], [9.5, 10.5], [3.1, 11.1]],
+  [[10.8, 3.8], [4, 5.5], [9.1, 10.6], [3.4, 11.9]], [[10.5, 5], [4.1, 3.1], [5.4, 10.4], [11.3, 11.3]]];
 // 단단한 암석(경암): 희귀 광물을 감싸고 있음. 드릴로 팔 수 있지만 오래 걸림
 export const hardTiles = [0, 1].map(() => sprite(16, 16, (p) => {
   p(0, 0, 16, 16, "#33384a");
@@ -432,9 +436,51 @@ export const minerCache = new Map();
 //  장비 단계에 따라 색이 바뀜: 드릴 날(LOOK.drill) · 궤도(LOOK.tracks) · 뒤 평형추(LOOK.crate) · 지붕 등(LOOK.lamp)
 export const MINER_SZ = 40, MINER_BOX = 12;
 //  part: "all"(기본) · "body"(드릴 원뿔만 뺀 몸) · "drill"(드릴 원뿔만) — 팔 때 드릴만 흙 쪽으로 밀어 넣어 그리려고 나눔
+// 고해상도 부품 (public/assets/miner/*.png, 120x120 = 화면 그대로). 파일이 있으면 assets.ts 가 이 캔버스에 덮어씀
+//  body_<자세> 는 색 그대로, 나머지는 회색 그림 → 장비 단계 색으로 바꿔 칠함
+export const MINER_HI = {};
+for (const k of ["body_side", "body_down", "body_up", "trk_0", "trk_1", "cw", "lamp",
+  "bit_side_0", "bit_side_1", "bit_down_0", "bit_down_1", "bit_up_0", "bit_up_1"]) MINER_HI[k] = sprite(1, 1, () => {});
+const minerHiReady = () => Object.values(MINER_HI).every((c) => c.width === MINER_SZ * 3);
+// 회색 밝기 → 색 단계 (외곽선 · 어둠 · l · m · h · 반짝)
+function tintGray(src, ramp) {
+  return sprite(src.width, src.height, (p, g) => {
+    g.drawImage(src, 0, 0);
+    const d = g.getImageData(0, 0, src.width, src.height);
+    if (!d || !d.data) return;                                            // (테스트용 가짜 캔버스)
+    const a = d.data;
+    const rgb = ramp.map(hexRgb);
+    for (let i = 0; i < a.length; i += 4) {
+      if (!a[i + 3]) continue;
+      const v = a[i], t = v < 24 ? 0 : v < 56 ? 1 : v < 104 ? 2 : v < 160 ? 3 : v < 224 ? 4 : 5;
+      a[i] = rgb[t][0]; a[i + 1] = rgb[t][1]; a[i + 2] = rgb[t][2];
+    }
+    g.putImageData(d, 0, 0);
+  });
+}
+const rampOf = (c) => ["#14151f", mixC(c.l, "#000000", 0.35), c.l, c.m, c.h, mixC(c.h, "#ffffff", 0.45)];
+function getMinerHi(mode, leg, dig, part) {
+  const TR = LOOK.tracks > 0 ? PAL[LOOK.tracks - 1] : { h: "#c6cedc", m: "#8b93a6", l: "#3a3f52" };
+  const DR = LOOK.drill > 0 ? PAL[LOOK.drill - 1] : { h: "#e3e8f2", m: "#9aa3b8", l: "#5b6379" };
+  const CP = LOOK.crate > 0 ? PAL[LOOK.crate - 1] : { h: "#4a5262", m: "#2a2e37", l: "#1c1f26" };
+  const lc = LOOK.lamp > 0 ? GLOW[LOOK.lamp - 1] : "#ff5a4d";
+  const LP = { h: mixC(lc, "#ffffff", 0.3), m: lc, l: mixC(lc, "#000000", 0.3) };
+  const ds = dig < 0 ? 0 : dig;
+  return sprite(MINER_SZ * 3, MINER_SZ * 3, (p, g) => {
+    if (part !== "drill") {
+      g.drawImage(tintGray(MINER_HI["trk_" + (leg & 1)], rampOf(TR)), 0, 0);
+      g.drawImage(tintGray(MINER_HI.cw, rampOf(CP)), 0, 0);
+      g.drawImage(MINER_HI["body_" + mode], 0, 0);
+      g.drawImage(tintGray(MINER_HI.lamp, rampOf(LP)), 0, 0);
+    }
+    if (part !== "body") g.drawImage(tintGray(MINER_HI["bit_" + mode + "_" + (ds & 1)], rampOf(DR)), 0, 0);
+  });
+}
 export function getMiner(mode, leg, dig, part = "all") {
-  const key = mode + leg + dig + part + "|" + LOOK.key;
+  const hi = minerHiReady();
+  const key = mode + leg + dig + part + "|" + LOOK.key + (hi ? "|hi" : "");
   if (minerCache.has(key)) return minerCache.get(key);
+  if (hi) { const im = getMinerHi(mode, leg, dig, part); minerCache.set(key, im); return im; }
   const img = sprite(MINER_SZ, MINER_SZ, (p0) => {
     const p = (x, y, w, h, c) => p0(MINER_BOX + x, MINER_BOX + y, w, h, c);    // 몸통 칸 기준 좌표
     const K = "#14151f", Y = "#ffc21a", Yh = "#ffe27a", Ys = "#c48600", Yd = "#8a5a00";
