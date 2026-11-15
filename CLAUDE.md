@@ -34,7 +34,7 @@ src/
     ui/     dom inventory overlay menu
 public/assets/         게임 그림 PNG + manifest.json
 tests/                 harness.cjs(가짜 DOM/캔버스) smoke.cjs(테스트)
-tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py  make-icons.py(+pixicon.py)  make-buildings.py  make-signs.py
+tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py)  make-icons.py(+pixicon.py)  make-buildings.py  make-signs.py
 docs/                  plan.md decisions.md
 ```
 
@@ -98,7 +98,7 @@ docs/                  plan.md decisions.md
 - 새 그림 추가: PNG 저장 → `assetTable()` 에 경로 한 줄 → `npm run assets:manifest`.
   manifest.json 에는 파일마다 내용 지문이 있어서, 그림을 고치면 주소(`?v=지문`)가 바뀌어 브라우저가 예전 그림을 쓰지 않습니다.
   그림을 고친 뒤에도 `npm run assets:manifest` 를 돌리세요(`npm run build` 는 자동으로 돌림).
-- **크기 기준:** 타일 T=64px, 캐릭터(미니 굴착기)는 몸통 48px(드릴 포함 120x120). 충돌 상자는 24px 그대로. 확대 배율은 0.5 단위만(도트가 정수).
+- **크기 기준:** 타일 T=64px, 캐릭터(드릴 로봇)는 몸통 48px(드릴·안테나 포함 120x120). 충돌 상자는 24px 그대로. 확대 배율은 0.5 단위만(도트가 정수).
   속도·중력처럼 px 단위 숫자는 타일 32px 시절 값 × `PX`(=T/32) 로 써서, 한 칸 지나는 데 걸리는 시간이 타일 크기와 상관없게 합니다.
 - **고해상도(1:1):** `public/assets` 의 그림은 화면 1px = 그림 1px 로 그립니다. 타일·땅속 광물 64x64, 광물 아이콘·주괴·아이템·화면 아이콘 32x32,
   떨어진 광물 24x24, 해 64, 구름 80x32, 캐릭터 부품 120x120, 건물은 예전 도트의 4배 크기. (코드로 그린 대체 그림은 16px 도트 × AS)
@@ -118,8 +118,10 @@ docs/                  plan.md decisions.md
 - 아이템·소모품·화면 아이콘(`items/`, `ui/icon/`)은 `python3 tools/make-icons.py` 로 다시 만들 수 있습니다(밝은 플랫 스타일, 기본 32px · `--size 16` 이면 예전 크기). 고친 뒤 `npm run assets:manifest`.
 - 흙·뒷벽·돌·풀·장식·균열·광물(땅속/아이콘/떨어진 것)·주괴·해·구름·캐릭터 부품은 `python3 tools/make-hires.py` 가 만듭니다.
   지층 색·광물 색은 `config.ts`, 주괴 색은 `furnace.ts` 에서 읽어 오므로 색을 바꾸면 다시 돌리면 됩니다. 그 뒤 PNG 를 직접 고쳐도 됩니다.
-- 캐릭터(미니 굴착기, `sprites.ts` 의 `getMiner`): 부품 PNG `miner/*.png` 13개를 읽으면 그것으로 조립하고, 없으면 코드 도트(40x40 × 3)로 그립니다.
-  `body_<side|down|up>` 은 색 그대로, `trk_<0|1>`·`cw`·`lamp`·`bit_<자세>_<0|1>` 은 **회색**으로 그려 두면 장비 단계 색(`PAL`·`GLOW`)으로 바꿔 칠합니다
+- 캐릭터(**드릴 로봇**, `sprites.ts` 의 `getMiner`): 옆에서 살짝 비껴 본 3D(3/4 각도), 노란 몸 + 회색 머리·파란 외눈 + 안테나 두 개 + 관절 없는 통짜 팔 끝 드릴, 궤도 위.
+  `tools/robot3d.py` 가 상자·원기둥·공으로 세운 작은 3D 장면을 눈높이에서 비스듬히 비춰 4단 명암으로 끊어 그립니다(돈 각도 `TH`, 내려다본 각도 `PH`=0 이라 궤도 두 줄이 같은 땅에 붙음, 크기 `K`, 발밑 자리 `ORG`).
+  부품 PNG `miner/*.png` 13개(`tools/make-hires.py` 가 robot3d 로 만듦)를 읽으면 그것으로 조립하고, 없으면 예전 미니 굴착기 코드 도트(40x40 × 3)로 그립니다.
+  `body_<side|down|up>` 은 색 그대로, `trk_<0|1>`·`cw`(등 탱크)·`lamp`(안테나 끝 불빛)·`bit_<자세>_<0|1>` 은 **회색**으로 그려 두면 장비 단계 색(`PAL`·`GLOW`)으로 바꿔 칠합니다
   (밝기 24 미만 = 외곽선, 56/104/160/224 를 경계로 어둠·l·m·h·반짝). 부품 자리는 120x120 안에서 몸통 칸 36~84, 발 = y 84.
 
 ## 협업

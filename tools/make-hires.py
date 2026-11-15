@@ -336,54 +336,25 @@ def cloud():
     return im[24:56]
 
 # ---------------------------------------------------------------------
-#  캐릭터: 미니 굴착기 부품 (그림 120x120 = 화면 그대로, 몸통 칸 36~84, 발 = y 84)
-#   body_<자세>  : 색 그대로 (운전석·차체·팔·모터)
-#   trk_<0|1>    : 궤도 (회색 → 게임에서 궤도 단계 색으로 바꿔 칠함)
-#   cw · lamp    : 평형추(화물칸 단계 색) · 지붕 등(조명 색)
-#   bit_<자세>_<0|1> : 드릴 원뿔(회색 → 드릴 단계 색), 홈이 밀린 두 장면
+#  캐릭터: 드릴 로봇 부품 → tools/robot3d.py (작은 3D 장면을 3/4 각도로 비춰 도트로 끊음)
+#   body_<자세> 색 그대로 / trk_<0|1> 궤도 · cw 등 탱크 · lamp 안테나 끝 · bit_<자세>_<0|1> 드릴 원뿔 은 회색
 # ---------------------------------------------------------------------
-MN = 120
-def P(f):                                        # 화면 px 좌표로 쓴 도형 → 16칸 좌표계
-    return lambda U, V: f(U * MN / 16, V * MN / 16)
 GRAY = ["#202020", "#505050", "#808080", "#c0c0c0", "#ffffff"]
 def miner_parts():
-    MAT["sy"] = ["#5a3a00", "#c48600", "#ffc21a", "#ffe27a", "#fff6c8"]
-    MAT["chr"] = ["#0e1014", "#22252d", "#3a3f4b", "#5a6170", "#8a92a2"]
-    MAT["gry"] = GRAY
+    import robot3d
+    ramps = {"sy": ["#5a3400", "#c47e00", "#ffbe1a", "#ffe27a", "#fff6c8"], "chr": ["#0e1014", "#22252d", "#3a3f4b", "#5a6170", "#8a92a2"],
+             "hd": ["#2a2f3a", "#6a7384", "#b4bcca", "#e2e7ef", "#ffffff"], "eye": ["#0a2a5a", "#1a5ac0", "#4aa8ff", "#b8e4ff", "#ffffff"],
+             "steel": ["#1e222c", "#464e60", "#7a8496", "#b6bfce", "#f0f4fa"], "gry": GRAY}
+    ramps = {k: [list(hexrgb(c).astype(int)) for c in v] for k, v in ramps.items()}
     out = {}
-    def R_(lays): return render(lays, MN, "B", [])
-    cab = [L(P(rrect(41, 59, 80, 71, 3)), "sy", "flat", 2),
-           L(P(rect(42, 66, 79, 69)), "sy", "fix", 1, sep=False),
-           L(P(rrect(44, 35, 67, 62, 6)), "sy", "dome", 2.6, rr=2.2),
-           L(P(rrect(52, 39.5, 64, 52, 2.4)), "glass", "dome", 2.8, rr=1, spec=[(54 * 16 / MN, 42 * 16 / MN)]),
-           L(P(rect(46, 56, 64, 58)), "sy", "fix", 1, sep=False)]
-    for xs in range(46, 79, 9): cab.append(L(P(rect(xs, 66, xs + 4, 69)), "chr", "fix", 2, sep=False))   # 경고 줄무늬
-    arms = {
-        "side": [L(P(line(64, 50, 72, 53, 7)), "sy", "flat", 3), L(P(rrect(70, 42, 85, 68, 3)), "chr", "flat", 2), L(P(rect(73, 46, 82, 49)), "chr", "fix", 3, sep=False)],
-        "down": [L(P(line(64, 50, 76, 56, 7)), "sy", "flat", 3), L(P(rrect(72, 52, 81, 86, 2)), "sy", "flat", 3), L(P(rrect(63, 81, 90, 92, 3)), "chr", "flat", 2)],
-        "up":   [L(P(line(64, 47, 71, 34, 7)), "sy", "flat", 3), L(P(rrect(60, 19, 88, 31, 3)), "chr", "flat", 2), L(P(rect(64, 22, 84, 25)), "chr", "fix", 3, sep=False)],
-    }
     for mode in ("side", "down", "up"):
-        out["body_" + mode] = R_(cab + arms[mode])
-    for leg in (0, 1):
-        lays = [L(P(rrect(37, 69, 83, 85, 7.5)), "gry", "flat", 1)]
-        for wx in (45, 56, 67, 77):
-            lays.append(L(P(ell(wx, 77, 5.2, 5.2)), "gry", "dome", 3.0, rr=0.6))
-            lays.append(L(P(ell(wx, 77, 1.8, 1.8)), "gry", "fix", 1, sep=False))
-        lays.append(L(P(U_(*[rect(39 + k * 7 + leg * 3.5, 83, 41.5 + k * 7 + leg * 3.5, 85) for k in range(6)])), "gry", "fix", 0, sep=False))
-        out["trk_%d" % leg] = R_(lays)
-    out["cw"] = R_([L(P(rrect(33, 47, 43, 67, 2.5)), "gry", "flat", 2), L(P(rect(35, 53, 41, 55)), "gry", "fix", 1, sep=False)])
-    out["lamp"] = R_([L(P(rrect(58, 30, 67, 36, 1.5)), "gry", "dome", 3.2, rr=0.8)])
-    cones = {"side": ([(84, 41.5), (84, 69.5), (117, 55.5)], 0), "down": ([(62.5, 91), (90.5, 91), (76.5, 117)], 1), "up": ([(59.5, 19), (87.5, 19), (73.5, 2)], 2)}
-    for mode, (pts, ax) in cones.items():
-        for d in (0, 1):
-            cone = P(poly(pts))
-            o = d * 5
-            if ax == 0: gro = U_(*[line(88 + k * 9 + o, 40, 92 + k * 9 + o, 71, 2.2) for k in range(4)])
-            elif ax == 1: gro = U_(*[line(60, 95 + k * 7 + o, 93, 99 + k * 7 + o, 2.2) for k in range(3)])
-            else: gro = U_(*[line(57, 15 - k * 5 - o, 90, 11 - k * 5 - o, 2.0) for k in range(3)])
-            out["bit_%s_%d" % (mode, d)] = R_([L(cone, "gry", "dome", 2.6, rr=1.8, spec=[((pts[0][0] + 4) * 16 / MN, (pts[0][1] + 4) * 16 / MN)]),
-                                               L(I_(P(gro), cone), "gry", "fix", 1, sep=False)])
+        for dig in (0, 1):
+            p = robot3d.parts_for(mode, 0, dig, ramps)
+            out["bit_%s_%d" % (mode, dig)] = p["bit"]
+            if dig == 0:
+                out["body_" + mode] = p["body"]
+                if mode == "side": out["cw"], out["lamp"], out["trk_0"] = p["cw"], p["lamp"], p["trk"]
+    out["trk_1"] = robot3d.parts_for("side", 1, 0, ramps)["trk"]
     return out
 
 # ---------------------------------------------------------------------
