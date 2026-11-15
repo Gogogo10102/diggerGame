@@ -175,6 +175,11 @@ export function draw() {
     const k = Math.min(1, S.shakeT * 3) * 10;
     camX += Math.round((Math.random() - 0.5) * k / 2) * 2; camY += Math.round((Math.random() - 0.5) * k / 2) * 2;
   }
+  else if (P.digging && S.state === "play" && P.dead <= 0) {          // 파는 동안 화면도 잔잔하게 덜덜 (단단한 땅이면 더 세게)
+    const hardD = S.dig && hardOf(tiles[S.dig.r * W + S.dig.c], S.dig.r) >= 1.2 ? 2 : 1;
+    camX += (((S.animT * 50) | 0) % 2 ? 2 : -2) * (Math.random() < 0.5 ? 0 : 1);
+    camY += (((S.animT * 44) | 0) % 2 ? 2 : 0) * hardD;
+  }
   const surfY = Math.floor(SURF * T - camY);
 
   // 하늘
@@ -409,17 +414,32 @@ export function draw() {
     const moving = Math.abs(P.vx) > 20 && P.grounded;
     const leg = moving ? ((S.animT * 10) | 0) % 2 : 0;
     const dg = P.digging ? ((S.animT * 24) | 0) % 2 : -1;
-    const img = getMiner(P.mode, leg, dg);
-    const shake = P.digging && ((S.animT * 40) | 0) % 2 ? 2 : 0;
-    // 기계라서 덜덜덜: 굴러갈 때·추진할 때·팔 때 몸이 2px 씩 떨림
+    // 기계라서 덜덜덜: 굴러갈 때·추진할 때 2px. 팔 때는 더 세게(앞뒤·위아래로 최대 4px 마구 떨림)
     const thr = U_() && P.fuel > 0;
-    const rattle = (moving || thr || P.digging) ? ((S.animT * (thr ? 30 : 22)) | 0) % 2 * 2 : 0;
-    const rx = thr && ((S.animT * 17) | 0) % 3 === 0 ? 2 : 0;
-    ctx.save();
-    ctx.translate(px + rx + (P.mode === "side" ? shake * P.facing : 0), py + HH - rattle + (P.mode === "down" ? shake : P.mode === "up" ? -shake : 0));
-    if (P.facing < 0) ctx.scale(-1, 1);
+    const fr = (S.animT * 60) | 0, jit = (k) => ((Math.imul(fr + k * 7919, 2654435761) >>> 24) % 5) - 2;   // -2~2
+    let ox = 0, oy = 0;
+    if (P.digging) { ox = jit(1) * 2; oy = jit(2) * 2; }
+    else if (moving || thr) { oy = -(((S.animT * (thr ? 30 : 22)) | 0) % 2) * 2; ox = thr && fr % 3 === 0 ? 2 : 0; }
+    // 드릴이 흙 쪽으로 파고드는 깊이: 진행도만큼 0→18px + 쿡쿡 찌르는 떨림
+    let push = 0;
+    if (P.digging && S.dig) {
+      const id = tiles[S.dig.r * W + S.dig.c], need = Math.max(0.01, hardOf(id, S.dig.r) / drillMult());
+      push = Math.min(1, S.dig.t / need) * 18 + (((S.animT * 18) | 0) % 2) * 4;
+    }
     const ms = MINER_SZ * 3, mb = MINER_BOX * 3;                     // 그림 x3: 몸통 48px(블록의 3/4) · 충돌 크기는 그대로
-    ctx.drawImage(img, -24 - mb, -48 - mb, ms, ms);
+    ctx.save();
+    ctx.translate(px + ox, py + HH + oy);
+    if (P.facing < 0) ctx.scale(-1, 1);
+    ctx.drawImage(getMiner(P.mode, leg, dg, "body"), -24 - mb, -48 - mb, ms, ms);
+    const pdx = P.mode === "side" ? push : 0, pdy = P.mode === "down" ? push : P.mode === "up" ? -push : 0;
+    if (push > 0) {                                                  // 모터와 드릴 사이 축(밀려 나간 만큼)
+      const L = Math.round(push) + 3;
+      const [sx, sy, sw, sh] = P.mode === "side" ? [21, -33, L, 9] : P.mode === "down" ? [12, 3, 9, L] : [9, -63 - L + 3, 9, L];
+      ctx.fillStyle = "#14151f"; ctx.fillRect(sx, sy, sw, sh);
+      ctx.fillStyle = "#9aa3b8"; ctx.fillRect(sx + (sw > sh ? 0 : 3), sy + (sw > sh ? 3 : 0), sw > sh ? sw : 3, sw > sh ? 3 : sh);
+      ctx.fillStyle = "#e3e8f2"; ctx.fillRect(sx + (sw > sh ? 0 : 3), sy + (sw > sh ? 3 : 0), sw > sh ? sw : 1, sw > sh ? 1 : sh);
+    }
+    ctx.drawImage(getMiner(P.mode, leg, dg, "drill"), Math.round(-24 - mb + pdx), Math.round(-48 - mb + pdy), ms, ms);
     ctx.restore();
     if (U_() && P.fuel > 0) drawThrustFlame(px, py + HH);
   }

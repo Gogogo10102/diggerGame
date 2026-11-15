@@ -431,8 +431,9 @@ export const minerCache = new Map();
 //  드릴만 방향을 바꿈: side = 앞으로, down = 앞쪽 아래로, up = 위로. 몸은 꺾지 않음.
 //  장비 단계에 따라 색이 바뀜: 드릴 날(LOOK.drill) · 궤도(LOOK.tracks) · 뒤 평형추(LOOK.crate) · 지붕 등(LOOK.lamp)
 export const MINER_SZ = 40, MINER_BOX = 12;
-export function getMiner(mode, leg, dig) {
-  const key = mode + leg + dig + "|" + LOOK.key;
+//  part: "all"(기본) · "body"(드릴 원뿔만 뺀 몸) · "drill"(드릴 원뿔만) — 팔 때 드릴만 흙 쪽으로 밀어 넣어 그리려고 나눔
+export function getMiner(mode, leg, dig, part = "all") {
+  const key = mode + leg + dig + part + "|" + LOOK.key;
   if (minerCache.has(key)) return minerCache.get(key);
   const img = sprite(MINER_SZ, MINER_SZ, (p0) => {
     const p = (x, y, w, h, c) => p0(MINER_BOX + x, MINER_BOX + y, w, h, c);    // 몸통 칸 기준 좌표
@@ -465,6 +466,7 @@ export function getMiner(mode, leg, dig) {
         p(x, y, 1, 1, c);
       }
     };
+    if (part !== "drill") {
     // 무한궤도
     p(1, 11, 14, 1, K); p(0, 12, 1, 3, K); p(15, 12, 1, 3, K); p(1, 15, 14, 1, K);
     p(1, 12, 14, 3, trD); p(1, 12, 14, 1, trP);
@@ -484,20 +486,22 @@ export function getMiner(mode, leg, dig) {
     p(4, 7, 4, 1, Ys);
     // 지붕 등 (조명 단계)
     if (LOOK.lamp > 0) { p(8, -1, 2, 1, K); p(8, -1, 1, 1, GLOW[LOOK.lamp - 1]); } else p(8, -1, 1, 1, "#ff5a4d");
+    }
     // 팔 + 드릴 (방향마다)
+    const body = part !== "drill", bit = part !== "body";
     if (mode === "side") {
-      p(10, 3, 2, 6, K); p(10, 4, 1, 4, Y); p(11, 4, 1, 4, Ys);             // 팔(운전석 앞)
-      p(12, 2, 4, 9, K); p(12, 3, 3, 7, CH); p(12, 3, 3, 1, CHl);            // 드릴 모터
-      cone("r", 16, 6, 10, 9);
+      if (body) { p(10, 3, 2, 6, K); p(10, 4, 1, 4, Y); p(11, 4, 1, 4, Ys); }             // 팔(운전석 앞)
+      if (body) { p(12, 2, 4, 9, K); p(12, 3, 3, 7, CH); p(12, 3, 3, 1, CHl); }            // 드릴 모터
+      if (bit) cone("r", 16, 6, 10, 9);
     } else if (mode === "down") {
-      p(10, 3, 2, 6, K); p(10, 4, 1, 4, Y);
-      p(12, 5, 3, 11, K); p(12, 6, 2, 9, Y); p(12, 6, 1, 9, Yh);            // 앞으로 내린 팔 (궤도 앞)
-      p(9, 15, 9, 3, K); p(10, 15, 7, 2, CH); p(10, 15, 7, 1, CHl);         // 드릴 모터
-      cone("d", 13, 18, 8, 9);
+      if (body) { p(10, 3, 2, 6, K); p(10, 4, 1, 4, Y); }
+      if (body) { p(12, 5, 3, 11, K); p(12, 6, 2, 9, Y); p(12, 6, 1, 9, Yh); }            // 앞으로 내린 팔 (궤도 앞)
+      if (body) { p(9, 15, 9, 3, K); p(10, 15, 7, 2, CH); p(10, 15, 7, 1, CHl); }         // 드릴 모터
+      if (bit) cone("d", 13, 18, 8, 9);
     } else {
-      p(10, -2, 4, 5, K); p(11, -1, 2, 4, Y); p(11, -1, 1, 4, Yh);         // 위로 든 팔
-      p(8, -5, 9, 4, K); p(9, -4, 7, 2, CH); p(9, -4, 7, 1, CHl);           // 드릴 모터
-      cone("u", 12, -6, 6, 9);
+      if (body) { p(10, -2, 4, 5, K); p(11, -1, 2, 4, Y); p(11, -1, 1, 4, Yh); }         // 위로 든 팔
+      if (body) { p(8, -5, 9, 4, K); p(9, -4, 7, 2, CH); p(9, -4, 7, 1, CHl); }           // 드릴 모터
+      if (bit) cone("u", 12, -6, 6, 9);
     }
   });
   minerCache.set(key, img);
