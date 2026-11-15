@@ -437,7 +437,8 @@ export const minerCache = new Map();
 export const MINER_SZ = 40, MINER_BOX = 12;
 //  part: "all"(기본) · "body"(드릴 원뿔만 뺀 몸) · "drill"(드릴 원뿔만) — 팔 때 드릴만 흙 쪽으로 밀어 넣어 그리려고 나눔
 // 고해상도 부품 (public/assets/miner/*.png, 120x120 = 화면 그대로). 파일이 있으면 assets.ts 가 이 캔버스에 덮어씀
-//  body_<자세> 는 색 그대로, 나머지는 회색 그림 → 장비 단계 색으로 바꿔 칠함
+//  고해상도 캐릭터는 '드릴 로봇'(노란 몸 + 회색 머리·외눈 + 안테나 두 개 + 통짜 팔 끝 드릴). 파일이 없을 때만 아래 미니 굴착기 도트
+//  body_<자세> 는 색 그대로, 나머지는 회색 그림 → 장비 단계 색으로 바꿔 칠함 (cw = 등 탱크, lamp = 안테나 끝 불빛)
 export const MINER_HI = {};
 for (const k of ["body_side", "body_down", "body_up", "trk_0", "trk_1", "cw", "lamp",
   "bit_side_0", "bit_side_1", "bit_down_0", "bit_down_1", "bit_up_0", "bit_up_1"]) MINER_HI[k] = sprite(1, 1, () => {});
@@ -463,7 +464,7 @@ function getMinerHi(mode, leg, dig, part) {
   const TR = LOOK.tracks > 0 ? PAL[LOOK.tracks - 1] : { h: "#c6cedc", m: "#8b93a6", l: "#3a3f52" };
   const DR = LOOK.drill > 0 ? PAL[LOOK.drill - 1] : { h: "#e3e8f2", m: "#9aa3b8", l: "#5b6379" };
   const CP = LOOK.crate > 0 ? PAL[LOOK.crate - 1] : { h: "#4a5262", m: "#2a2e37", l: "#1c1f26" };
-  const lc = LOOK.lamp > 0 ? GLOW[LOOK.lamp - 1] : "#ff5a4d";
+  const lc = LOOK.lamp > 0 ? GLOW[LOOK.lamp - 1] : "#3a7bff";                // 안테나 끝 불빛 (조명 없으면 파랑)
   const LP = { h: mixC(lc, "#ffffff", 0.3), m: lc, l: mixC(lc, "#000000", 0.3) };
   const ds = dig < 0 ? 0 : dig;
   return sprite(MINER_SZ * 3, MINER_SZ * 3, (p, g) => {
