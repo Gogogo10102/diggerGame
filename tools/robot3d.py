@@ -10,7 +10,8 @@ import math
 import numpy as np
 
 N = 120
-TH, PH = math.radians(38), math.radians(20)          # 로봇이 화면 쪽으로 돈 각도 · 위에서 내려다본 각도
+TH, PH = math.radians(38), 0.0                       # 로봇이 화면 쪽으로 돈 각도 · 내려다본 각도
+#  PH = 0(눈높이): 궤도 두 줄이 같은 땅에 붙어 보임. 내려다보면 먼 쪽 궤도가 위로 떠 보여서 0 으로 둠
 
 def nrm(v): v = np.asarray(v, float); return v / np.linalg.norm(v)
 # 카메라 좌표: x 오른쪽, y 아래(화면), z 보는 사람 쪽
@@ -18,7 +19,7 @@ UP = nrm([0, -math.cos(PH), math.sin(PH)])
 FW = nrm([math.cos(TH), math.sin(TH) * math.sin(PH), math.sin(TH) * math.cos(PH)])
 SD = np.cross(UP, FW)
 if SD[2] < 0: SD = -SD                                # 보는 사람 쪽 옆면(가까운 쪽)
-ORG = np.array([60.0, 77.0, 0.0])                     # 바닥 가운데(로봇 발밑)이 화면에 오는 자리
+ORG = np.array([60.0, 84.0, 0.0])                     # 바닥 가운데(로봇 발밑)이 화면에 오는 자리
 K = 1.12                                              # 로봇 크기 배율
 
 def to_cam(f, u, s):
@@ -68,7 +69,7 @@ def scene(mode, leg, dig):
     # 궤도: 먼 쪽 · 가까운 쪽
     for s0, nm in ((-11.5, "trkF"), (11.5, "trkN")):
         add(nm, "trk", "gry", lambda P, s0=s0: sd_rbox(loc(P), np.array([0, 7, s0]), (23, 7, 4.5), 4.5),
-            lambda P, q, s0=s0: np.where(((q[..., 0] + leg * 3.5) % 7 < 2.4) & ((q[..., 1] < 2.6) | (q[..., 1] > 11.4)), -2, -1))   # 궤도는 한 단 어둡게, 바퀴 자국은 더
+            lambda P, q, s0=s0: np.where(((q[..., 0] + leg * 3.5) % 7 < 2.4) & ((q[..., 1] < 2.6) | (q[..., 1] > 11.4)), -3, -2))   # 궤도는 어둡게(참고 그림처럼), 바퀴 자국은 더
     for fw in (-15, -5, 5, 15):                        # 가까운 쪽 바퀴 (옆면에서 살짝 나옴)
         add("whl", "trk", "gry", lambda P, fw=fw: sd_cyl(loc(P), (fw, 7, 14), (fw, 7, 17.2), 4.6),
             lambda P, q, fw=fw: np.where(np.hypot(q[..., 0] - fw, q[..., 1] - 7) < 1.8, -2, 1))
