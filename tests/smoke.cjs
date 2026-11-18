@@ -976,6 +976,11 @@ async function login(t, name) {
     ok(!tx.some((x) => x.includes("광물 없음")), "타이틀에선 HUD 를 숨김");
     ok(tt.ev("!!S.titleLogo && S.titleLogo.width > 0"), "타이틀 로고 그림을 만듦");
   }
+  // ---- 지하 조명 ----
+  ok(t60.ev("DARK_COL.length === LAYERS.length && DARK_COL[4][0] > DARK_COL[4][2] && DARK_COL[5][2] > DARK_COL[5][0]"), "어둠 색이 지층마다 다름 (용암 붉게 · 수정 푸르게)");
+  t60.ev("P.x = 30.5 * T; P.y = (SURF + 40.5) * T; ensureAround(30, SURF + 40); tiles[(SURF + 40) * W + 31] = 5; seen[(SURF + 40) * W + 31] = 1; tiles[(SURF + 40) * W + 29] = 9; seen[(SURF + 40) * W + 29] = 0"); t60.run(2);
+  ok(t60.ev("(S.oreGlows || []).some((g) => g[2] === 5) && !(S.oreGlows || []).some((g) => g[2] === 9)"), "본 적 있는 희귀 광물만 어둠 속에서 빛남");
+  t60.ev("P.y = (SURF - 1) * T"); t60.run(1);
   // ---- 보물 상자 ----
   ok(t60.ev("JSON.stringify(chunkChests(1, 3)) === JSON.stringify(chunkChests(1, 3))"), "보물 상자 자리는 시드·구역으로 정해짐");
   ok(t60.ev("(() => { let n = 0; for (let cy = 1; cy < 12; cy++) for (let cx = 0; cx < CW; cx++) n += chunkChests(cx, cy).length; return n; })()") > 10, "구역마다 드물게 보물 상자");

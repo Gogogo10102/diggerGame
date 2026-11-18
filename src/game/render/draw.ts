@@ -1,9 +1,9 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
-import { FLAME, itemIcon } from "../art/itemIcons.ts";
+import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
 import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile } from "../art/sprites.ts";
-import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
+import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
@@ -501,7 +501,8 @@ export function draw() {
           const light = Math.max(amb, s0, sL * 0.55, sR * 0.55);
           a *= 1 - light;
         }
-        data[k] = 4; data[k + 1] = 3; data[k + 2] = 9; data[k + 3] = Math.round(a * 255);
+        const dc = DARK_COL[r < SURF ? 0 : layerOf(r - SURF)];             // 지층마다 어둠 색이 조금씩 다름 (용암은 붉게, 수정은 푸르게)
+        data[k] = dc[0]; data[k + 1] = dc[1]; data[k + 2] = dc[2]; data[k + 3] = Math.round(a * 255);
       }
     }
     gg.putImageData(S.gridImg, 0, 0);
@@ -510,11 +511,29 @@ export function draw() {
     lg.imageSmoothingEnabled = true;                                 // 칸 사이를 부드럽게 이어 줌
     lg.drawImage(gridCv, (gc0 * T - camX) / 4, (gr0 * T - camY) / 4, gw * T / 4, gh * T / 4);
     lg.globalCompositeOperation = "destination-out";
-    const lx = (P.x - camX) / 4, ly = (P.y - camY) / 4, R = visR() * 8;
+    const lx = (P.x - camX) / 4, ly = (P.y - camY) / 4;
+    const R = visR() * 8 * (1 + Math.sin(S.animT * 7.3) * 0.012 + Math.sin(S.animT * 17.1) * 0.008);   // 램프가 아주 살짝 일렁임
     for (const f of [[1, 0.25], [0.82, 0.3], [0.66, 0.35], [0.5, 0.4], [0.34, 0.6], [0.18, 1]]) {
       lg.fillStyle = "rgba(0,0,0," + f[1] + ")";
       lg.beginPath(); lg.arc(lx, ly, R * f[0], 0, 7); lg.fill();
     }
+    // 드릴 쪽(앞 · 아래 · 위)을 더 멀리 비춤: 램프가 파는 방향을 향함
+    const [hx, hy] = P.mode === "down" ? [0, 1] : P.mode === "up" ? [0, -1] : [P.facing < 0 ? -1 : 1, 0];
+    for (const f of [[0.62, 0.22], [0.42, 0.28]]) {
+      lg.fillStyle = "rgba(0,0,0," + f[1] + ")";
+      lg.beginPath(); lg.arc(lx + hx * R * 0.62, ly + hy * R * 0.62, R * f[0], 0, 7); lg.fill();
+    }
+    // 희귀 광물은 어둠 속에서 은은하게 빛남 (한 번 본 칸만 → 숨은 광물은 드러나지 않음)
+    const glows = [];
+    for (let r = Math.max(SURF, r0); r <= r1; r++) for (let c = c0; c <= c1; c++) {
+      const id = tiles[r * W + c];
+      if (!GLOW_ORES[id] || !seen[r * W + c]) continue;
+      const gx = ((c + 0.5) * T - camX) / 4, gy = ((r + 0.5) * T - camY) / 4, pulse = 0.75 + 0.25 * Math.sin(S.animT * 2.2 + c * 1.7 + r);
+      lg.fillStyle = "rgba(0,0,0," + (0.32 * pulse).toFixed(3) + ")";
+      lg.beginPath(); lg.arc(gx, gy, 6, 0, 7); lg.fill();
+      glows.push([gx * 4, gy * 4, id, pulse]);
+    }
+    S.oreGlows = glows;
     for (const b of bombs) {                                // 폭약 불빛
       lg.fillStyle = "rgba(0,0,0,0.7)";
       lg.beginPath(); lg.arc(((b.c + 0.5) * T - camX) / 4, ((b.r + 0.5) * T - camY) / 4, 14, 0, 7); lg.fill();
@@ -524,6 +543,24 @@ export function draw() {
       lg.beginPath(); lg.arc((f.x - camX) / 4, (f.y - camY) / 4, (f.rad + 2) * 8 * (1.3 - f.t), 0, 7); lg.fill();
     }
     ctx.drawImage(lightCv, 0, 0, LW * 4, LH * 4);
+    // 따뜻한 램프 빛(조명 단계 색) + 광물 빛을 화면에 살짝 더함 — 지하에서만
+    if (depth > 1.5 && ctx.createRadialGradient) {
+      const lc = LOOK.lamp > 0 ? GLOW[LOOK.lamp - 1] : "#ffb45a";
+      const px = P.x - camX, py = P.y - camY, rr = visR() * T * 1.1;
+      ctx.globalCompositeOperation = "screen";
+      const g = ctx.createRadialGradient(px, py, 0, px, py, rr);
+      if (g && g.addColorStop) {
+        g.addColorStop(0, hexA(lc, 0.2)); g.addColorStop(0.6, hexA(lc, 0.07)); g.addColorStop(1, hexA(lc, 0));
+        ctx.fillStyle = g; ctx.fillRect(px - rr, py - rr, rr * 2, rr * 2);
+      }
+      for (const [gx, gy, id, pulse] of S.oreGlows || []) {
+        const q = ctx.createRadialGradient(gx, gy, 0, gx, gy, 30);
+        if (!q || !q.addColorStop) break;
+        q.addColorStop(0, hexA(ORE_COL[id][1], 0.28 * pulse)); q.addColorStop(1, hexA(ORE_COL[id][1], 0));
+        ctx.fillStyle = q; ctx.fillRect(gx - 30, gy - 30, 60, 60);
+      }
+      ctx.globalCompositeOperation = "source-over";
+    }
   }
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);                    // 여기서부터는 확대 없이 화면 그대로
@@ -797,6 +834,11 @@ export function drawStick() {
   pcircle(kx, ky, 22, "#ffd34d");
   pcircle(kx - 4, ky - 4, 10, "#fff3a8");
 }
+
+// 어둠 색(지층별): 지층 바탕색을 아주 어둡게 → 깊이마다 공기 색이 다르게 느껴짐
+const DARK_COL = LAYERS.map((L) => { const v = parseInt(L.base.slice(1), 16); return [((v >> 16) & 255) * 0.09 + 2, ((v >> 8) & 255) * 0.09 + 2, (v & 255) * 0.09 + 5].map(Math.round); });
+const GLOW_ORES = { 5: 1, 9: 1, 10: 1, 11: 1 };                 // 어둠 속에서 빛나는 광물: 다이아 · 에메랄드 · 루비 · 미스릴
+const hexA = (hex, a) => { const v = parseInt(hex.slice(1), 16); return "rgba(" + ((v >> 16) & 255) + "," + ((v >> 8) & 255) + "," + (v & 255) + "," + Math.max(0, a).toFixed(3) + ")"; };
 
 // 타이틀 로고: 16px 도트 글꼴로 그린 뒤 정수배로 키움 → 굵은 도트 글자 + 아래로 3칸 입체 + 검은 테두리 + 윗부분 밝게
 //  글꼴이 다 읽히기 전엔 매번 다시 만들고, 읽힌 뒤엔 한 번 만든 걸 씀
