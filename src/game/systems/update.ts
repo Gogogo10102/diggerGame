@@ -25,6 +25,27 @@ export function openChest(c, r) {
   return money;
 }
 
+// 처음 하는 사람 안내: 한 단계씩, 해내면 다음으로. 진행은 계정에 저장(S.acct.tut). 도움말(H)을 끄면 안 보임
+//  key: 키보드 문구 / touch: 터치 문구 / done: 끝났는지
+export const TUT_STEPS = [
+  { key: "↓ 키로 땅을 파고 내려가 보세요", touch: "아래로 드래그해서 땅을 파고 내려가 보세요", done: () => P.y / T - SURF >= 4 },
+  { key: "광물을 캐 보세요 (반짝이는 돌)", touch: "광물을 캐 보세요 (반짝이는 돌)", done: () => cargoCount() > 0 || (S.acct && S.acct.stats.earned > 0) },
+  { key: "↑ 키로 추진해 지상으로! 연료는 지상에서 충전돼요", touch: "위로 드래그해 추진! 연료는 지상에서 충전돼요", done: () => S.acct && ((S.acct.stats.trips || 0) > 0 || S.acct.stats.earned > 0) },
+  { key: "마을 건물 앞에서 [E] → 판매 탭에서 광물을 팔아요", touch: "마을 건물을 눌러 판매 탭에서 광물을 팔아요", done: () => S.acct && S.acct.stats.earned > 0 },
+  { key: "상점에서 장비를 사서 더 깊이 내려가요!", touch: "상점에서 장비를 사서 더 깊이 내려가요!", done: () => Object.keys(P.items).length > 0 },
+];
+export function updateTutorial(dt) {
+  if (!S.acct) return;
+  if (S.tutFlash > 0) S.tutFlash -= dt;
+  const k = S.acct.tut | 0;
+  if (k >= TUT_STEPS.length || S.tutFlash > 0) return;              // 다 했거나, 방금 끝낸 단계를 보여 주는 중
+  if (TUT_STEPS[k].done()) {
+    S.acct.tut = k + 1; S.tutFlash = 1.4; S.tutDone = k;           // 1.4초 동안 '완료' 표시 후 다음 단계
+    sfx("tick", { pitch: 1.4 });
+    if (S.acct.tut >= TUT_STEPS.length) pushBanner("기본은 끝!", "이제 더 깊이, 더 값진 광물을 찾아보세요", ICON.trophy, "#7cff6b");
+  }
+}
+
 // 로봇 살아 있는 느낌: 2~5초마다 눈 깜빡(가끔 두 번), 안테나는 스프링처럼 움직임 반대로 기울었다 돌아옴
 S.blinkT = 2.5; S.antA = 0; S.antV = 0; S.lastVx = 0;
 export function animMiner(dt) {
@@ -166,6 +187,7 @@ export function update(dt) {
   if (S.bannerT > 0) S.bannerT -= dt;
   if (S.bannerT <= 0 && bannerQ.length) { S.banner = bannerQ.shift(); S.bannerText = S.banner.title; S.bannerT = BANNER_T; }
   animMiner(dt);
+  updateTutorial(dt);
   updateFx(dt);
   updateBombs(dt);
   if (S.shakeT > 0) S.shakeT -= dt;

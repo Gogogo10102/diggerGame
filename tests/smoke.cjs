@@ -984,6 +984,22 @@ async function login(t, name) {
   ok(t60.ev("acct.stats.trips") === 1 && t60.ev("acct.stats.close") === 1, "광물 싣고 연료 10% 미만으로 올라오면 귀환·아슬아슬 기록");
   ok(t60.ev("(() => { const d = snapshot(); applyAccount(d); return acct.stats.trips === 1 && acct.stats.close === 1; })()"), "귀환 기록이 저장됨");
   t60.ev("P.cargo = {}");
+  // ---- 처음 안내 ----
+  t60.ev("acct.tut = 0; S.tutFlash = 0; S.showHelp = true; P.cargo = {}; acct.stats.trips = 0; acct.stats.earned = 0; P.items = {}; P.x = 30.5 * T; P.y = (SURF - 1) * T + HH; P.vx = P.vy = 0"); t60.run(3);
+  ok(t60.ev("acct.tut") === 0 && t60.canvasTexts().some((x) => x.includes("처음 안내")), "처음 안내 카드: 첫 단계");
+  t60.ev("P.y = (SURF + 5.5) * T"); t60.run(2);
+  ok(t60.ev("acct.tut") === 1 && t60.ev("S.tutFlash > 0"), "땅을 파고 4m 내려가면 다음 단계 (완료 표시)");
+  t60.ev("S.tutFlash = 0; P.cargo = { 2: 1 }"); t60.run(2);
+  ok(t60.ev("acct.tut") === 2, "광물을 캐면 다음 단계");
+  t60.ev("S.tutFlash = 0; P.cargo = {}; P.y = (SURF - 1) * T + HH"); t60.run(3);
+  ok(t60.ev("acct.tut") === 2, "광물 없이 올라오면 '귀환' 단계는 그대로");
+  t60.ev("acct.stats.trips = 1"); t60.run(2);
+  ok(t60.ev("acct.tut") === 3, "광물 싣고 귀환하면 다음 단계");
+  ok(t60.ev("(() => { const d = snapshot(); applyAccount(d); return acct.tut; })()") === 3, "안내 단계가 저장됨");
+  ok(t60.ev("(() => { const d = snapshot(); delete d.tut; d.stats.earned = 50; applyAccount(d); return acct.tut; })()") === t60.ev("TUT_STEPS.length"), "예전 세이브(판 적 있음)는 안내를 건너뜀");
+  t60.ev("S.showHelp = false; acct.tut = 0"); t60.run(1);
+  ok(!t60.canvasTexts().some((x) => x.includes("처음 안내")), "도움말을 끄면 안내도 숨김");
+  t60.ev("S.showHelp = true; acct.tut = TUT_STEPS.length; S.tutFlash = 0; P.items = {}");
   // ---- 지하 조명 ----
   ok(t60.ev("DARK_COL.length === LAYERS.length && DARK_COL[4][0] > DARK_COL[4][2] && DARK_COL[5][2] > DARK_COL[5][0]"), "어둠 색이 지층마다 다름 (용암 붉게 · 수정 푸르게)");
   t60.ev("P.x = 30.5 * T; P.y = (SURF + 40.5) * T; ensureAround(30, SURF + 40); tiles[(SURF + 40) * W + 31] = 5; seen[(SURF + 40) * W + 31] = 1; tiles[(SURF + 40) * W + 29] = 9; seen[(SURF + 40) * W + 29] = 0"); t60.run(2);

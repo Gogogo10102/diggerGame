@@ -15,7 +15,7 @@ import { debrisList, debrisT, dust } from "../systems/collapseFx.ts";
 import { drops } from "../systems/drops.ts";
 import { chunks, floatT, withChunksSettled } from "../systems/floating.ts";
 import { BARS } from "../systems/furnace.ts";
-import { collide, revealAround } from "../systems/update.ts";
+import { TUT_STEPS, collide, revealAround } from "../systems/update.ts";
 import { SaveStore, lsSet } from "../ui/inventory.ts";
 import { hideOv, openAccountScreen } from "../ui/overlay.ts";
 
@@ -38,6 +38,7 @@ export function snapshot() {
     mineNo: S.acct.mineNo || 1,
     furnace: S.acct.furnace,
     xp: S.acct.xp, quest: S.acct.quest, title: S.acct.title || "",
+    tut: S.acct.tut | 0,                                       // 처음 안내 진행 단계
   }));
 }
 export function saveNow(force, quiet) {
@@ -111,6 +112,9 @@ export function applyAccount(d) {
   S.dig = null; parts.length = 0; floaters.length = 0;
   bombs.length = 0; flashes.length = 0; S.shakeT = 0; S.lastRevealKey = "";
   S.showHelp = !(d.settings && d.settings.showHelp === false);
+  // 처음 안내: 저장된 단계, 예전 세이브(기록 없음)는 이미 팔아 본 적이 있으면 끝난 것으로
+  S.acct.tut = d.tut !== undefined ? Math.max(0, d.tut | 0) : (S.acct.stats.earned > 0 ? TUT_STEPS.length : 0);
+  S.tutFlash = 0;
   const row = Math.floor(P.y / T), col = Math.floor(P.x / T);
   S.inShop = row < SURF;
   S.nearItems = row < SURF && inB(B_SHOP, col);
@@ -128,7 +132,7 @@ export function newAccountData(name) {
   genWorld(seed);
   const now = Date.now();
   return {
-    ver: SAVE_VER, id: newId(), name, created: now, updated: now, seed, mineNo: 1, xp: 0, quest: {}, title: "", playTime: 0,
+    ver: SAVE_VER, id: newId(), name, created: now, updated: now, seed, mineNo: 1, xp: 0, quest: {}, title: "", playTime: 0, tut: 0,
     stats: { maxDepth: 0, earned: 0, deaths: 0, crafted: 0, collapses: 0, caves: 0, mined: {} },
     player: { ts: T, x: 6 * T + T / 2, y: SURF * T - HH - 1, fuel: FUEL_BASE, money: 0, cargo: {}, stash: {}, bars: {}, inv: {}, items: {}, layerMax: 0, facing: 1 },
     settings: { showHelp: true },

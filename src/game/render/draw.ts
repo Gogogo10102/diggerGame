@@ -19,6 +19,7 @@ import { chunks, floatT, solidTile } from "../systems/floating.ts";
 import { BARS, furnaceImg, matHave, matIcon, matName } from "../systems/furnace.ts";
 import { STICK_R, U_, shopBtn, touch } from "../systems/input.ts";
 import { drawCraftModal, drawFurnaceModal, drawShopModal, fitText } from "./townUI.ts";
+import { TUT_STEPS } from "../systems/update.ts";
 import { drawMapModal, drawMinimap } from "./minimap.ts";
 import { SELL_KEYS, stashValue, unitPrice } from "../systems/town.ts";
 import { ov } from "../ui/overlay.ts";
@@ -711,6 +712,7 @@ export function drawHUD(vw, vh, depth) {
   if (S.saveFlash > 0 && S.state !== "title") txt(S.saveFail ? "저장 실패!" : "저장됨", bx0 - 10, by0 + (wide ? bs + 6 : 15), S.saveFail ? "#ff6b6b" : "#7cff6b", 12, "right", SY.ink);
   const mh = Math.min(260, vh - 64 - 150), mx = vw - 10 - 36, my = by0 + bs + 10;
   drawMinimap(vw, vh, my);
+  drawTutorial(vw, wide);
   if (mh >= 70) {
     panel(mx, my, 36, mh);
     const bx = mx + 12, by = my + 10, bw = 12, bhh = mh - 20, total = H - SURF;
@@ -839,6 +841,42 @@ export function drawStick() {
 const DARK_COL = LAYERS.map((L) => { const v = parseInt(L.base.slice(1), 16); return [((v >> 16) & 255) * 0.09 + 2, ((v >> 8) & 255) * 0.09 + 2, (v & 255) * 0.09 + 5].map(Math.round); });
 const GLOW_ORES = { 5: 1, 9: 1, 10: 1, 11: 1 };                 // 어둠 속에서 빛나는 광물: 다이아 · 에메랄드 · 루비 · 미스릴
 const hexA = (hex, a) => { const v = parseInt(hex.slice(1), 16); return "rgba(" + ((v >> 16) & 255) + "," + ((v >> 8) & 255) + "," + (v & 255) + "," + Math.max(0, a).toFixed(3) + ")"; };
+
+// 처음 안내 카드: 넓은 화면은 왼쪽 상태 줄 아래, 좁은 화면은 광물 칸 아래 · 미니맵 왼쪽
+function wrapText(s, maxW, size) {
+  setFont(size);
+  const out = []; let line = "";
+  for (const word of s.split(" ")) {
+    const t = line ? line + " " + word : word;
+    if (ctx.measureText(t).width <= maxW || !line) line = t; else { out.push(line); line = word; }
+  }
+  if (line) out.push(line);
+  return out;
+}
+function drawTutorial(vw, wide) {
+  S.tutCard = null;
+  if (!S.acct || S.state !== "play" || !S.showHelp || P.dead > 0) return;
+  const k = S.acct.tut | 0, flashing = S.tutFlash > 0, n = TUT_STEPS.length;
+  if (k >= n && !flashing) return;
+  const step = TUT_STEPS[flashing ? S.tutDone : k];
+  if (!step) return;
+  const x = 10, y = wide ? 104 : (S.hudBottom || 140) + 8;
+  const w = wide ? 320 : Math.max(150, Math.min(320, (S.miniBtn ? S.miniBtn.x : vw - 60) - 18 - x));
+  const lines = flashing ? ["잘했어요!"] : wrapText(S.usedTouch ? step.touch : step.key, w - 24, 12);
+  const h = 30 + lines.length * 16 + 8;
+  ctx.globalAlpha = flashing ? Math.min(1, S.tutFlash * 2) : 1;
+  panel(x, y, w, h, flashing ? "#1f3a1c" : undefined);
+  ctx.fillStyle = flashing ? "#7cff6b" : SY.y; ctx.fillRect(x + 2, y + 2, w - 4, 4);
+  txt(flashing ? "✔ 완료" : "처음 안내", x + 12, y + 10, flashing ? "#7cff6b" : SY.y, 12, "left", SY.ink);
+  for (let i = 0; i < n; i++) {                                     // 단계 점: 끝낸 것 ● (초록), 지금 ◆, 남은 것 ○
+    const cx = x + w - 12 - (n - i) * 12, done = i < k || (flashing && i <= S.tutDone);
+    ctx.fillStyle = done ? "#7cff6b" : i === k ? SY.y : "#4a4f5e";
+    ctx.fillRect(cx, y + 13, 8, 8);
+  }
+  lines.forEach((l, i) => txt(l, x + 12, y + 30 + i * 16, "#f2ead6", 12, "left", SY.ink));
+  ctx.globalAlpha = 1;
+  S.tutCard = { x, y, w, h };
+}
 
 // 타이틀 로고: 16px 도트 글꼴로 그린 뒤 정수배로 키움 → 굵은 도트 글자 + 아래로 3칸 입체 + 검은 테두리 + 윗부분 밝게
 //  글꼴이 다 읽히기 전엔 매번 다시 만들고, 읽힌 뒤엔 한 번 만든 걸 씀
