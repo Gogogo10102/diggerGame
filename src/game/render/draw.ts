@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, stoneTiles, sunImg } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, stoneTiles, sunImg, chestTile } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -220,6 +220,11 @@ export function draw() {
     else if (id === 13 && r === SURF && BUILD_COLS.some((b) => c >= b[0] && c <= b[1])) ctx.drawImage(plinthTop, px, py, T, T);   // 건물 바로 아래 한 줄만 돌 기단 (그 아래는 흙처럼)
     else {                                                         // 건물 사이 마을 땅(13)은 잔디 흙처럼 보이게
       ctx.drawImage(dirtTiles[layerOf(r - SURF)][hv(c, r) % DIRT_VAR], px, py, T, T);
+      if (id === 17) {                                             // 보물 상자: 흙 위에 상자, 금테가 가끔 반짝
+        ctx.drawImage(chestTile, px, py, T, T);
+        const k = (S.animT * 1.2 + (c * 3 + r * 7) * 0.31) % 2.4;
+        if (k < 0.5) { const a = Math.sin(k / 0.5 * Math.PI); ctx.globalAlpha = a; ctx.fillStyle = "#fff6c8"; ctx.fillRect(px + 40, py + 18, 2, 8); ctx.fillRect(px + 37, py + 21, 8, 2); ctx.globalAlpha = 1; }
+      }
       if (id > 1 && ORE_SPR[id]) {
         const ov = ORE_SPR[id][hv(c, r) & 3];
         ctx.drawImage(ov.img, px, py, T, T);

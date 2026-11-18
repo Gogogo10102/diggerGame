@@ -136,5 +136,13 @@ export function updateFx(dt) {
     f.y -= 36 * dt; f.life -= dt;
     if (f.life <= 0) floaters.splice(i, 1);
   }
+  // 떠오르는 글자끼리 겹치면(한꺼번에 여러 개: 보물+레벨 업+칭호 등) 먼저 생긴 것을 위로 밀어 줄을 띄움
+  for (let i = 0; i < floaters.length; i++) for (let j = i + 1; j < floaters.length; j++) {
+    const a = floaters[i], b = floaters[j], dy = a.y - b.y;
+    if (Math.abs(a.x - b.x) < 160 && Math.abs(dy) < 20) {
+      const up = 20 - Math.abs(dy);
+      if (dy <= 0) a.y -= up; else b.y -= up;                         // 위에 있는 쪽을 더 위로
+    }
+  }
 }
 

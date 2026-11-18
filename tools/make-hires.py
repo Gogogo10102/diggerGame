@@ -324,6 +324,21 @@ def bar_icon(k, pal, N=32):
                    L(rrect(6.0, 9.0, 10.0, 11.2, 0.4), "bar" + k, "inset", 2, sep=False)], N, "B", [])
 
 # ---------------------------------------------------------------------
+#  땅속 보물 상자 (흙 타일 위에 겹침): 흙에 반쯤 묻힌 나무 상자 + 금테 + 자물쇠
+# ---------------------------------------------------------------------
+def chest_tile():
+    MAT["wood"] = ["#2a160c", "#5a3418", "#8a5a30", "#b07a44", "#d8a868"]
+    MAT["gold"] = ["#6a4200", "#b07a10", "#ffcc33", "#ffe68a", "#fffbe0"]
+    lays = [L(ell(8, 12.6, 6.6, 1.6), "wood", "fix", 0),                                     # 흙에 파묻힌 그늘
+            L(rrect(2.6, 7.4, 13.4, 13.2, 0.6), "wood", "flat", 2),                          # 몸통
+            L(D_(rrect(2.6, 3.6, 13.4, 9.0, 2.6), rect(0, 7.6, 16, 16)), "wood", "dome", 2.8, rr=1.2, spec=[(5, 4.6)]),   # 둥근 뚜껑
+            L(U_(rect(2.6, 7.2, 13.4, 8.2), rect(4.2, 3.8, 5.2, 13.2), rect(10.8, 3.8, 11.8, 13.2)), "gold", "flat", 3),  # 금테
+            L(rrect(7.0, 6.6, 9.0, 9.6, 0.4), "gold", "dome", 3.0, rr=0.4),                    # 자물쇠
+            L(rect(7.7, 8.0, 8.3, 9.0), "wood", "fix", 0, sep=False)]
+    for k in range(3): lays.append(L(rect(3, 9.6 + k * 1.2, 13, 9.9 + k * 1.2), "wood", "fix", 1, sep=False))   # 판자 결
+    return render(lays, R, "B", [])
+
+# ---------------------------------------------------------------------
 #  하늘
 # ---------------------------------------------------------------------
 def sun():
@@ -404,7 +419,7 @@ if __name__ == "__main__":
     FUR = open(os.path.join(ROOT, "src/game/systems/furnace.ts"), encoding="utf-8").read()
     for k, a, b, c in re.findall(r'(\w\w): \{ name: "[^"]+",\s+ore: \d+,\s+coal: \d+, time: \d+,\s+pal: \["(#\w+)", "(#\w+)", "(#\w+)"\]', FUR):
         save(bar_icon(k, [a, b, c]), f"{A}/bars/{k}.png"); n += 1
-    save(sun(), f"{A}/sky/sun.png"); save(cloud(), f"{A}/sky/cloud.png"); n += 2
+    save(sun(), f"{A}/sky/sun.png"); save(cloud(), f"{A}/sky/cloud.png"); save(chest_tile(), f"{A}/tiles/chest.png"); n += 3
     for name, im in miner_parts().items():
         save(im, f"{A}/miner/{name}.png"); n += 1
     for b in ("item_shop", "workshop", "furnace"):

@@ -968,6 +968,21 @@ async function login(t, name) {
   t60.ev("dust.length = 0; P.y = (SURF + 19.3) * T; P.vy = 500 * PX"); t60.run(20);
   ok(t60.ev("dust.length") >= 2, "세게 착지하면 궤도 양 끝에서 먼지");
   ok(/^#[0-9a-f]{6}$/.test(t60.ev("dustCol(SURF + 300)")), "깊이별 먼지 색");
+  // ---- 보물 상자 ----
+  ok(t60.ev("JSON.stringify(chunkChests(1, 3)) === JSON.stringify(chunkChests(1, 3))"), "보물 상자 자리는 시드·구역으로 정해짐");
+  ok(t60.ev("(() => { let n = 0; for (let cy = 1; cy < 12; cy++) for (let cx = 0; cx < CW; cx++) n += chunkChests(cx, cy).length; return n; })()") > 10, "구역마다 드물게 보물 상자");
+  ok(t60.ev("chunkChests(0, 0).every(([x, y]) => y >= CHEST_TOP)"), "지표 근처엔 상자 없음");
+  {
+    const m0 = t60.ev("acct.stats.chests = 0; bannerQ.length = 0; P.money"), got = t60.ev("openChest(30, SURF + 100)");
+    ok(got > 0 && t60.ev("P.money") === m0 + got && t60.ev("acct.stats.chests") === 1, "상자를 열면 깊이에 따라 돈 + 기록");
+    ok(t60.ev("bannerQ.some((b) => b.title.includes('보물 상자'))"), "처음 연 상자는 알림");
+    t60.ev("tiles[(SURF + 30) * W + 40] = 17; bombs.push({ c: 40, r: SURF + 30, t: 0, rad: 1 }); updateBombs(0.01)");
+    ok(t60.ev("acct.stats.chests") === 2 && t60.ev("tiles[(SURF + 30) * W + 40]") === 0, "다이너마이트로 터뜨려도 상자가 열림");
+    ok(t60.ev("QUESTS.some((q) => q.group === 'chest')"), "보물 사냥 업적");
+    t60.ev("acct.stats.smelted = 7");
+    ok(t60.ev("(() => { const d = snapshot(); applyAccount(d); return acct.stats.chests === 2 && acct.stats.smelted === 7; })()"), "보물 상자 수 · 제련 수가 저장 후 다시 불러와도 남음");
+    ok(t60.ev("(() => { const d = snapshot(); delete d.stats.chests; applyAccount(d); return acct.stats.chests === 0; })()"), "옛 세이브(상자 기록 없음)는 0 으로");
+  }
   // ---- 로봇 눈 깜빡임 · 안테나 흔들림 ----
   ok(t60.ev("S.blinkT = 0; S.minerBlink = false; animMiner(0.01); S.minerBlink") === true, "때가 되면 눈을 감음");
   ok(t60.ev("animMiner(0.2); S.minerBlink") === false, "잠깐 뒤 다시 뜸");

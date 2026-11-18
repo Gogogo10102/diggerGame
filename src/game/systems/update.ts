@@ -6,6 +6,25 @@ import { S } from "../core/state.ts";
 import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bannerQ, bombs, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, pushBanner, say, spawn, updateFx } from "../core/stats.ts";
 import { ICON, dirtTiles } from "../art/sprites.ts";
 
+// 보물 상자 열기: 깊을수록 많은 돈 + 25% 확률로 소모품 하나. 처음 열면 알림
+export function openChest(c, r) {
+  const d = Math.max(0, r - SURF), x = (c + 0.5) * T, y = (r + 0.5) * T;
+  const money = Math.round((60 + d * 1.6) * (0.7 + Math.random() * 0.6));
+  P.money += money;
+  if (S.acct) { S.acct.stats.earned = (S.acct.stats.earned || 0) + money; S.acct.stats.chests = (S.acct.stats.chests || 0) + 1; }
+  let bonus = "";
+  if (Math.random() < 0.25) {
+    const pick = d < 150 ? ["fuel_s", "dyn_s"] : d < 600 ? ["fuel_m", "dyn_s", "dyn_l"] : ["fuel_l", "dyn_l", "dyn_x"];
+    const id = pick[(Math.random() * pick.length) | 0];
+    P.inv[id] = (P.inv[id] || 0) + 1; bonus = " + " + CONS[id].name;
+  }
+  floaters.push({ x, y: y - 20, text: "보물! +$" + money + bonus, color: "#ffd34d", life: 1.8 });
+  for (let k = 0; k < 18; k++) spawn(x + (Math.random() - 0.5) * 30, y, (Math.random() - 0.5) * 200 * PX, -(80 + Math.random() * 160) * PX, 0.7 + Math.random() * 0.4, ["#ffd34d", "#fff3a8", "#ffb020"][k % 3], 4, 600 * PX);
+  sfx("sell"); sfx("levelup", { pitch: 1.6, vol: 0.4 });
+  if (S.acct && S.acct.stats.chests === 1) pushBanner("보물 상자 발견!", "땅속 곳곳에 묻혀 있어요 · 깊을수록 값진 보물", ICON.chest, "#ffd34d");
+  return money;
+}
+
 // 로봇 살아 있는 느낌: 2~5초마다 눈 깜빡(가끔 두 번), 안테나는 스프링처럼 움직임 반대로 기울었다 돌아옴
 S.blinkT = 2.5; S.antA = 0; S.antV = 0; S.lastVx = 0;
 export function animMiner(dt) {
@@ -80,6 +99,7 @@ export function explode(b) {
     seen[r * W + c] = 1;
     broke++;
     if (id < 12 && id !== 7) onMined(id);
+    if (id === 17) { onMined(id); openChest(c, r); }               // 폭파해도 상자는 열림
     chips(c, r, id, 5, 1.5);
     if (TILE[id].value > 0) {
       if (cargoCount() < cargoCap()) { P.cargo[id] = (P.cargo[id] || 0) + 1; got++; } else { spawnDrop(id, (c + 0.5) * T, (r + 0.5) * T, 1); lost++; }
@@ -242,7 +262,8 @@ export function update(dt) {
         chips(tgt[0], tgt[1], id, 12, 1.4, digDir);
         for (let k = 0; k < 4; k++) puff((tgt[0] + 0.2 + Math.random() * 0.6) * T, (tgt[1] + 0.2 + Math.random() * 0.6) * T, (Math.random() - 0.5) * 40 * PX, -(4 + Math.random() * 14) * PX, 5 + Math.random() * 5, dustCol(tgt[1]), 0.7 + Math.random() * 0.4);
         S.dig = null;
-        if (info.value > 0) sfx("ore", { pitch: 0.8 + Math.min(0.9, Math.log10(1 + info.value) * 0.3) }); else sfx("break");
+        if (id === 17) openChest(tgt[0], tgt[1]);
+        else if (info.value > 0) sfx("ore", { pitch: 0.8 + Math.min(0.9, Math.log10(1 + info.value) * 0.3) }); else sfx("break");
         discoverCave(tgt[0], tgt[1]);                              // 뚫은 칸 옆이 숨은 동굴이면 동굴 전체가 드러남
         if (info.value > 0) {
           const ox = (tgt[0] + 0.5) * T, oy = (tgt[1] + 0.5) * T;

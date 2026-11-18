@@ -13,7 +13,7 @@ import { BARS, FURNACE_LV } from "../systems/furnace.ts";
 // =====================================================================
 //  광부 레벨 / 업적(퀘스트) / 칭호
 // =====================================================================
-export const XP_ORE = { 1: 0.4, 6: 3, 2: 5, 3: 8, 8: 14, 4: 22, 9: 35, 5: 60, 10: 80, 11: 150 };   // 채굴 1개당 경험치
+export const XP_ORE = { 1: 0.4, 6: 3, 2: 5, 3: 8, 8: 14, 4: 22, 9: 35, 5: 60, 10: 80, 11: 150, 17: 40 };   // 채굴 1개당 경험치
 export const MAX_LV = 60;
 export const xpForLevel = (L) => Math.round(30 * L + 6 * L * L);        // 레벨 L → L+1 에 필요한 경험치
 export function levelOf(xp) {
@@ -65,6 +65,7 @@ addQuests("earn", "수익", [1000, 10000, 100000, 1000000], ["동전 부자", "�
 addQuests("types", "광물 도감", [9], ["광물 박사"], () => ORE_IDS.filter((id) => minedOf(id) > 0).length, "종류 채굴", [3000]);
 addQuests("cave", "동굴 탐험", [1, 10, 30, 100], ["동굴 발견자", "동굴 탐험가", "지하 지도 제작자", "동굴의 주인"], () => (S.acct ? S.acct.stats.caves || 0 : 0), "개 동굴 발견", [300, 2000, 8000, 30000]);
 addQuests("smelt", "제련", [10, 50, 200, 1000], ["견습 제련공", "제련공", "용광로 장인", "불의 군주"], () => (S.acct ? S.acct.stats.smelted || 0 : 0), "주괴 제련", [200, 800, 4000, 20000]);
+addQuests("chest", "보물 사냥", [1, 10, 30, 100], ["보물 사냥꾼", "상자 수집가", "도굴왕", "전설의 보물 사냥꾼"], () => (S.acct ? S.acct.stats.chests || 0 : 0), "개 보물 상자", [200, 1500, 6000, 25000]);
 QUESTS.forEach((q) => { q.xp = Math.max(10, Math.round(q.money * 0.15)); });
 export const QUEST_BY = {}; QUESTS.forEach((q) => { QUEST_BY[q.id] = q; });
 S.questT = 0;

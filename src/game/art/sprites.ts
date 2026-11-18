@@ -427,6 +427,8 @@ ICON.chest = sprite(16, 16, (p) => {
   p(2, 8, 12, 1, "#4a2e1b"); p(7, 5, 2, 9, "#ffd34d"); p(7, 9, 2, 2, "#14151f");
   p(3, 12, 10, 1, "#6b4329");
 });
+// 땅속 보물 상자 (흙 위에 겹쳐 그림). 고해상도: tiles/chest.png
+export const chestTile = sprite(16, 16, (p, g) => g.drawImage(ICON.chest, 0, 0));
 // 플레이어(채굴 로봇) 프레임
 export const minerCache = new Map();
 // ---- 캐릭터: 미니 굴착기 ----
