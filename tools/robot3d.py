@@ -59,7 +59,7 @@ DRILL = {  # 드릴 원뿔(밑변 가운데, 끝, 밑변 반지름)과 척(원�
 }
 SHOULDER = (4, 31, 13.5)
 
-def scene(mode, leg, dig):
+def scene(mode, leg, dig, lean=0):
     sh = to_cam(*SHOULDER)
     zd = sh[2] + 2                                     # 팔·척·드릴은 어깨와 같은 깊이(보는 쪽)
     base, tip, chuck0, R = DRILL[mode]
@@ -84,8 +84,9 @@ def scene(mode, leg, dig):
     add("eyeR", "body", "chr", lambda P: sd_sph(loc(P), np.array([12.8, 51, 3.8]), 5.4), None)
     add("eye", "body", "eye", lambda P: sd_sph(loc(P), np.array([14.2, 51, 3.8]), 4.3), None)
     for s0 in (-6.5, 6.5):
-        add("ant", "body", "hd", lambda P, s0=s0: sd_cap(loc(P), (1, 58, s0), (-0.5, 65, s0), 1.5), None)
-        add("tip", "lamp", "gry", lambda P, s0=s0: sd_sph(loc(P), np.array([-0.7, 66.2, s0]), 2.6), None)
+        # 안테나: lean(-1 뒤로 · 0 · +1 앞으로) 만큼 끝이 기울어짐 → 게임에서 움직일 때 흔들림(ant_0~2 · lamp_0~2)
+        add("ant", "ant", "hd", lambda P, s0=s0: sd_cap(loc(P), (1, 58, s0), (-0.5 + lean * 3.0, 65 - abs(lean) * 0.4, s0), 1.5), None)
+        add("tip", "lamp", "gry", lambda P, s0=s0: sd_sph(loc(P), np.array([-0.7 + lean * 3.4, 66.2 - abs(lean) * 0.5, s0]), 2.6), None)
     add("pack", "cw", "gry", lambda P: sd_rbox(loc(P), np.array([-19, 31, 0]), (4.5, 10, 9.5), 3),
         lambda P, q: np.where(np.abs(q[..., 1] - 31) < 1.2, -1, 0))
     # 어깨 · 통짜 팔 · 드릴 척
@@ -105,8 +106,8 @@ def scene(mode, leg, dig):
 
 LIGHT = nrm([-0.55, -0.75, 0.62])                     # 왼쪽 위 앞에서 오는 빛
 
-def render_scene(mode, leg=0, dig=0, skip=()):
-    obs = [o for o in scene(mode, leg, dig) if o[0] not in skip]
+def render_scene(mode, leg=0, dig=0, skip=(), lean=0):
+    obs = [o for o in scene(mode, leg, dig, lean) if o[0] not in skip]
     ys, xs = np.mgrid[0:N, 0:N].astype(float) + 0.5
     z = np.full((N, N), 120.0); hit = np.zeros((N, N), bool); idx = np.full((N, N), -1)
     for _ in range(140):                               # 보는 쪽(z+)에서 안쪽으로 걸어 들어가며 표면 찾기
@@ -150,23 +151,43 @@ def render_scene(mode, leg=0, dig=0, skip=()):
         edge |= hit & nb_h & (nb_i != idx) & (nb_z > z + 1.2)
     return obs, hit, idx, tone, edge, z
 
-def parts_for(mode, leg=0, dig=0, ramps=None):
+def paint(R, ramps, pick):
+    """render_scene 결과에서 pick(물체) 가 참인 물체들만 색칠한 RGBA"""
+    obs, hit, idx, tone, edge, z = R
+    im = np.zeros((N, N, 4), np.uint8)
+    for i, o in enumerate(obs):
+        if not pick(o): continue
+        m = hit & (idx == i)
+        if not m.any(): continue
+        ramp = np.array(ramps[o[2]])
+        t = tone[m].copy()
+        col = ramp[np.clip(t, 0, 4)]
+        col[t == 102] = ramps["chr"][1]
+        e = edge[m]; col[e] = ramp[0]
+        im[m, :3] = col; im[m, 3] = 255
+    return im
+
+def parts_for(mode, leg=0, dig=0, ramps=None, lean=0):
     """무리별 RGBA 그림. ramps[재질] = 5단 색(어둠→밝음)"""
-    obs, hit, idx, tone, edge, z = render_scene(mode, leg, dig)
-    out = {}
-    for grp in ("body", "trk", "cw", "lamp", "bit"):
-        im = np.zeros((N, N, 4), np.uint8)
-        for i, o in enumerate(obs):
-            if o[1] != grp: continue
-            m = hit & (idx == i)
-            if not m.any(): continue
-            ramp = np.array(ramps[o[2]])
-            t = tone[m].copy()
-            col = ramp[np.clip(t, 0, 4)]
-            col[t == 102] = ramps["chr"][1]
-            e = edge[m]; col[e] = ramp[0]
-            im[m, :3] = col; im[m, 3] = 255
-        out[grp] = thick_outline(im)
+    R = render_scene(mode, leg, dig, lean=lean)
+    return {grp: thick_outline(paint(R, ramps, lambda o, g=grp: o[1] == g)) for grp in ("body", "ant", "trk", "cw", "lamp", "bit")}
+
+def blink_overlay(mode, ramps):
+    """눈 감은 모습: 눈이 보이던 칸만, 눈을 뺀 장면(머리 면)으로 덮고 가운데에 감은 눈 선"""
+    R = render_scene(mode)
+    obs, hit, idx = R[0], R[1], R[2]
+    eye_ids = [i for i, o in enumerate(obs) if o[0] in ("eye", "eyeR")]
+    mask = hit & np.isin(idx, eye_ids)
+    core = mask.copy()
+    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)): mask |= np.roll(np.roll(core, dy, 0), dx, 1) & hit   # 눈 둘레 경계선까지 덮음
+    lid = paint(render_scene(mode, skip=("eye", "eyeR")), ramps, lambda o: True)
+    out = np.zeros((N, N, 4), np.uint8)
+    out[mask] = lid[mask]
+    ys, xs = np.nonzero(core)
+    if len(ys):
+        cy = int(round(ys.mean())) + 1
+        row = core[cy]; out[cy, row, :3] = ramps["chr"][0]; out[cy, row, 3] = 255         # 감은 눈꺼풀 선
+        r2 = core[cy - 1] & core[cy]; out[cy - 1, r2, :3] = ramps["hd"][1]; out[cy - 1, r2, 3] = 255
     return out
 
 def thick_outline(im):

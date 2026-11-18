@@ -353,8 +353,12 @@ def miner_parts():
             out["bit_%s_%d" % (mode, dig)] = p["bit"]
             if dig == 0:
                 out["body_" + mode] = p["body"]
-                if mode == "side": out["cw"], out["lamp"], out["trk_0"] = p["cw"], p["lamp"], p["trk"]
+                out["blink_" + mode] = robot3d.blink_overlay(mode, ramps)          # 눈 깜빡임 덮개
+                if mode == "side": out["cw"], out["lamp"], out["ant_1"], out["trk_0"] = p["cw"], p["lamp"], p["ant"], p["trk"]
     out["trk_1"] = robot3d.parts_for("side", 1, 0, ramps)["trk"]
+    for k, lean in ((0, -1), (2, 1)):                                              # 안테나 흔들림: 뒤로 · 앞으로 기운 것
+        p = robot3d.parts_for("side", 0, 0, ramps, lean=lean)
+        out["ant_%d" % k], out["lamp_%d" % k] = p["ant"], p["lamp"]
     return out
 
 # ---------------------------------------------------------------------

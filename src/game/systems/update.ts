@@ -6,6 +6,22 @@ import { S } from "../core/state.ts";
 import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bannerQ, bombs, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, pushBanner, say, spawn, updateFx } from "../core/stats.ts";
 import { ICON, dirtTiles } from "../art/sprites.ts";
 
+// 로봇 살아 있는 느낌: 2~5초마다 눈 깜빡(가끔 두 번), 안테나는 스프링처럼 움직임 반대로 기울었다 돌아옴
+S.blinkT = 2.5; S.antA = 0; S.antV = 0; S.lastVx = 0;
+export function animMiner(dt) {
+  S.blinkT -= dt;
+  if (S.blinkT <= 0) {
+    if (S.minerBlink) { S.minerBlink = false; S.blinkT = Math.random() < 0.2 ? 0.14 : 2 + Math.random() * 3; }   // 20% 는 바로 한 번 더
+    else { S.minerBlink = true; S.blinkT = 0.12; }
+  }
+  const acc = (P.vx - S.lastVx) / Math.max(dt, 1e-4); S.lastVx = P.vx;
+  const fwd = P.facing < 0 ? -1 : 1;                               // 그림이 왼쪽을 볼 땐 뒤집혀 그려지므로 '앞' 기준으로
+  S.antV += (-S.antA * 140 - S.antV * 9 - acc * fwd / (900 * PX) * 24) * dt;   // 앞으로 가속하면 뒤로 기울고, 멈추면 앞으로 쏠림
+  if (P.digging) S.antV += (Math.random() - 0.5) * 60 * dt * 10;   // 파는 동안 덜덜
+  S.antA = Math.max(-1.5, Math.min(1.5, S.antA + S.antV * dt));
+  S.minerAnt = S.antA < -0.35 ? 0 : S.antA > 0.35 ? 2 : 1;
+}
+
 // 지층 알림의 둘째 줄: 이 지층 깊이에서 처음 나오기 시작하는 광물 (없으면 깊이만)
 export function layerSub(ly) {
   const from = LAYERS[ly].from, to = ly + 1 < LAYERS.length ? LAYERS[ly + 1].from : Infinity;
@@ -128,6 +144,7 @@ export function update(dt) {
   if (S.msgT > 0) S.msgT -= dt;
   if (S.bannerT > 0) S.bannerT -= dt;
   if (S.bannerT <= 0 && bannerQ.length) { S.banner = bannerQ.shift(); S.bannerText = S.banner.title; S.bannerT = BANNER_T; }
+  animMiner(dt);
   updateFx(dt);
   updateBombs(dt);
   if (S.shakeT > 0) S.shakeT -= dt;

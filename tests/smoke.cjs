@@ -935,7 +935,7 @@ async function login(t, name) {
   // ---- 고해상도 그림 ----
   const man = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "../public/assets/manifest.json"), "utf8"));
   const minerKeys = t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('miner/'))");
-  ok(minerKeys.length === 13 && minerKeys.every((k) => man.files[k]), "캐릭터 고해상도 부품 13개가 그림 목록에 있음");
+  ok(minerKeys.length === 21 && minerKeys.every((k) => man.files[k]), "캐릭터 고해상도 부품 21개가 그림 목록에 있음");
   ok(["tiles/dirt/7_7.png", "tiles/back/7_3.png", "ores/world/11_3.png", "bars/mi.png"].every((k) => man.files[k]), "지층·광물·주괴 고해상도 그림 목록");
   ok(t60.ev("getMiner('side', 0, 0).width") === 40, "부품 그림이 없으면 코드로 그린 40x40 캐릭터");
   ok(t60.ev("(() => { for (const k in MINER_HI) MINER_HI[k].width = MINER_HI[k].height = 120; minerCache.clear(); const w = getMiner('down', 1, 1, 'drill').width; for (const k in MINER_HI) MINER_HI[k].width = MINER_HI[k].height = 1; minerCache.clear(); return w; })()") === 120,
@@ -968,6 +968,13 @@ async function login(t, name) {
   t60.ev("dust.length = 0; P.y = (SURF + 19.3) * T; P.vy = 500 * PX"); t60.run(20);
   ok(t60.ev("dust.length") >= 2, "세게 착지하면 궤도 양 끝에서 먼지");
   ok(/^#[0-9a-f]{6}$/.test(t60.ev("dustCol(SURF + 300)")), "깊이별 먼지 색");
+  // ---- 로봇 눈 깜빡임 · 안테나 흔들림 ----
+  ok(t60.ev("S.blinkT = 0; S.minerBlink = false; animMiner(0.01); S.minerBlink") === true, "때가 되면 눈을 감음");
+  ok(t60.ev("animMiner(0.2); S.minerBlink") === false, "잠깐 뒤 다시 뜸");
+  ok(t60.ev("S.antA = 0; S.antV = 0; P.facing = 1; P.vx = 0; S.lastVx = 0; P.vx = 300 * PX; for (let k = 0; k < 12; k++) animMiner(1 / 120); S.minerAnt") === 0, "앞으로 갑자기 달리면 안테나가 뒤로 기욺");
+  ok(t60.ev("P.vx = 0; for (let k = 0; k < 240; k++) animMiner(1 / 120); S.minerAnt") === 1, "시간이 지나면 안테나가 가운데로 돌아옴");
+  ok(t60.ev("Object.keys(MINER_HI).length") === 21 && t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('miner/')).length") === 21, "캐릭터 부품 21개(안테나 3 · 불빛 3 · 눈 감은 덮개 3 포함)");
+
   t60.ev("P.y = (SURF - 1) * T"); t60.run(1);
 
   console.log("ALL_OK");
