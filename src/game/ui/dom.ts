@@ -2,7 +2,7 @@
 import "../data/progress.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { QUESTS, titleName } from "../data/progress.ts";
+import { QUESTS, questLabel, titleName } from "../data/progress.ts";
 import { saveNow } from "../save/account.ts";
 import { renderInventory } from "./inventory.ts";
 import { closeMenu, renderMenu, renderStats } from "./menu.ts";
@@ -44,17 +44,17 @@ export function renderQuests(note) {
   root.appendChild(el("p", "dim", "달성 " + done + " / " + QUESTS.length + "  ·  현재 칭호: " + (titleName() || "없음")));
   if (note) root.appendChild(el("p", "msg", note));
   root.appendChild(el("p", "msg", "진행 중"));
+  // 그룹마다 다음 단계 하나씩, 거의 다 된 것부터 위로 (바로 노릴 목표가 먼저 보이게)
   const groups = [];
   for (const q of QUESTS) if (!groups.includes(q.group)) groups.push(q.group);
-  for (const g of groups) {
-    const q = QUESTS.find((x) => x.group === g && !S.acct.quest[x.id]);
-    if (!q) continue;
-    const have = Math.min(q.need, Math.floor(q.get()));
+  const next = groups.map((g) => QUESTS.find((x) => x.group === g && !S.acct.quest[x.id])).filter(Boolean)
+    .map((q) => ({ q, have: Math.min(q.need, Math.floor(q.get())) })).sort((a, b) => b.have / b.q.need - a.have / a.q.need);
+  for (const { q, have } of next) {
+    const n = QUESTS.filter((x) => x.group === q.group).length;
     const row = el("div", "row"), info = el("div", "info");
-    const nTxt = q.need.toLocaleString();
-    info.appendChild(el("div", "nm", q.group === "depth" ? "깊이 " + nTxt + "m 도달" : q.group === "craft" ? "장비 " + nTxt + "개 제작" : q.group === "earn" ? "누적 수익 $" + nTxt : q.group === "types" ? "광물 " + nTxt + "종 채굴" : q.unit + " " + nTxt + "개"));
-    info.appendChild(barEl(have / q.need, "#7cff6b"));
-    info.appendChild(el("div", "dim sm", have.toLocaleString() + " / " + q.need.toLocaleString() + "   칭호 「" + q.title + "」  보상 $" + q.money.toLocaleString()));
+    info.appendChild(el("div", "nm", questLabel(q) + "   " + "●".repeat(q.tier) + "○".repeat(n - q.tier)));   // ● 이미 깬 단계
+    info.appendChild(barEl(have / q.need, have >= q.need ? "#ffd34d" : "#7cff6b"));
+    info.appendChild(el("div", "dim sm", q.gname + " " + (q.tier + 1) + "/" + n + "단계 · " + have.toLocaleString() + " / " + q.need.toLocaleString() + "   칭호 「" + q.title + "」  보상 $" + q.money.toLocaleString()));
     row.appendChild(info);
     root.appendChild(row);
   }

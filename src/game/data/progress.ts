@@ -66,7 +66,19 @@ addQuests("types", "광물 도감", [9], ["광물 박사"], () => ORE_IDS.filter
 addQuests("cave", "동굴 탐험", [1, 10, 30, 100], ["동굴 발견자", "동굴 탐험가", "지하 지도 제작자", "동굴의 주인"], () => (S.acct ? S.acct.stats.caves || 0 : 0), "개 동굴 발견", [300, 2000, 8000, 30000]);
 addQuests("smelt", "제련", [10, 50, 200, 1000], ["견습 제련공", "제련공", "용광로 장인", "불의 군주"], () => (S.acct ? S.acct.stats.smelted || 0 : 0), "주괴 제련", [200, 800, 4000, 20000]);
 addQuests("chest", "보물 사냥", [1, 10, 30, 100], ["보물 사냥꾼", "상자 수집가", "도굴왕", "전설의 보물 사냥꾼"], () => (S.acct ? S.acct.stats.chests || 0 : 0), "개 보물 상자", [200, 1500, 6000, 25000]);
+const questStat = (k) => () => (S.acct ? S.acct.stats[k] || 0 : 0);
+addQuests("trip", "귀환", [5, 25, 100, 300], ["첫 출근", "성실한 광부", "베테랑 운반꾼", "지하 철도왕"], questStat("trips"), "광물 싣고 귀환", [100, 600, 3000, 12000]);
+addQuests("bomb", "폭파", [5, 30, 100, 300], ["불꽃놀이 입문", "폭파 기술자", "발파 전문가", "폭약의 달인"], questStat("bombs"), "다이너마이트 사용", [150, 800, 3000, 10000]);
+addQuests("close", "아슬아슬", [1, 5, 20], ["간 큰 광부", "벼랑 끝 귀환자", "연료 0의 마술사"], questStat("close"), "연료 10% 미만으로 귀환", [200, 1500, 6000]);
+addQuests("level", "광부 레벨", [5, 10, 20, 30], ["새내기 광부", "든든한 광부", "노련한 광부", "광부 명장"], () => (S.acct ? levelOf(S.acct.xp).lv : 0), "레벨 달성", [300, 1500, 8000, 30000]);
 QUESTS.forEach((q) => { q.xp = Math.max(10, Math.round(q.money * 0.15)); });
+const QLABEL = {
+  depth: (n) => "깊이 " + n + "m 도달", craft: (n) => "장비 " + n + "개 제작", earn: (n) => "누적 수익 $" + n, types: (n) => "광물 " + n + "종 채굴",
+  cave: (n) => "동굴 " + n + "개 발견", chest: (n) => "보물 상자 " + n + "개 열기", smelt: (n) => "주괴 " + n + "개 제련", dirt: (n) => "흙 " + n + "개 파기",
+  all: (n) => "광물 " + n + "개 채굴", trip: (n) => "광물 싣고 " + n + "번 귀환", bomb: (n) => "다이너마이트 " + n + "번 사용",
+  close: (n) => "연료 10% 미만으로 " + n + "번 귀환", level: (n) => "광부 레벨 " + n + " 달성",
+};
+export function questLabel(q) { const n = q.need.toLocaleString(); return QLABEL[q.group] ? QLABEL[q.group](n) : q.unit + " " + n + "개"; }
 export const QUEST_BY = {}; QUESTS.forEach((q) => { QUEST_BY[q.id] = q; });
 S.questT = 0;
 export function checkQuests(quiet) {

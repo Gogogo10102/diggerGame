@@ -976,6 +976,14 @@ async function login(t, name) {
     ok(!tx.some((x) => x.includes("광물 없음")), "타이틀에선 HUD 를 숨김");
     ok(tt.ev("!!S.titleLogo && S.titleLogo.width > 0"), "타이틀 로고 그림을 만듦");
   }
+  // ---- 업적 추가 · 이름표 ----
+  ok(t60.ev("questLabel(QUEST_BY.cave_0)") === "동굴 1개 발견" && t60.ev("questLabel(QUEST_BY.chest_1)") === "보물 상자 10개 열기", "업적 이름표가 자연스러운 문장");
+  ok(["trip", "bomb", "close", "level"].every((g) => t60.ev("QUESTS.some((q) => q.group === '" + g + "')")), "새 업적: 귀환 · 폭파 · 아슬아슬 · 광부 레벨");
+  t60.ev("acct.stats.trips = 0; acct.stats.close = 0; P.cargo = { 2: 1 }; P.x = 30.5 * T; P.y = (SURF + 3.5) * T; P.fuel = maxFuel() * 0.05; S.inShop = false; P.vx = P.vy = 0");
+  t60.ev("P.y = (SURF - 1) * T + HH"); t60.run(3);
+  ok(t60.ev("acct.stats.trips") === 1 && t60.ev("acct.stats.close") === 1, "광물 싣고 연료 10% 미만으로 올라오면 귀환·아슬아슬 기록");
+  ok(t60.ev("(() => { const d = snapshot(); applyAccount(d); return acct.stats.trips === 1 && acct.stats.close === 1; })()"), "귀환 기록이 저장됨");
+  t60.ev("P.cargo = {}");
   // ---- 지하 조명 ----
   ok(t60.ev("DARK_COL.length === LAYERS.length && DARK_COL[4][0] > DARK_COL[4][2] && DARK_COL[5][2] > DARK_COL[5][0]"), "어둠 색이 지층마다 다름 (용암 붉게 · 수정 푸르게)");
   t60.ev("P.x = 30.5 * T; P.y = (SURF + 40.5) * T; ensureAround(30, SURF + 40); tiles[(SURF + 40) * W + 31] = 5; seen[(SURF + 40) * W + 31] = 1; tiles[(SURF + 40) * W + 29] = 9; seen[(SURF + 40) * W + 29] = 0"); t60.run(2);

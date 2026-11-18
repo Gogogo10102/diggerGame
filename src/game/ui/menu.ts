@@ -125,6 +125,8 @@ export function renderStats() {
     ["사망 횟수", st.deaths + "회"],
     ["제련한 주괴", (st.smelted || 0) + "개"],
     ["연 보물 상자", (st.chests || 0) + "개"],
+    ["광물 싣고 귀환", (st.trips || 0) + "회"],
+    ["다이너마이트 사용", (st.bombs || 0) + "회"],
     ["용광로", "Lv." + ((S.acct.furnace && S.acct.furnace.lv) || 1)],
     ["구매한 아이템", Object.keys(P.items).filter((id) => !ITEMS[id].craft).length + " / " + Object.keys(ITEMS).filter((id) => !ITEMS[id].craft && !ITEMS[id].cons).length],
     ["제작한 장비", Object.keys(P.items).filter((id) => ITEMS[id].craft).length + " / " + Object.keys(ITEMS).filter((id) => ITEMS[id].craft).length],

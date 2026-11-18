@@ -81,6 +81,7 @@ export function useConsumable(id) {
     if (bombs.some((b) => b.c === col && b.r === row)) return say("이미 폭약이 설치된 자리예요");
     P.inv[id]--;
     bombs.push({ c: col, r: row, t: 2.5, rad: c.rad, id });
+    if (S.acct) S.acct.stats.bombs = (S.acct.stats.bombs || 0) + 1;
     sfx("fuse");
     say("폭약 설치! 멀리 떨어지세요 (남은 " + P.inv[id] + "개)");
   }
@@ -322,6 +323,14 @@ export function update(dt) {
     P.fuel = maxFuel();
     if (was < maxFuel() - 0.5) sfx("refuel");
     if (was < maxFuel() - 0.5) say(cargoCount() > 0 ? "지상 도착 · 연료 충전! 광물은 마을 건물 [E] → 판매 탭에서 팔아요" : "지상 도착 · 연료 충전");
+    if (S.acct && was < maxFuel() - 0.5) {                           // 땅속에서 올라옴: 귀환 기록 (업적 '귀환' · '아슬아슬')
+      const st = S.acct.stats;
+      if (cargoCount() > 0) st.trips = (st.trips || 0) + 1;
+      if (was > 0 && was < maxFuel() * 0.1) {
+        st.close = (st.close || 0) + 1;
+        floaters.push({ x: P.x, y: P.y - 44, text: "아슬아슬 귀환!", color: "#ff9a3c", life: 1.6 });
+      }
+    }
   }
   S.inShop = onGround;
 
