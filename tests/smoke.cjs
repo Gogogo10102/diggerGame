@@ -968,6 +968,14 @@ async function login(t, name) {
   t60.ev("dust.length = 0; P.y = (SURF + 19.3) * T; P.vy = 500 * PX"); t60.run(20);
   ok(t60.ev("dust.length") >= 2, "세게 착지하면 궤도 양 끝에서 먼지");
   ok(/^#[0-9a-f]{6}$/.test(t60.ev("dustCol(SURF + 300)")), "깊이별 먼지 색");
+  // ---- 타이틀 화면 ----
+  {
+    const tt = boot(path, { w: 1000, h: 640 }); tt.run(5);
+    const tx = tt.canvasTexts();
+    ok(tt.ev("S.state") === "title" && tx.some((x) => x.includes("아무 키나 눌러 시작")) && tx.some((x) => x.includes("땅속 끝까지")), "타이틀: 부제 + 시작 버튼");
+    ok(!tx.some((x) => x.includes("광물 없음")), "타이틀에선 HUD 를 숨김");
+    ok(tt.ev("!!S.titleLogo && S.titleLogo.width > 0"), "타이틀 로고 그림을 만듦");
+  }
   // ---- 보물 상자 ----
   ok(t60.ev("JSON.stringify(chunkChests(1, 3)) === JSON.stringify(chunkChests(1, 3))"), "보물 상자 자리는 시드·구역으로 정해짐");
   ok(t60.ev("(() => { let n = 0; for (let cy = 1; cy < 12; cy++) for (let cx = 0; cx < CW; cx++) n += chunkChests(cx, cy).length; return n; })()") > 10, "구역마다 드물게 보물 상자");
