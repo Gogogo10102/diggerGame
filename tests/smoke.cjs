@@ -1014,6 +1014,10 @@ async function login(t, name) {
   t60.ev("P.inv.fuel_s = 1; P.y = (SURF + 5.5) * T; P.fuel = 1; useConsumable('fuel_s')");
   ok(t60.ev("S.hotPress && S.hotPress.id") === "fuel_s", "소모품을 쓰면 단축 슬롯이 눌린 모양");
   t60.ev("P.y = (SURF - 1) * T + HH"); t60.run(1);
+  // ---- 미니맵 다듬기 ----
+  t60.ev("ensureAround(30, SURF + 50); for (const c of [30, 31, 32]) seen[(SURF + 50) * W + c] = 1; tiles[(SURF + 50) * W + 30] = 0; baseTiles[(SURF + 50) * W + 30] = 0; tiles[(SURF + 50) * W + 31] = 0; baseTiles[(SURF + 50) * W + 31] = 1; tiles[(SURF + 50) * W + 32] = 1;");
+  ok(t60.ev("mapColor(30, SURF + 50)") === t60.ev("MAP_CAVE") && t60.ev("mapColor(31, SURF + 50)") === t60.ev("MAP_PATH"), "지도: 자연 동굴과 판 굴 색이 다름");
+  ok(t60.ev("mapColor(32, SURF + 50, true)") !== t60.ev("mapColor(32, SURF + 50)"), "미니맵은 굴 벽 테두리를 밝게");
   // ---- 지하 조명 ----
   ok(t60.ev("DARK_COL.length === LAYERS.length && DARK_COL[4][0] > DARK_COL[4][2] && DARK_COL[5][2] > DARK_COL[5][0]"), "어둠 색이 지층마다 다름 (용암 붉게 · 수정 푸르게)");
   t60.ev("P.x = 30.5 * T; P.y = (SURF + 40.5) * T; ensureAround(30, SURF + 40); tiles[(SURF + 40) * W + 31] = 5; seen[(SURF + 40) * W + 31] = 1; tiles[(SURF + 40) * W + 29] = 9; seen[(SURF + 40) * W + 29] = 0"); t60.run(2);
