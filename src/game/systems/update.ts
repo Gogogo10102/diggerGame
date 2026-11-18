@@ -19,6 +19,7 @@ import { saveNow } from "../save/account.ts";
 import { discoverCave, placeSupport, updateCave } from "./cave.ts";
 import { drops, spawnDrop, updateDrops } from "./drops.ts";
 import { updateChunks } from "./floating.ts";
+import { dustCol, puff } from "./collapseFx.ts";
 import { updateFurnace } from "./furnace.ts";
 import { D_, L_, R_, U_ } from "./input.ts";
 import { sfx, sfxLoop } from "../core/sound.ts";
@@ -164,6 +165,11 @@ export function update(dt) {
   const fallV = P.vy;
   if (collide(P.x, P.y)) {
     if (fallV > 260 * PX) sfx("land", { vol: Math.min(1, fallV / (520 * PX)) });   // 세게 떨어질수록 큰 쿵
+    if (fallV > 200 * PX) {                                          // 착지: 궤도 양 끝에서 먼지가 옆으로 퍼짐
+      const fr = Math.floor((P.y + HH + 2) / T), n = Math.min(4, 1 + Math.floor(fallV / (130 * PX)));
+      for (const sd of [-1, 1]) for (let k = 0; k < n; k++)
+        puff(P.x + sd * (HW + 4), P.y + HH - 2, sd * (30 + Math.random() * 50) * PX, -(4 + Math.random() * 10) * PX, 4 + Math.random() * 3, dustCol(fr), 0.55 + Math.random() * 0.25);
+    }
     P.y = P.vy > 0 ? Math.floor((P.y + HH) / T) * T - HH - 0.001
                     : (Math.floor((P.y - HH) / T) + 1) * T + HH + 0.001;
     P.vy = 0;
@@ -206,11 +212,18 @@ export function update(dt) {
       if (!S.dig || S.dig.c !== tgt[0] || S.dig.r !== tgt[1]) S.dig = { c: tgt[0], r: tgt[1], t: 0 };
       S.dig.t += dt;
       S.digPT -= dt;
-      if (S.digPT <= 0) { S.digPT = 0.06; chips(S.dig.c, S.dig.r, id, 2, 1, digDir); sfx("dig", { hard: info.hard >= 1.2, vol: 0.45 }); }   // 드릴 소리 위에 흙 부스러지는 소리
+      if (S.digPT <= 0) {
+        S.digPT = 0.06; chips(S.dig.c, S.dig.r, id, 2, 1, digDir); sfx("dig", { hard: info.hard >= 1.2, vol: 0.45 });   // 드릴 소리 위에 흙 부스러지는 소리
+        if (Math.random() < 0.8) {                                 // 드릴 끝에서 먼지가 피어오름
+          const [fx, fy] = digDir === "down" ? [P.x + P.facing * 4, tgt[1] * T] : digDir === "up" ? [P.x, (tgt[1] + 1) * T] : [digDir === "right" ? tgt[0] * T : (tgt[0] + 1) * T, P.y + 6];
+          puff(fx, fy, (digDir === "left" ? 1 : digDir === "right" ? -1 : (Math.random() - 0.5)) * (20 + Math.random() * 30) * PX, -(6 + Math.random() * 18) * PX, 3 + Math.random() * 3, dustCol(tgt[1]), 0.5 + Math.random() * 0.3);
+        }
+      }
       if (S.dig.t >= hardOf(id, S.dig.r) / drillMult()) {
         tiles[tgt[1] * W + tgt[0]] = 0;
         onMined(id);
         chips(tgt[0], tgt[1], id, 12, 1.4, digDir);
+        for (let k = 0; k < 4; k++) puff((tgt[0] + 0.2 + Math.random() * 0.6) * T, (tgt[1] + 0.2 + Math.random() * 0.6) * T, (Math.random() - 0.5) * 40 * PX, -(4 + Math.random() * 14) * PX, 5 + Math.random() * 5, dustCol(tgt[1]), 0.7 + Math.random() * 0.4);
         S.dig = null;
         if (info.value > 0) sfx("ore", { pitch: 0.8 + Math.min(0.9, Math.log10(1 + info.value) * 0.3) }); else sfx("break");
         discoverCave(tgt[0], tgt[1]);                              // 뚫은 칸 옆이 숨은 동굴이면 동굴 전체가 드러남
@@ -239,7 +252,15 @@ export function update(dt) {
   S.thrustOn = !!thrusting;
   sfxLoop("thrust", !!thrusting, { pitch: P.vy < 0 ? 1.4 : 1 });
   sfxLoop("drill", !!P.digging, { hard: !!(S.dig && hardOf(tiles[S.dig.r * W + S.dig.c], S.dig.r) >= 1.2) });
-  if (!thrusting && grounded && !digging && Math.abs(P.vx) > 40 * PX) sfx("step", { pitch: 0.8 + Math.abs(P.vx) / (340 * PX) });
+  if (!thrusting && grounded && !digging && Math.abs(P.vx) > 40 * PX) {
+    sfx("step", { pitch: 0.8 + Math.abs(P.vx) / (340 * PX) });
+    S.trackDustT = (S.trackDustT || 0) - dt;                         // 궤도 뒤로 흙먼지가 조금씩
+    if (S.trackDustT <= 0) {
+      S.trackDustT = 0.09 + Math.random() * 0.06;
+      const back = P.vx > 0 ? -1 : 1;
+      puff(P.x + back * (HW + 2), P.y + HH - 3, back * (12 + Math.random() * 20) * PX, -(4 + Math.random() * 10) * PX, 2 + Math.random() * 2, dustCol(Math.floor((P.y + HH + 2) / T)), 0.4 + Math.random() * 0.2);
+    }
+  }
   // 연료가 1/4 아래로 떨어지면 1.5초마다 경고음
   if (!(Math.floor(P.y / T) < SURF) && P.fuel / maxFuel() < 0.25) { S.lowBeepT = (S.lowBeepT || 0) - dt; if (S.lowBeepT <= 0) { S.lowBeepT = 1.5; sfx("warn"); } }
   else S.lowBeepT = 0;
@@ -247,6 +268,7 @@ export function update(dt) {
   if (thrusting && Math.random() < 0.7) {                           // 불꽃처럼 움직이는 반대쪽으로 흩날림
     const col = ["#ff8a1f", "#ffe066", "#9aa0b4"][(Math.random() * 3) | 0];
     spawn(P.x + (Math.random() - 0.5) * 10, P.y + HH, -P.vx * 0.6 + (Math.random() - 0.5) * 50, 90 + Math.random() * 90, 0.35, col, 4, 0);
+    if (Math.random() < 0.18) puff(P.x + (Math.random() - 0.5) * 8, P.y + HH + 8, -P.vx * 0.3 + (Math.random() - 0.5) * 20, 30 + Math.random() * 30, 3 + Math.random() * 2, Math.random() < 0.5 ? "#8a90a0" : "#b6bcc8", 0.5);   // 불꽃 뒤 회색 연기
   }
 
   revealAround();

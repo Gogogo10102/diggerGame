@@ -960,6 +960,15 @@ async function login(t, name) {
   t60.ev("for (let k = 0; k < 9; k++) pushBanner('x' + k)");
   ok(t60.ev("bannerQ.length") <= 4, "알림이 너무 쌓이면 오래된 것부터 버림");
   t60.ev("bannerQ.length = 0; P.y = (SURF - 1) * T"); t60.run(1);
+  // ---- 파편·먼지 ----
+  t60.ev("parts.length = 0; dust.length = 0; P.x = 30.5 * T; P.y = (SURF + 20.5) * T; P.vx = P.vy = 0; for (let c = 28; c <= 33; c++) { tiles[(SURF + 20) * W + c] = 0; tiles[(SURF + 19) * W + c] = 0; tiles[(SURF + 21) * W + c] = 1; }");
+  t60.ev("chips(31, SURF + 21, 1, 12, 1.4, 'down')");
+  t60.run(40);
+  ok(t60.ev("parts.filter((q) => q.bounce).every((q) => !solid(Math.floor(q.x / T), Math.floor(q.y / T)))"), "흙 부스러기는 땅을 뚫고 떨어지지 않음(튀고 멈춤)");
+  t60.ev("dust.length = 0; P.y = (SURF + 19.3) * T; P.vy = 500 * PX"); t60.run(20);
+  ok(t60.ev("dust.length") >= 2, "세게 착지하면 궤도 양 끝에서 먼지");
+  ok(/^#[0-9a-f]{6}$/.test(t60.ev("dustCol(SURF + 300)")), "깊이별 먼지 색");
+  t60.ev("P.y = (SURF - 1) * T"); t60.run(1);
 
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });

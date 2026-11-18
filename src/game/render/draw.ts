@@ -400,16 +400,19 @@ export function draw() {
   // 파티클
   for (const q of parts) {
     const s = q.life < q.max * 0.3 ? 2 : q.size;
+    const x = Math.round(q.x - camX), y = Math.round(q.y - camY);
+    if (q.bounce && s >= 4) { ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(x + 2, y + 2, s, s); }   // 흙 덩이는 그늘을 붙여 입체감
     ctx.fillStyle = q.color;
-    ctx.fillRect(Math.round(q.x - camX), Math.round(q.y - camY), s, s);
+    ctx.fillRect(x, y, s, s);
   }
 
   // 먼지 구름
   for (const q of dust) {
-    ctx.globalAlpha = Math.max(0, Math.min(1, q.life / q.max)) * 0.42;
+    ctx.globalAlpha = Math.max(0, Math.min(1, q.life / q.max)) * 0.5;
     ctx.fillStyle = q.col;
-    const rr = Math.round(q.r / 2) * 2;
-    ctx.fillRect(Math.round(q.x - camX) - rr, Math.round(q.y - camY) - rr, rr * 2, rr * 2);
+    const rr = Math.max(2, Math.round(q.r / 2) * 2), x = Math.round(q.x - camX), y = Math.round(q.y - camY);
+    ctx.fillRect(x - rr, y - rr + 2, rr * 2, rr * 2 - 4);               // 모서리를 깎아 둥글게 (도트 원)
+    ctx.fillRect(x - rr + 2, y - rr, rr * 2 - 4, rr * 2);
   }
   ctx.globalAlpha = 1;
 

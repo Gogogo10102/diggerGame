@@ -5,6 +5,7 @@ import { LAYERS, ORE_COL, PX, SURF, T, layerOf } from "./config.ts";
 import { P } from "./player.ts";
 import { S } from "./state.ts";
 import { LOOK } from "../data/consumables.ts";
+import { solid } from "./world.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { cv } from "../render/util.ts";
 import { updateDebris } from "../systems/collapseFx.ts";
@@ -88,7 +89,10 @@ export function pushBanner(title, sub = "", icon = null, col = "#ffd34d") {
 export const parts = [];
 export const floaters = [];
 export function spawn(x, y, vx, vy, life, color, size, g) {
-  parts.push({ x, y, vx, vy, life, max: life, color, size, g });
+  const q = { x, y, vx, vy, life, max: life, color, size, g, bounce: false };
+  parts.push(q);
+  if (parts.length > 500) parts.splice(0, parts.length - 500);   // 너무 많아지면 오래된 것부터
+  return q;
 }
 // 파편: 드릴이 닿은 면에서 튀어나와 플레이어 쪽으로 날아감
 //   dir = 파는 방향 ("down" 아래 칸 / "up" 위 칸 / "left" 왼쪽 칸 / "right" 오른쪽 칸)
@@ -110,13 +114,20 @@ export function chips(c, r, id, n, power, dir) {
       x = (d === "left" ? (c + 1) * T - 2 - rnd() * 6 : c * T + 2 + rnd() * 6); y = (r + 0.2 + rnd() * 0.6) * T;
       vx = s * (50 + rnd() * 120) * k; vy = -(10 + rnd() * 80) * k;
     }
-    spawn(x, y, vx, vy, 0.45 + rnd() * 0.25, cols[i % cols.length], 4, 720 * PX);
+    const p = spawn(x, y, vx, vy, 0.55 + rnd() * 0.35, cols[i % cols.length], [2, 4, 4, 6][(rnd() * 4) | 0], 720 * PX);
+    p.bounce = true;                                               // 흙 부스러기는 바닥에 떨어져 톡 튀고 멈춤
   }
 }
 export function updateFx(dt) {
   for (let i = parts.length - 1; i >= 0; i--) {
     const q = parts[i];
     q.vy += q.g * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt;
+    if (q.bounce && q.vy > 0 && solid(Math.floor(q.x / T), Math.floor(q.y / T))) {
+      q.y = Math.floor(q.y / T) * T - 1;                           // 바닥 위로 올려놓고
+      q.vy = q.vy > 120 * PX ? -q.vy * 0.32 : 0;                   // 세게 떨어지면 한 번 더 튀고, 아니면 멈춤
+      q.vx *= 0.45;
+      if (q.vy === 0) { q.g = 0; q.vx = 0; q.life = Math.min(q.life, 0.35); }   // 바닥에 남았다가 곧 사라짐
+    }
     if (q.life <= 0) parts.splice(i, 1);
   }
   updateDebris(dt);

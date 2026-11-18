@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./floating.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { H, T, W } from "../core/config.ts";
+import { H, LAYERS, SURF, T, W, layerOf } from "../core/config.ts";
 import { spawn } from "../core/stats.ts";
 
 // =====================================================================
@@ -17,6 +17,20 @@ export function spawnDust(x, y, n, spread, col) {
       r: 3 + Math.random() * 4, gr: 7 + Math.random() * 8, life, max: life, col: col || (Math.random() < 0.5 ? "#b89c84" : "#8f7a6a") });
   }
   if (dust.length > 260) dust.splice(0, dust.length - 260);
+}
+// 먼지 한 뭉치: 파기·부수기·착지·궤도 굴러갈 때. 퍼지면서 옅어짐
+export function puff(x, y, vx, vy, r, col, life = 0.6) {
+  dust.push({ x, y, vx, vy, r, gr: r * 1.6, life, max: life, col });
+  if (dust.length > 260) dust.splice(0, dust.length - 260);
+}
+// 그 깊이 흙 색으로 밝은 먼지 색 (지상은 마른 흙색)
+const DUST_COL = LAYERS.map((L) => [L.hi, L.peb].map((c) => {   // 흙색을 밝은 베이지 쪽으로 섞어 어두운 굴에서도 보이게
+  const a = parseInt(c.slice(1), 16), b = 0xe8dcc8, m = (s) => Math.round(((a >> s) & 255) * 0.45 + ((b >> s) & 255) * 0.55);
+  return "#" + ((m(16) << 16) | (m(8) << 8) | m(0)).toString(16).padStart(6, "0");
+}));
+export function dustCol(r) {
+  if (r < SURF) return Math.random() < 0.5 ? "#c9b394" : "#a8916f";
+  return DUST_COL[layerOf(r - SURF)][Math.random() < 0.5 ? 0 : 1];
 }
 export function startDebris(i) {
   debrisT[i] = DEBRIS_T + Math.random() * 0.3;
