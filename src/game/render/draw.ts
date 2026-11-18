@@ -574,9 +574,21 @@ export function draw() {
 
   if (S.state !== "title") drawHUD(SW, SH, depth);       // 타이틀 화면에선 HUD 를 숨겨 로고가 돋보이게
   drawStick();
-  if (S.state === "shop") drawShopModal(SW, SH);
-  if (S.state === "craft") drawCraftModal(SW, SH);
-  if (S.state === "furnace") drawFurnaceModal(SW, SH);
+  const townOpen = S.state === "shop" || S.state === "craft" || S.state === "furnace";
+  if (!townOpen) S.townOpenT = 0;
+  else {
+    if (!S.townOpenT) S.townOpenT = performance.now();
+    const k = Math.min(1, (performance.now() - S.townOpenT) / 160), e = 1 - (1 - k) * (1 - k) * (1 - k);
+    if (k < 1) {                                                    // 0.16초 동안 97% → 100% 크기 + 흐릿 → 또렷
+      const s = 0.97 + 0.03 * e;
+      ctx.globalAlpha = 0.35 + 0.65 * e;
+      ctx.setTransform(s, 0, 0, s, SW / 2 * (1 - s), SH / 2 * (1 - s));
+    }
+    if (S.state === "shop") drawShopModal(SW, SH);
+    if (S.state === "craft") drawCraftModal(SW, SH);
+    if (S.state === "furnace") drawFurnaceModal(SW, SH);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+  }
   if (S.state === "map") drawMapModal(SW, SH);
   if (S.state === "title") drawTitle(SW, SH);
 }
@@ -586,11 +598,13 @@ export function drawHotbar(vw, vh) {
   S.hotBtns = []; S.hotLeft = 1e9;
   if (S.state !== "play") return;
   const sz = vw < 560 ? 40 : 48, gap = vw < 560 ? 2 : 4, n = HOT.length, tw = n * sz + (n - 1) * gap, isz = 32;
-  const x0 = Math.max(8, vw - 12 - tw), y0 = vh - 12 - sz;
+  const x0 = Math.max(8, vw - 12 - tw), y00 = vh - 12 - sz;
   S.hotLeft = x0;
   HOT.forEach((id, i) => {
     const x = x0 + i * (sz + gap), cnt = P.inv[id] || 0;
-    pxBox(x, y0, sz, sz, SY.ink);
+    const hp = S.hotPress, pk = hp && hp.id === id ? 1 - (performance.now() - hp.t) / 220 : 0;   // 방금 쓴 슬롯: 눌렸다가 올라오며 노란 테두리
+    const y0 = y00 + (pk > 0.4 ? 2 : 0);
+    pxBox(x, y0, sz, sz, pk > 0 ? SY.y : SY.ink);
     ctx.fillStyle = cnt > 0 ? SY.body : SY.well; ctx.fillRect(x + 2, y0 + 2, sz - 4, sz - 4);
     ctx.fillStyle = cnt > 0 ? SY.hi : SY.wellDk; ctx.fillRect(x + 2, y0 + 2, sz - 4, 2);
     ctx.globalAlpha = cnt > 0 ? 1 : 0.35;
@@ -598,7 +612,7 @@ export function drawHotbar(vw, vh) {
     ctx.globalAlpha = 1;
     txt(String(i + 1), x + 5, y0 + 3, SY.dim, 12);
     txt("x" + cnt, x + sz - 4, y0 + sz - 15, cnt > 0 ? "#fff" : SY.mute, 12, "right");
-    S.hotBtns.push({ x: x - 2, y: y0 - 2, w: sz + 4, h: sz + 4, id });
+    S.hotBtns.push({ x: x - 2, y: y00 - 2, w: sz + 4, h: sz + 4, id });
   });
 }
 

@@ -5,6 +5,11 @@
   /* 계정/메뉴 오버레이 */
   #ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(14,15,23,.8);z-index:10;font-family:var(--font-m);color:#fff;font-size:16px;line-height:1.5;-webkit-font-smoothing:none;-moz-osx-font-smoothing:grayscale;touch-action:auto;-webkit-user-select:text;user-select:text}
   #ov.on{display:flex}
+  #ov.on{animation:ovFade .14s ease-out}
+  #ov.on .pnl.pop{animation:ovPop .18s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes ovFade{from{background:rgba(14,15,23,0)}to{background:rgba(14,15,23,.8)}}
+  @keyframes ovPop{from{transform:translateY(10px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+  @media (prefers-reduced-motion:reduce){#ov.on,#ov.on .pnl.pop{animation:none}}
   /* ---- 안전 노랑 스타일: 숯색 철판 + 노란 머리띠(경고 줄무늬) · 버튼은 레퍼런스 버튼표 (docs/decisions.md "UI 스타일") ---- */
   #ov .pnl{box-sizing:border-box;width:min(480px,94vw);max-height:90vh;overflow:auto;background:#2a2e37;border:0;box-shadow:0 0 0 2px #0b0c0f,inset 0 2px 0 #3c424e,0 6px 0 2px rgba(0,0,0,.35);padding:0 16px 16px}
   #ov h2{margin:0 -16px 14px;padding:6px 16px 4px;font-size:32px;line-height:1.25;color:#1a1a1a;font-weight:normal;text-align:left;background:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAQUlEQVR4XmP8f0iKAQakI+BMBiasok9XwCSQ1T5dAVIM0oEpysDAwCglhbADohYCEHYgi0pHwCTQRKE6MEUZGBgAfQ0QOCsPcU8AAAAASUVORK5CYII=) right 10px center/32px 32px repeat-x,#ffc21a;background-size:16px 16px;box-shadow:inset 0 2px 0 #ffe27a,inset 0 -2px 0 #c48600;image-rendering:pixelated}

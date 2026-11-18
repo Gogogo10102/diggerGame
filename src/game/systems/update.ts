@@ -87,6 +87,7 @@ import { sfx, sfxLoop } from "../core/sound.ts";
 export function useConsumable(id) {
   const c = CONS[id];
   if (!c || P.dead > 0 || S.state !== "play") return;
+  S.hotPress = { id, t: performance.now() };                       // 단축 슬롯이 잠깐 눌린 모양으로
   if (c.kind === "support") return placeSupport(id);
   if (!((P.inv[id] || 0) > 0)) return say(c.name + "이(가) 없어요! 아이템 상점에서 구매하세요");
   if (c.kind === "fuel") {

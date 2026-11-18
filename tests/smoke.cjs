@@ -1000,6 +1000,20 @@ async function login(t, name) {
   t60.ev("S.showHelp = false; acct.tut = 0"); t60.run(1);
   ok(!t60.canvasTexts().some((x) => x.includes("처음 안내")), "도움말을 끄면 안내도 숨김");
   t60.ev("S.showHelp = true; acct.tut = TUT_STEPS.length; S.tutFlash = 0; P.items = {}");
+  // ---- 눌림 · 열림 애니메이션 ----
+  t60.ev("P.x = (BUILD_COLS[B_SHOP][0] + 1.5) * T; P.y = (SURF - 1) * T + HH; P.vx = P.vy = 0; P.money = 99999"); t60.run(2);
+  t60.ev("openShop()"); t60.run(1);
+  ok(t60.ev("S.townOpenT > 0"), "마을 창을 열면 열림 애니메이션 시작 시각 기록");
+  {
+    const b = t60.ev("shopBtn.find((q) => q.act === 'tab')");
+    t60.ptr("pointerdown", b.x + 4, b.y + 4); t60.ptr("pointerup", 0, 0); t60.run(1);
+    ok(t60.ev("S.pressBtn && S.pressBtn.x") === b.x, "누른 캔버스 버튼을 기억해 눌린 모양으로 그림");
+  }
+  t60.key("Escape"); t60.run(1);
+  ok(t60.ev("S.townOpenT") === 0, "창을 닫으면 다시 처음부터");
+  t60.ev("P.inv.fuel_s = 1; P.y = (SURF + 5.5) * T; P.fuel = 1; useConsumable('fuel_s')");
+  ok(t60.ev("S.hotPress && S.hotPress.id") === "fuel_s", "소모품을 쓰면 단축 슬롯이 눌린 모양");
+  t60.ev("P.y = (SURF - 1) * T + HH"); t60.run(1);
   // ---- 지하 조명 ----
   ok(t60.ev("DARK_COL.length === LAYERS.length && DARK_COL[4][0] > DARK_COL[4][2] && DARK_COL[5][2] > DARK_COL[5][0]"), "어둠 색이 지층마다 다름 (용암 붉게 · 수정 푸르게)");
   t60.ev("P.x = 30.5 * T; P.y = (SURF + 40.5) * T; ensureAround(30, SURF + 40); tiles[(SURF + 40) * W + 31] = 5; seen[(SURF + 40) * W + 31] = 1; tiles[(SURF + 40) * W + 29] = 9; seen[(SURF + 40) * W + 29] = 0"); t60.run(2);

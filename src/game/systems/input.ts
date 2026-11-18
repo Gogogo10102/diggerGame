@@ -153,6 +153,7 @@ stage.addEventListener("pointerdown", (e) => {
   if (S.state === "map") { mapPointerDown(x, y, e.pointerId); return; }
   if (S.state === "shop" || S.state === "craft" || S.state === "furnace") {   // 버튼 소리 (사기·팔기 등은 결과에 따라 따로 소리남)
     const b = shopBtn.find(hit);
+    if (b) S.pressBtn = { x: b.x, y: b.y, t: performance.now() };     // 누른 버튼을 잠깐 눌린 모양으로 (uiBtn)
     if (b && !/^(buy|sell|sellall|craft|smelt|fup|fclear)$/.test(b.act)) sfx(b.act === "sel" || b.act === "node" || b.act === "fsel" || b.act === "sellsel" ? "tick" : "click");
   }
   if (S.state === "craft") {                           // 제작소 메뉴: 탭 처리
