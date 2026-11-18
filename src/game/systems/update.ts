@@ -3,8 +3,16 @@ import "./town.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, HW, inB, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bombs, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, say, spawn, updateFx } from "../core/stats.ts";
-import { ensureAround, hardOf, seen, solid, tiles } from "../core/world.ts";
+import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bannerQ, bombs, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, pushBanner, say, spawn, updateFx } from "../core/stats.ts";
+import { ICON, dirtTiles } from "../art/sprites.ts";
+
+// 지층 알림의 둘째 줄: 이 지층 깊이에서 처음 나오기 시작하는 광물 (없으면 깊이만)
+export function layerSub(ly) {
+  const from = LAYERS[ly].from, to = ly + 1 < LAYERS.length ? LAYERS[ly + 1].from : Infinity;
+  const fresh = ORE_GEN.filter((g) => g.rs >= from && g.rs < to).map((g) => TILE[g.id].name);
+  return from + "m 아래" + (fresh.length ? " · 새 광물: " + fresh.join(" · ") : "");
+}
+import { ORE_GEN, ensureAround, hardOf, seen, solid, tiles } from "../core/world.ts";
 import { CONS, visR } from "../data/consumables.ts";
 import { checkQuests, onMined } from "../data/progress.ts";
 import { saveNow } from "../save/account.ts";
@@ -118,6 +126,7 @@ export function update(dt) {
   if (S.acct) { S.acct.playTime += dt; S.saveT += dt; if (S.saveT >= 15) saveNow(true, true); }   // 15초마다 자동 저장
   if (S.msgT > 0) S.msgT -= dt;
   if (S.bannerT > 0) S.bannerT -= dt;
+  if (S.bannerT <= 0 && bannerQ.length) { S.banner = bannerQ.shift(); S.bannerText = S.banner.title; S.bannerT = BANNER_T; }
   updateFx(dt);
   updateBombs(dt);
   if (S.shakeT > 0) S.shakeT -= dt;
@@ -257,12 +266,21 @@ export function update(dt) {
   S.inShop = onGround;
 
   const depth = Math.max(0, P.y / T - SURF);
-  if (S.acct && depth > S.acct.stats.maxDepth) S.acct.stats.maxDepth = depth;
+  if (S.acct && depth > S.acct.stats.maxDepth) {
+    const was = S.acct.stats.maxDepth;
+    S.acct.stats.maxDepth = depth;
+    // 100m 마다 최고 기록 알림 (처음 100m 부터. 지층 알림과 같은 깊이면 지층 알림만)
+    const m0 = Math.floor((was + 1) / 100), m1 = Math.floor((depth + 1) / 100);
+    if (m1 > m0 && m1 >= 1 && !LAYERS.some((L) => L.from === m1 * 100)) {
+      pushBanner("최고 기록 " + m1 * 100 + "m!", "지금까지 가장 깊이 내려왔어요", ICON.depth, "#9fd8ff");
+      sfx("levelup", { pitch: 1.25, vol: 0.6 });
+    }
+  }
   const ly = layerOf(depth);
   if (ly > P.layerMax) {
     P.layerMax = ly;
-    S.bannerText = "제" + (ly + 1) + "층  " + LAYERS[ly].name;
-    S.bannerT = 3.5;
+    pushBanner("제" + (ly + 1) + "층 · " + LAYERS[ly].name, layerSub(ly), dirtTiles[ly][0], "#ffd34d");
+    sfx("cave", { pitch: 0.8 });
   }
 
   if (P.fuel <= 0) {

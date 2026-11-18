@@ -72,9 +72,17 @@ S.shopTab = 0; S.shopSel = 0; S.craftTab = 0; S.craftSel = 0; S.sellSel = 0;
 S.state = "title";       // title | play
 S.showHelp = true;
 S.msg = ""; S.msgT = 0;
-S.bannerText = ""; S.bannerT = 0;
+S.bannerText = ""; S.bannerT = 0; S.banner = null;
 S.animT = 0; S.digPT = 0; S.playT = 0;
 export const say = (s) => { S.msg = s; S.msgT = 2.5; };
+// 화면 위 알림 띠(지층 진입 · 최고 기록 · 새 광물 · 레벨 업 · 칭호). 한꺼번에 생기면 차례로 하나씩 보여 줌
+//  icon: 왼쪽 칸에 그릴 그림(캔버스), col: 제목 색
+export const BANNER_T = 3.5;
+export const bannerQ = [];
+export function pushBanner(title, sub = "", icon = null, col = "#ffd34d") {
+  if (bannerQ.length >= 4) bannerQ.shift();                    // 너무 쌓이면 오래된 것부터 버림
+  bannerQ.push({ title, sub, icon, col });
+}
 
 // 파티클 / 떠오르는 글자
 export const parts = [];

@@ -942,5 +942,24 @@ async function login(t, name) {
     "부품 그림을 읽으면 120x120 고해상도 캐릭터로 조립");
   ok(t60.ev("ORE_HI_SPARK.length === 4 && ORE_HI_SPARK.every((v) => v.every(([x, y]) => x >= 0 && x < 16 && y >= 0 && y < 16))"), "고해상도 광물 반짝임 자리 4변형");
 
+  // ---- 알림 띠 (지층 진입 · 최고 기록 · 새 광물) ----
+  for (let k = 0; k < 3 && t60.ev("S.state") !== "play"; k++) { t60.key("Escape"); t60.run(1); }
+  ok(t60.ev("S.state") === "play", "(알림 시험 준비) 게임 화면");
+  t60.ev("bannerQ.length = 0; S.banner = null; S.bannerT = 0; acct.stats.maxDepth = 95; P.layerMax = 0; P.x = 30.5 * T; P.y = (SURF + 105.5) * T; P.vx = P.vy = 0");
+  t60.run(1);
+  const bq = () => t60.ev("[S.banner && S.banner.title].concat(bannerQ.map((b) => b.title)).join('|')");
+  ok(bq().includes("최고 기록 100m"), "100m 마다 최고 기록 알림");
+  t60.ev("P.y = (SURF + 150.5) * T"); t60.run(1);
+  ok(bq().includes("암석층"), "새 지층에 들어가면 지층 알림");
+  ok(t60.ev("layerSub(2)").includes("에메랄드") && !t60.ev("layerSub(2)").includes("구리"), "지층 알림 둘째 줄: 그 지층에서 새로 나오는 광물");
+  ok(!bq().includes("최고 기록 100m|최고 기록 100m"), "같은 기록 알림은 한 번만");
+  t60.ev("acct.stats.mined[10] = 0"); t60.ev("onMined(10)");
+  ok(bq().includes("새 광물 발견! 루비"), "처음 캔 광물은 새 광물 알림");
+  t60.ev("onMined(10)");
+  ok(bq().split("새 광물 발견! 루비").length === 2, "두 번째부터는 알림 없음");
+  t60.ev("for (let k = 0; k < 9; k++) pushBanner('x' + k)");
+  ok(t60.ev("bannerQ.length") <= 4, "알림이 너무 쌓이면 오래된 것부터 버림");
+  t60.ev("bannerQ.length = 0; P.y = (SURF - 1) * T"); t60.run(1);
+
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });

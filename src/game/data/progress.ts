@@ -1,10 +1,11 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../save/config.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { sfx } from "../core/sound.ts";
-import { TILE } from "../core/config.ts";
+import { ORE_COL, TILE } from "../core/config.ts";
+import { ICON, oreIcon } from "../art/sprites.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { floaters, recalcStats, say, spawn } from "../core/stats.ts";
+import { floaters, pushBanner, recalcStats, say, spawn } from "../core/stats.ts";
 import { saveNow } from "../save/account.ts";
 import { ORE_IDS } from "../save/config.ts";
 import { BARS, FURNACE_LV } from "../systems/furnace.ts";
@@ -27,7 +28,7 @@ export function addXP(n) {
   const L = levelOf(S.acct.xp);
   if (L.lv > before) {
     S.MINER_LV = L.lv; recalcStats();
-    S.bannerText = "레벨 업!  Lv." + L.lv; S.bannerT = 3.5; sfx("levelup");
+    pushBanner("레벨 업!  Lv." + L.lv, "채굴 속도 · 판매가가 조금 올랐어요", ICON.drill, "#7cff6b"); sfx("levelup");
     floaters.push({ x: P.x, y: P.y - 44, text: "LEVEL UP! Lv." + L.lv, color: "#ffd34d", life: 1.8 });
     for (let k = 0; k < 14; k++) spawn(P.x + (Math.random() - 0.5) * 20, P.y, (Math.random() - 0.5) * 160, -60 - Math.random() * 120, 0.8, ["#ffd34d", "#fff3a8", "#7cff6b"][k % 3], 4, 300);
   }
@@ -81,7 +82,7 @@ export function checkQuests(quiet) {
   if (quiet) say("업적 " + got.length + "개 달성!");
   else {
     const q = got[got.length - 1];
-    S.bannerText = "칭호 획득: " + q.title; S.bannerT = 3.5;
+    pushBanner("칭호 획득: " + q.title, q.gname + " · " + q.need + q.unit + " · 보상 $" + q.money, ICON.trophy, "#ffd34d");
     say("업적 달성! 보상 $" + got.reduce((a, b) => a + b.money, 0));
     floaters.push({ x: P.x, y: P.y - 60, text: "칭호: " + q.title, color: "#ffd34d", life: 2.2 });
   }
@@ -91,6 +92,10 @@ export function checkQuests(quiet) {
 export function onMined(id) {                                   // 광물/흙을 하나 캤을 때
   if (!S.acct) return;
   S.acct.stats.mined[id] = (S.acct.stats.mined[id] || 0) + 1;
+  if (S.acct.stats.mined[id] === 1 && ORE_COL[id] && oreIcon[id]) {          // 처음 캔 광물: 도감에 새로 올라감
+    pushBanner("새 광물 발견! " + TILE[id].name, "판매가 $" + TILE[id].value + " · 가방 도감에 기록됐어요", oreIcon[id], ORE_COL[id][0]);
+    sfx("ore", { pitch: 1.5 });
+  }
   addXP(XP_ORE[id] || 0);
   checkQuests(false);
 }

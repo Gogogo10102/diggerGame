@@ -6,13 +6,13 @@ import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTil
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
+import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
 import { ensureRect, hardOf, isAir, seen, tiles } from "../core/world.ts";
 import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
-import { GLYPH, SY, blit, btnPx, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt } from "./util.ts";
+import { GLYPH, SY, blit, btnPx, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt, well } from "./util.ts";
 import { DEBRIS_T, debrisT, dust } from "../systems/collapseFx.ts";
 import { drawDrops } from "../systems/drops.ts";
 import { chunks, floatT, solidTile } from "../systems/floating.ts";
@@ -637,6 +637,7 @@ export function drawHUD(vw, vh, depth) {
   if (wide) {
     // 위 가운데: 가진 광물 칸 (Chipmatic 처럼) + 그 아래 깊이
     const ob = drawOreBar(Math.floor(vw / 2), 10, Math.max(160, vw - 2 * 230), true);
+    S.bannerY = ob + 46;                                           // 알림 띠는 깊이 표시 아래
     setFont(16); const dw = Math.ceil(ctx.measureText(dTxt).width) + 48;
     plate(Math.floor(vw / 2 - dw / 2), ob + 6, dw, 30); blit(ICON.depth, Math.floor(vw / 2 - dw / 2) + 8, ob + 13, 16, 16);
     txt(dTxt, Math.floor(vw / 2 - dw / 2) + 30, ob + 13, "#9fd8ff", 16);
@@ -648,6 +649,7 @@ export function drawHUD(vw, vh, depth) {
     setFont(16); const mw = Math.ceil(ctx.measureText(mTxt).width);
     blit(ICON.depth, 38 + mw + 14, 106, 16, 16); txt(dTxt, 38 + mw + 34, 106, "#9fd8ff", 16, "left", SY.ink);
     S.hudBottom = drawOreBar(10, 134, vw - 20 - 46, false);      // 좁은 화면: 왼쪽 줄 아래에 광물 칸 (미니맵은 그 아래로)
+    S.bannerY = Math.max(S.hudBottom + 12, Math.floor(vh * 0.36));  // 좁은 화면: 미니맵 아래, 캐릭터 위
   }
 
   // 오른쪽 위: 가방(초록) · 업적(파랑) · 메뉴(주황) 사각 버튼 + 그 아래 미니맵 · 깊이 미터
@@ -682,13 +684,31 @@ export function drawHUD(vw, vh, depth) {
 
   // 지반 불안정 경고
 
-  // 지층 배너
-  if (S.bannerT > 0) {
-    const w = 300, x = (vw - w) / 2;
-    const slide = Math.min(1, S.bannerT * 3, (3.5 - S.bannerT) * 3);
-    panel(x, -60 + 76 * slide, w, 56);
-    ctx.fillStyle = SY.y; ctx.fillRect(x + 2, -60 + 76 * slide + 2, w - 4, 4);
-    txt(S.bannerText, vw / 2, -60 + 76 * slide + 19, "#ffd34d", 14, "center");
+  // 알림 띠 (지층 진입 · 최고 기록 · 새 광물 · 레벨 업 · 칭호): 위 HUD 바로 아래로 미끄러져 내려왔다 올라감
+  if (S.bannerT > 0 && S.bannerText) {
+    const b = S.banner && S.banner.title === S.bannerText ? S.banner : { title: S.bannerText, sub: "", icon: null, col: "#ffd34d" };
+    setFont(16); const tw = ctx.measureText(b.title).width;
+    setFont(12); const sw = b.sub ? ctx.measureText(b.sub).width : 0;
+    const ic = b.icon ? 56 : 0, h = b.sub ? 64 : 48;
+    const w = Math.min(vw - 24, Math.max(260, Math.ceil(Math.max(tw, sw)) + ic + 40));
+    const x = Math.floor((vw - w) / 2);
+    const top = S.bannerY || 64;
+    const k = Math.min(1, S.bannerT * 4, (BANNER_T - S.bannerT) * 4), e = 1 - (1 - k) * (1 - k);   // 들어올 때·나갈 때 부드럽게
+    const y = Math.round(top - (1 - e) * (h + top));
+    ctx.globalAlpha = Math.min(1, k * 1.5);
+    panel(x, y, w, h);
+    ctx.fillStyle = b.col; ctx.fillRect(x + 2, y + 2, w - 4, 4);
+    hazard(x + w - 46, y + 2, 44, 4);
+    let tx = x + 18;
+    if (b.icon) {
+      well(x + 10, y + Math.floor((h - 44) / 2), 44, 44);
+      blit(b.icon, x + 16, y + Math.floor((h - 32) / 2), 32, 32);
+      tx = x + 10 + ic;
+    }
+    const cw = w - (tx - x) - 12;
+    txt(fitText(b.title, cw, 16), tx, y + (b.sub ? 14 : 16), b.col, 16, "left", SY.ink);
+    if (b.sub) txt(fitText(b.sub, cw, 12), tx, y + 38, "#e8e2d0", 12, "left", SY.ink);
+    ctx.globalAlpha = 1;
   }
 
   // 상점 패널

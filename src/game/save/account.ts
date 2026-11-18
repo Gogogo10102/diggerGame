@@ -3,7 +3,7 @@ import "./worldSave.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 
 import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, LAYERS, MINE_COL, SURF, T, TILE, W, inB } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { FUEL_BASE, bombs, flashes, floaters, maxFuel, parts, recalcStats, say } from "../core/stats.ts";
+import { FUEL_BASE, bannerQ, bombs, flashes, floaters, maxFuel, parts, recalcStats, say } from "../core/stats.ts";
 import { fixFoundation, genWorld, legacySeen, regenT, rub, rubSet, warn } from "../core/world.ts";
 import { HOT } from "../data/consumables.ts";
 import { ITEMS } from "../data/items.ts";
@@ -117,7 +117,7 @@ export function applyAccount(d) {
   S.nearCraft = row < SURF && inB(B_CRAFT, col);
   S.nearFurnace = row < SURF && inB(B_FURN, col);
   revealAround();
-  S.msgT = 0; S.bannerT = 0; S.playT = 0; S.saveT = 0; S.lastSave = performance.now();
+  S.msgT = 0; S.bannerT = 0; S.banner = null; bannerQ.length = 0; S.playT = 0; S.saveT = 0; S.lastSave = performance.now();
   S.state = "play";
   checkQuests(true);
   if (regenWorld) say("맵이 넓어져서 광산을 새로 만들었어요 (돈·장비·업적은 그대로)");
