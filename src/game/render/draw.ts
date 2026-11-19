@@ -93,14 +93,20 @@ function edgePaths(c, r, bits, dig, digSide) {
     }
   }
   const isCut = (x, y) => x >= 0 && x < G && y >= 0 && y < G && cut[y * G + x] === 1;
-  if (aT) for (let x = 0; x < G; x++) if (!cut[x]) { line.rect(x * u, 0, u, 2); lit.rect(x * u, 2, u, 2); }   // 깎지 않은 바닥에도 윤곽 + 빛
+  // 윤곽선 굵기 4px (맵 스타일 A: 아이콘 같은 굵은 외곽선), 바닥 면엔 위에서 오는 빛
+  const LW = 4;
+  if (aT) for (let x = 0; x < G; x++) if (!cut[x]) { line.rect(x * u, 0, u, LW); lit.rect(x * u, LW, u, 2); }   // 깎지 않은 바닥에도 윤곽 + 빛
   for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
     if (cut[y * G + x]) continue;
     const px = x * u, py = y * u;
-    if (isCut(x, y - 1)) { line.rect(px, py, u, 2); lit.rect(px, py + 2, u, 2); }      // 바닥 면: 윤곽 + 위에서 오는 빛
-    if (isCut(x, y + 1)) { line.rect(px, py + u - 2, u, 2); shade.rect(px, py - 4, u, 4); }   // 천장 면: 윤곽 + 그늘
-    if (isCut(x - 1, y)) line.rect(px, py, 2, u);
-    if (isCut(x + 1, y)) { line.rect(px + u - 2, py, 2, u); shade.rect(px - 4, py, 4, u); }
+    if (isCut(x, y - 1)) { line.rect(px, py, u, LW); lit.rect(px, py + LW, u, 2); }      // 바닥 면
+    if (isCut(x, y + 1)) { line.rect(px, py + u - LW, u, LW); shade.rect(px, py - 4, u, 4); }   // 천장 면: 윤곽 + 그늘
+    if (isCut(x - 1, y)) line.rect(px, py, LW, u);
+    if (isCut(x + 1, y)) { line.rect(px + u - LW, py, LW, u); shade.rect(px - 4, py, 4, u); }
+    if (isCut(x - 1, y - 1) && !isCut(x - 1, y) && !isCut(x, y - 1)) line.rect(px, py, LW, LW);   // 대각선 틈 메우기
+    if (isCut(x + 1, y - 1) && !isCut(x + 1, y) && !isCut(x, y - 1)) line.rect(px + u - LW, py, LW, LW);
+    if (isCut(x - 1, y + 1) && !isCut(x - 1, y) && !isCut(x, y + 1)) line.rect(px, py + u - LW, LW, LW);
+    if (isCut(x + 1, y + 1) && !isCut(x + 1, y) && !isCut(x, y + 1)) line.rect(px + u - LW, py + u - LW, LW, LW);
   }
   e = { cut: cutP, line, lit, shade, any: cut.some((v) => v) };
   if (EDGE_CACHE.size > 6000) EDGE_CACHE.clear();
@@ -137,7 +143,7 @@ function softEdge(c, r, px, py, id) {
   ctx.restore();
   ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.fill(e.shade);
   ctx.fillStyle = "rgba(255,230,190,0.16)"; ctx.fill(e.lit);
-  ctx.fillStyle = "#0f0905"; ctx.fill(e.line);
+  ctx.fillStyle = "#1a0f0a"; ctx.fill(e.line);
   ctx.restore();
 }
 
@@ -220,7 +226,7 @@ export function draw() {
     else if (id === 16) ctx.drawImage(hardTiles[(c * 7 + r * 13) & 1], px, py, T, T);
     else if (id === 13 && r === SURF && BUILD_COLS.some((b) => c >= b[0] && c <= b[1])) ctx.drawImage(plinthTop, px, py, T, T);   // 건물 바로 아래 한 줄만 돌 기단 (그 아래는 흙처럼)
     else {                                                         // 건물 사이 마을 땅(13)은 잔디 흙처럼 보이게
-      ctx.drawImage(dirtTiles[layerOf(r - SURF)][hv(c, r) % DIRT_VAR], px, py, T, T);
+      ctx.drawImage(dirtTiles[layerOf(r - SURF)][((c & 3) | ((r & 3) << 2)) % DIRT_VAR], px, py, T, T);   // 4x4칸마다 무늬가 이어짐
       if (id === 17) {                                             // 보물 상자: 흙 위에 상자, 금테가 가끔 반짝
         ctx.drawImage(chestTile, px, py, T, T);
         const k = (S.animT * 1.2 + (c * 3 + r * 7) * 0.31) % 2.4;

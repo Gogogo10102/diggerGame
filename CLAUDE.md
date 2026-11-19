@@ -34,7 +34,7 @@ src/
     ui/     dom inventory overlay menu
 public/assets/         게임 그림 PNG + manifest.json
 tests/                 harness.cjs(가짜 DOM/캔버스) smoke.cjs(테스트)
-tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py)  make-icons.py(+pixicon.py)  make-buildings.py  make-signs.py
+tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-icons.py(+pixicon.py)  make-buildings.py  make-signs.py
 docs/                  plan.md decisions.md
 ```
 
@@ -117,6 +117,7 @@ docs/                  plan.md decisions.md
 - 현재 원석·주괴 그림은 **임시 확정(v1)** 입니다. 나중에 다시 작업 예정.
 - 아이템·소모품·화면 아이콘(`items/`, `ui/icon/`)은 `python3 tools/make-icons.py` 로 다시 만들 수 있습니다(밝은 플랫 스타일, 기본 32px · `--size 16` 이면 예전 크기). 고친 뒤 `npm run assets:manifest`.
 - 흙·뒷벽·돌·풀·장식·균열·광물(땅속/아이콘/떨어진 것)·주괴·해·구름·캐릭터 부품은 `python3 tools/make-hires.py` 가 만듭니다.
+  **맵 스타일 A(굵은 외곽선 덩어리, 2026-11-20 확정)**: 흙·뒷벽·땅속 광물·풀·풀잎·해·구름은 `tools/mapart.py`(칸당 32px 도트 ×2). 흙은 4x4칸이 이어지는 돌바닥 무늬라 변형 번호 = `(c&3) + (r&3)*4` (draw.ts). 굴 윤곽선은 4px.
   지층 색·광물 색은 `config.ts`, 주괴 색은 `furnace.ts` 에서 읽어 오므로 색을 바꾸면 다시 돌리면 됩니다. 그 뒤 PNG 를 직접 고쳐도 됩니다.
 - 캐릭터(**드릴 로봇**, `sprites.ts` 의 `getMiner`): 옆에서 살짝 비껴 본 3D(3/4 각도), 노란 몸 + 회색 머리·파란 외눈 + 안테나 두 개 + 관절 없는 통짜 팔 끝 드릴, 궤도 위.
   `tools/robot3d.py` 가 상자·원기둥·공으로 세운 작은 3D 장면을 눈높이에서 비스듬히 비춰 4단 명암으로 끊어 그립니다(돈 각도 `TH`, 내려다본 각도 `PH`=0 이라 궤도 두 줄이 같은 땅에 붙음, 크기 `K`, 발밑 자리 `ORG`).

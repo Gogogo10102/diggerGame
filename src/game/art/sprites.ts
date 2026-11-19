@@ -26,7 +26,7 @@ export const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16
 export const mixC = (a, b, t) => { const A = hexRgb(a), B = hexRgb(b); return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
 export const hv = (c, r) => (Math.imul(c + 11, 73856093) ^ Math.imul(r + 7, 19349663)) >>> 0;
 // 흙 타일 (지층별 8종 변형, 이음매가 보이지 않게 가장자리를 감싸서 그림)
-export const DIRT_VAR = 8;
+export const DIRT_VAR = 16;                       // 흙 무늬는 4x4칸이 이어지는 한 장 (번호 = (c&3) + (r&3)*4)
 // 깊은 지층(5번째부터)은 따로 쓰는 난수로 그림 → 기존 지층·광물 그림의 모양(난수 순서)이 바뀌지 않음
 export const artDeep = mulberry32(4242);
 export const dirtTiles = LAYERS.map((L, li) => Array.from({ length: DIRT_VAR }, () => sprite(16, 16, (p) => {
@@ -286,9 +286,11 @@ export const oreTiles = {};                                   // (호환) 월드
 for (const id in ORE_SPR) oreTiles[id] = ORE_SPR[id][0].img;
 export const SPARK_ORES = { 4: 1, 5: 1, 8: 1, 9: 1, 10: 1, 11: 1 };
 // 고해상도 광물 그림(64px, tools/make-hires.py)의 반짝임 자리 (16칸 좌표, 변형마다 덩이 왼쪽 위 밝은 곳)
-//  make-hires.py 의 ORE_HI_SLOTS 와 같은 자리
-export const ORE_HI_SPARK = [[[3.6, 3.6], [10.9, 5.4], [5.3, 10.8], [11.5, 12]], [[4.4, 4.9], [10.3, 3.3], [9.5, 10.5], [3.1, 11.1]],
-  [[10.8, 3.8], [4, 5.5], [9.1, 10.6], [3.4, 11.9]], [[10.5, 5], [4.1, 3.1], [5.4, 10.4], [11.3, 11.3]]];
+//  tools/mapart.py 의 ORE_PILES 덩이마다 빛 받는 자리 (ore_spark 로 계산)
+export const ORE_HI_SPARK = [[[3.2, 4.2], [9.9, 3.4], [7.0, 9.5]],
+  [[3.7, 9.2], [9.0, 8.5], [5.9, 3.4]],
+  [[8.7, 4.7], [3.9, 5.9], [6.2, 10.2]],
+  [[4.9, 3.9], [9.7, 7.2], [3.9, 9.9]]];
 // 단단한 암석(경암): 희귀 광물을 감싸고 있음. 드릴로 팔 수 있지만 오래 걸림
 export const hardTiles = [0, 1].map(() => sprite(16, 16, (p) => {
   p(0, 0, 16, 16, "#33384a");
@@ -354,7 +356,7 @@ export const sunImg = sprite(16, 16, (p) => {
   p(5, 3, 6, 10, "#ffe066"); p(3, 5, 10, 6, "#ffe066"); p(4, 4, 8, 8, "#ffe066");
 });
 export const CLOUDS = [{x:60,y:50,s:3},{x:340,y:110,s:4},{x:620,y:40,s:3},{x:880,y:130,s:5},{x:1150,y:70,s:3},{x:1400,y:100,s:4}];
-export const SKY = ["#5fb8ff", "#74c3ff", "#8ccfff", "#a3dbff", "#bde6ff", "#d3f0ff"];
+export const SKY = ["#4aafff", "#5cbaff", "#6ec4ff", "#82cdff", "#98d8ff", "#b2e3ff"];   // 맵 스타일 A: 또렷한 하늘 띠
 
 // 상점 건물 (112x48 아트 = 7x3 타일). 지붕 색만 바꿔서 두 건물을 만듦
 export function makeShop(roofA, roofB, roofC) {
