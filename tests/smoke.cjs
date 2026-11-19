@@ -889,7 +889,8 @@ async function login(t, name) {
   ok(t50.ev("msg").includes("동굴 발견"), "동굴 발견 안내");
   // 자연 동굴은 떨어지지 않음
   t50.ev("chunks.length = 0; for (let k = 0; k < 10; k++) scanFloating(0.5)");
-  ok(t50.ev("chunks.length") === 0, "판 칸에 안 닿은 자연 지형은 떨어지지 않음");
+  // (월드에 따라 판 칸에 닿은 작은 흙덩이는 떨어질 수 있음 → 판 칸 근처 덩어리만 허용)
+  ok(t50.ev("chunks.every((ch) => ch.cells.some((k) => Math.abs(k.c - (" + target.c + " + 1.5)) <= 2.5 && Math.abs(k.r - " + target.r + ") <= 3))"), "판 칸에 안 닿은 자연 지형은 떨어지지 않음");
   ok(t50.ev("QUESTS.some((q) => q.group === 'cave')"), "동굴 탐험 업적");
 
   console.log("[29] 안전 노랑 UI · 칸 막대 HUD · 효과음");
