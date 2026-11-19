@@ -710,7 +710,13 @@ export function drawHUD(vw, vh, depth) {
   segBar(66, 78, xpN, xpF, "xp", 8, 14);
   txt(fitText(titleName() || "칭호 없음", Math.max(40, (wide ? 300 : vw - 230) - 6), 12), 66 + xpN * 8 + 8, 79, titleName() ? SY.gold : SY.mute, 12, "left", SY.ink);
   // 돈 · 깊이: 넓은 화면은 위 가운데(깊이) · 오른쪽 위(돈), 좁은 화면은 왼쪽 줄 아래에
-  const dTxt = (Math.floor(depth) + 1) + "m", mTxt = hudMoney(P.money);
+  // 돈은 바로 바뀌지 않고 0.4초쯤 걸쳐 굴러 올라감(팔거나 보물을 열 때 손맛). 늘어나는 동안 초록 + 동전이 통통
+  if (S.moneyShown === undefined || !Number.isFinite(S.moneyShown) || S.state !== "play" && S.state !== "shop" && S.state !== "craft" && S.state !== "furnace") S.moneyShown = P.money;
+  const mDiff = P.money - S.moneyShown;
+  if (mDiff > 0) S.moneyUpT = performance.now();
+  S.moneyShown = Math.abs(mDiff) < 1 ? P.money : S.moneyShown + Math.sign(mDiff) * Math.max(1, Math.abs(mDiff) * 0.12);
+  const mUp = performance.now() - (S.moneyUpT || 0) < 300, coinBob = mUp ? -2 * (((performance.now() / 60) | 0) % 2) : 0;
+  const dTxt = (Math.floor(depth) + 1) + "m", mTxt = hudMoney(Math.round(S.moneyShown)), mCol = mUp ? "#7cff6b" : SY.gold;
   const bs = 44, bg = 6, bx0 = vw - 10 - 3 * bs - 2 * bg, by0 = 10;
   S.hudBottom = 0;
   if (wide) {
@@ -721,10 +727,10 @@ export function drawHUD(vw, vh, depth) {
     plate(Math.floor(vw / 2 - dw / 2), ob + 6, dw, 30); blit(ICON.depth, Math.floor(vw / 2 - dw / 2) + 8, ob + 13, 16, 16);
     txt(dTxt, Math.floor(vw / 2 - dw / 2) + 30, ob + 13, "#9fd8ff", 16);
     const mw = Math.ceil(ctx.measureText(mTxt).width) + 50, mx0 = bx0 - 10 - mw;
-    plate(mx0, by0, mw, bs); blit(ICON.coin, mx0 + 8, by0 + 6, 32, 32);
-    txt(mTxt, mx0 + mw - 10, by0 + 14, SY.gold, 16, "right");
+    plate(mx0, by0, mw, bs); blit(ICON.coin, mx0 + 8, by0 + 6 + coinBob, 32, 32);
+    txt(mTxt, mx0 + mw - 10, by0 + 14, mCol, 16, "right");
   } else {
-    blit(ICON.coin, 10, 102, 24, 24); txt(mTxt, 38, 106, SY.gold, 16, "left", SY.ink);
+    blit(ICON.coin, 10, 102 + coinBob, 24, 24); txt(mTxt, 38, 106, mCol, 16, "left", SY.ink);
     setFont(16); const mw = Math.ceil(ctx.measureText(mTxt).width);
     blit(ICON.depth, 38 + mw + 14, 106, 16, 16); txt(dTxt, 38 + mw + 34, 106, "#9fd8ff", 16, "left", SY.ink);
     S.hudBottom = drawOreBar(10, 134, vw - 20 - 46, false);      // 좁은 화면: 왼쪽 줄 아래에 광물 칸 (미니맵은 그 아래로)
