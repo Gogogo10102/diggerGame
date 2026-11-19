@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -753,6 +753,14 @@ export function drawHUD(vw, vh, depth) {
   // 왼쪽 위: 연료 · 화물 칸 막대 (아이콘이 막대 왼쪽 끝에 겹침)
   const fr = Math.max(0, P.fuel / maxFuel()), low = fr < 0.25;
   const fSeg = Math.ceil(fr * 12 - 1e-9);
+  {                                                            // 상태 카드: 연료·화물·레벨 묶음 뒤에 숯색 판 (밝은 하늘·흙 위에서도 글자가 또렷하게)
+    setFont(12);
+    const fl = Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), cl = cargoCount() + "/" + cargoCap();
+    const tl = fitText(titleName() || "칭호 없음", Math.max(40, (wide ? 300 : vw - 230) - 6), 12);
+    const w1 = 10 + 22 + 122 + 6 + Math.max(ctx.measureText(fl).width, ctx.measureText(cl).width);
+    const w2 = 66 + 82 + 8 + ctx.measureText(tl).width;
+    plate(2, 2, Math.ceil(Math.max(w1, w2)) + 10, 100);
+  }
   hudBar(10, 12, ICON.fuel, 12, low && blink ? Math.max(0, fSeg - 1) : fSeg, low ? "low" : "fuel", Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), low ? SY.red : "#fff");
   const cc = cargoCount(), cap = cargoCap(), full = cc >= cap;
   hudBar(10, 44, ICON.crate, 12, Math.min(12, Math.ceil(cc / cap * 12 - 1e-9)), full && blink ? "low" : "cargo", cc + "/" + cap, full ? SY.red : "#fff");
@@ -1052,7 +1060,11 @@ export function drawTitle(vw, vh) {
   // 로봇: 드릴이 돌고 궤도가 굴러감
   const leg = ((now * 8) | 0) % 2, dig = ((now * 12) | 0) % 2;
   const bob = Math.round(Math.sin(now * 3) * 1) * 2;
-  ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 60), y + bob, 120, 120);
+  // 2.5초마다 다른 로봇으로 (로봇 6종 자랑) — 바뀔 때 살짝 튀어오름
+  const ci = Math.floor(now / 2.5) % CHAR_IDS.length, hop = (now % 2.5) < 0.18 ? -6 : 0;
+  const keep = S.charId; S.charId = CHAR_IDS[ci];
+  ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 60), y + bob + hop, 120, 120);
+  S.charId = keep;
   y += 120 + 8;
   ctx.fillStyle = "rgba(10,10,16,0.5)"; ctx.fillRect(0, y - 12, vw, lh + 16 + 44 + 16);   // 로고·부제 뒤 어두운 띠 (뒤 건물에 묻히지 않게)
   ctx.fillStyle = "rgba(255,194,26,0.35)"; ctx.fillRect(0, y - 14, vw, 2); ctx.fillRect(0, y + lh + 16 + 44 + 4, vw, 2);
