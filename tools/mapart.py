@@ -140,11 +140,22 @@ def _poly(n, pts):
     return Path(pts).contains_points(np.stack([xx.ravel(), yy.ravel()], 1)).reshape(n, n)
 
 def ore_tile(k, v, scale=1.15):
-    n = TS; rp = [hx(c) for c in ORE4[k]]
+    return up2(_ore_draw(TS, k, ORE_PILES[v], scale, 700 + k * 13 + v, shadow=True))
+
+def ore_icon(k):
+    """인벤토리 아이콘 32px (도트 16 × 2): 덩이 둘"""
+    return up2(_ore_draw(16, k, [(10.6, 6.4, 3.9), (6.0, 9.8, 5.0)], 1.0, 760 + k, shadow=False))
+
+def ore_drop(k):
+    """바닥에 떨어진 광물 24px (도트 12 × 2): 덩이 하나"""
+    return up2(_ore_draw(12, k, [(6, 6.8, 5.6)], 1.0, 780 + k, shadow=False))
+
+def _ore_draw(n, k, piles, scale, seed, shadow):
+    rp = [hx(c) for c in ORE4[k]]
     yy, xx = np.mgrid[0:n, 0:n] + 0.5
-    rng = np.random.default_rng(700 + k * 13 + v)
+    rng = np.random.default_rng(seed)
     img = np.zeros((n, n, 4)); allm = np.zeros((n, n), bool); parts = []
-    for (cx, cy, rad) in ORE_PILES[v]:
+    for (cx, cy, rad) in piles:
         R = rad * scale * 0.82 + rng.uniform(-.6, .6)
         if k in (5, 9, 10, 11):                                # 결정: 위로 뾰족한 육각 기둥
             w, h = R * .75, R * 1.3; t = rng.uniform(-1.5, 1.5)
@@ -162,13 +173,14 @@ def ore_tile(k, v, scale=1.15):
             s_ = (xx - cx) / R * .8 + (yy - cy) / R
             sh = np.select([s_ < -.55, s_ < .15, s_ < .7], [0, 1, 2], 3); hl = m & (((xx - cx + R * .38) / 1.3) ** 2 + ((yy - cy + R * .38) / 1.0) ** 2 <= 1)
         parts.append((m, sh, hl)); allm |= m
-    shadow = np.roll(np.roll(allm, 1, 0), 1, 1) & ~allm      # 흙에 박힌 그늘 (아래 오른쪽)
-    img[shadow] = [25, 14, 6, 110]
-    ol = ring(allm, wrap=False); img[ol] = [*OL, 255]
-    for (m, sh, hl) in parts:
+    if shadow:
+        sh_ = np.roll(np.roll(allm, 1, 0), 1, 1) & ~allm      # 흙에 박힌 그늘 (아래 오른쪽)
+        img[sh_] = [25, 14, 6, 110]
+    for (m, sh, hl) in parts:                                # 덩이마다 외곽선 → 겹쳐도 따로 보임 (뒤에 그린 것이 앞)
+        img[ring(m, wrap=False)] = [*OL, 255]
         for i in range(4): img[m & (sh == i)] = [*rp[i], 255]
         img[hl] = [255, 255, 255, 255]
-    return up2(img)
+    return img
 
 # ---------------------------------------------------------------------
 #  풀 (흙 위 덮개) · 풀잎/꽃 장식 · 하늘

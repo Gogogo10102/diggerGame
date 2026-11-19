@@ -408,6 +408,26 @@ export function draw() {
         ctx.fillStyle = "#c08a5c"; ctx.fillRect(sx + 4, sy - 68, 36, 26);
         txt("▼", sx + 22, sy - 63, "#3a2414", 16, "center");
       }
+      // 광산 입구 문: 광산 터 첫 칸 위에 안전 노랑 기둥 둘 + 경고 줄무늬 상판 (맵 스타일 A, 굵은 외곽선)
+      {
+        const gx = MINE_COL * T - camX, gy = SURF * T - camY, OLc = "#1a0f0a";
+        for (const px of [gx - 8, gx + T - 4]) {
+          ctx.fillStyle = OLc; ctx.fillRect(px - 2, gy - 58, 16, 60);
+          ctx.fillStyle = "#ffbe1a"; ctx.fillRect(px, gy - 56, 12, 58);
+          ctx.fillStyle = "#ffe27a"; ctx.fillRect(px, gy - 56, 4, 58);
+          ctx.fillStyle = "#c47e00"; ctx.fillRect(px + 10, gy - 56, 2, 58);
+        }
+        const bx = gx - 18, bw = T + 36, by = gy - 74;
+        ctx.fillStyle = OLc; ctx.fillRect(bx - 2, by - 2, bw + 4, 22);
+        ctx.fillStyle = "#ffbe1a"; ctx.fillRect(bx, by, bw, 18);
+        ctx.fillStyle = "#22252d";
+        for (let k = -24; k < bw; k += 16) for (let j = 0; j < 3; j++) {               // 경고 줄무늬: 4px 계단으로 비스듬히
+          const x0 = Math.max(0, k + (2 - j) * 4), x1 = Math.min(bw, k + (2 - j) * 4 + 8);
+          if (x1 > x0) ctx.fillRect(bx + x0, by + 4 + j * 4, x1 - x0, 4);
+        }
+        ctx.fillStyle = "#ffe27a"; ctx.fillRect(bx, by, bw, 4);
+        ctx.fillStyle = "#c47e00"; ctx.fillRect(bx, by + 16, bw, 2);
+      }
     }
   }
 

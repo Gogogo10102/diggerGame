@@ -94,37 +94,6 @@ def plinth(top):
 #  광물 (아이콘 · 떨어진 것 · 주괴). 땅속 광물·흙·뒷벽·풀·하늘은 tools/mapart.py
 # ---------------------------------------------------------------------
 
-def ore_ramp(id_):
-    a, b, c = [hexrgb(x) for x in ORE_COL[id_]]
-    return ["#%02x%02x%02x" % tuple(int(v) for v in col) for col in (c * 0.55, c, b, a, mix(a, np.full(3, 255), 0.6))]
-
-def lump(id_, cx, cy, s):
-    m = "ore%d" % id_
-    if id_ in (5,):                         # 다이아: 팔면체 결정
-        return [L(poly([(cx - 1.7 * s, cy), (cx, cy - 2.4 * s), (cx + 1.7 * s, cy), (cx, cy + 2.2 * s)]), m, "fix", 3),
-                L(poly([(cx, cy - 2.4 * s), (cx + 1.7 * s, cy), (cx, cy + 2.2 * s)]), m, "fix", 2, sep=False),
-                L(poly([(cx - 1.7 * s, cy), (cx + 1.7 * s, cy), (cx, cy + 2.2 * s)]), m, "fix", 1, sep=False),
-                L(line(cx - 0.8 * s, cy - 0.6 * s, cx - 0.2 * s, cy - 1.6 * s, 0.5 * s), m, "fix", 4, sep=False)]
-    if id_ in (9, 11):                      # 에메랄드 · 미스릴: 기둥 결정
-        return [L(poly([(cx - 1.1 * s, cy + 2 * s), (cx - 1.1 * s, cy - 1.2 * s), (cx, cy - 2.4 * s), (cx + 1.1 * s, cy - 1.2 * s), (cx + 1.1 * s, cy + 2 * s)]), m, "fix", 3),
-                L(poly([(cx, cy - 2.4 * s), (cx + 1.1 * s, cy - 1.2 * s), (cx + 1.1 * s, cy + 2 * s), (cx, cy + 2 * s)]), m, "fix", 2, sep=False),
-                L(line(cx - 0.5 * s, cy - 0.8 * s, cx - 0.5 * s, cy + 1.2 * s, 0.4 * s), m, "fix", 4, sep=False)]
-    if id_ in (6, 3):                       # 석탄 · 철: 각진 조각
-        return [L(poly([(cx - 1.8 * s, cy - 0.4 * s), (cx - 0.6 * s, cy - 1.6 * s), (cx + 1.6 * s, cy - 1.0 * s), (cx + 1.8 * s, cy + 1.0 * s), (cx + 0.2 * s, cy + 1.7 * s), (cx - 1.5 * s, cy + 1.1 * s)]), m, "dome", 2.4, rr=0.9 * s, spec=[(cx - 0.6 * s, cy - 0.6 * s)])]
-    if id_ == 8:                            # 은: 울퉁불퉁한 덩이 + 금속 결
-        return [L(U_(ell(cx - 0.5 * s, cy + 0.2 * s, 1.4 * s, 1.2 * s), ell(cx + 0.8 * s, cy - 0.5 * s, 1.1 * s, 1.0 * s)), m, "dome", 2.5, rr=0.9 * s, spec=[(cx - 0.9 * s, cy - 0.3 * s)]),
-                L(line(cx - 1.2 * s, cy + 0.6 * s, cx + 0.9 * s, cy - 0.4 * s, 0.35 * s), m, "fix", 4, sep=False)]
-    return [L(ell(cx, cy, 1.7 * s, 1.45 * s), m, "dome", 2.5, rr=1.0 * s, spec=[(cx - 0.6 * s, cy - 0.5 * s)])]   # 구리·금·루비: 둥근 알
-
-def ore_icon(id_, N=32):
-    MAT["ore%d" % id_] = ore_ramp(id_)
-    lays = lump(id_, 6.0, 9.6, 1.65) + lump(id_, 11.0, 6.4, 1.15)
-    return render(lays, N, "B", [])
-
-def ore_drop(id_, N=24):
-    MAT["ore%d" % id_] = ore_ramp(id_)
-    return render(lump(id_, 8, 8.4, 2.4), N, "B", [])
-
 def bar_icon(k, pal, N=32):
     MAT["bar" + k] = ["#%02x%02x%02x" % tuple(int(v) for v in col) for col in
                       (hexrgb(pal[2]) * 0.55, hexrgb(pal[2]), hexrgb(pal[1]), hexrgb(pal[0]), mix(hexrgb(pal[0]), np.full(3, 255), 0.6))]
@@ -222,7 +191,7 @@ if __name__ == "__main__":
     n += 12
     for id_ in ORE_COL:
         for v in range(4): save(mapart.ore_tile(id_, v), f"{A}/ores/world/{id_}_{v}.png")
-        save(ore_icon(id_), f"{A}/ores/icon/{id_}.png"); save(ore_drop(id_), f"{A}/ores/drop/{id_}.png"); n += 6
+        save(mapart.ore_icon(id_), f"{A}/ores/icon/{id_}.png"); save(mapart.ore_drop(id_), f"{A}/ores/drop/{id_}.png"); n += 6
     FUR = open(os.path.join(ROOT, "src/game/systems/furnace.ts"), encoding="utf-8").read()
     for k, a, b, c in re.findall(r'(\w\w): \{ name: "[^"]+",\s+ore: \d+,\s+coal: \d+, time: \d+,\s+pal: \["(#\w+)", "(#\w+)", "(#\w+)"\]', FUR):
         save(bar_icon(k, [a, b, c]), f"{A}/bars/{k}.png"); n += 1
