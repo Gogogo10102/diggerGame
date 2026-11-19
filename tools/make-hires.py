@@ -70,49 +70,8 @@ def wrap_blob(img, cx, cy, rx, ry, *a, **k):
                 shade_blob(img, cx + dx, cy + dy, rx, ry, *a, **k)
 
 # ---------------------------------------------------------------------
-#  돌 · 경암 · 기반암 · 기단 · 균열
+#  기단 (돌 · 경암 · 기반암 · 균열은 tools/mapart.py)
 # ---------------------------------------------------------------------
-def boulders(base_col, rocks, seed, bg, hl=0.4, crack=True):
-    img = np.tile(hexrgb(bg), (R, R, 1)).astype(float)
-    r = np.random.default_rng(seed)
-    tex = tnoise(R, 16, seed + 1)
-    for (x, y, w, h) in rocks:
-        c = hexrgb(base_col) * (0.92 + 0.16 * r.random())
-        m = ((XX - x - w / 2) / (w / 2)) ** 4 + ((YY - y - h / 2) / (h / 2)) ** 4 <= 1   # 둥근 네모 바위
-        t = (XX - x) / w + (YY - y) / h
-        col = c[None, None, :] * (0.88 + 0.24 * tex[..., None])
-        img[m] = col[m]
-        img[m & (t < 0.55)] = mix(img[m & (t < 0.55)], np.full(3, 255), 0.12)
-        img[m & (t > 1.45)] = img[m & (t > 1.45)] * 0.7
-        edge = m & ~(np.roll(m, 1, 0) & np.roll(m, -1, 0) & np.roll(m, 1, 1) & np.roll(m, -1, 1))
-        img[edge] = hexrgb(bg) * 0.7
-        top = m & ~np.roll(m, 1, 0) & ~edge
-        img[np.roll(top, 1, 0) & m] = mix(c, np.full(3, 255), hl)
-        if crack:
-            cx, cy = int(x + w * r.uniform(0.3, 0.6)), int(y + h * 0.25)
-            for k in range(int(h * 0.5)):
-                if 0 <= cy + k < R and 0 <= cx < R and m[cy + k, cx]: img[cy + k, cx] = c * 0.5
-                cx += r.integers(-1, 2)
-    return img
-
-def stone_tile(v):
-    rocks = [[2, 2, 28, 26], [32, 3, 30, 27], [2, 30, 24, 32], [27, 32, 35, 30]] if v == 0 else [[2, 2, 34, 24], [37, 2, 25, 30], [2, 28, 26, 34], [29, 34, 33, 28]]
-    return boulders("#8a90a0", rocks, 600 + v, "#3d414d")
-
-def hard_tile(v):
-    rocks = [[1, 1, 26, 22], [28, 1, 35, 18], [1, 24, 18, 39], [20, 21, 24, 24], [45, 20, 18, 28], [20, 46, 43, 17]]
-    img = boulders("#454b63", rocks, 700 + v, "#262a38", hl=0.25)
-    r = np.random.default_rng(710 + v)
-    for _ in range(6):
-        x, y = int(r.uniform(4, R - 4)), int(r.uniform(4, R - 4))
-        img[y, x] = hexrgb("#a8b4d8"); img[y - 1, x] = hexrgb("#6a7498")
-    return img
-
-def bedrock_tile():
-    f = 0.6 * tnoise(R, 8, 800) + 0.4 * tnoise(R, 32, 801)
-    img = np.where((f > 0.62)[..., None], hexrgb("#3a3a46"), np.where((f < 0.38)[..., None], hexrgb("#1d1d24"), hexrgb("#2b2b33")))
-    return img.astype(float)
-
 def plinth(top):
     img = np.tile(hexrgb("#5b606e"), (R, R, 1)).astype(float)
     r = np.random.default_rng(820 + top)
@@ -129,20 +88,6 @@ def plinth(top):
                 img[y + h - 2, x0:x1] = c * 0.75
             x += w
     if top: img[0:3] = hexrgb("#b0b6c6"); img[3] = hexrgb("#5b606e")
-    return img
-
-def crack_img(stage):
-    img = np.zeros((R, R, 4))
-    r = np.random.default_rng(900)
-    branches = [(32, 4, 0)] + ([(30, 24, -1), (34, 24, 1)] if stage >= 1 else []) + ([(26, 40, -1), (38, 42, 1), (32, 46, 0)] if stage >= 2 else [])
-    for (x, y, d) in branches:
-        n = 22 if stage == 0 else 18
-        for k in range(n):
-            xi, yi = int(x), int(y)
-            if 0 <= xi < R - 1 and 0 <= yi < R - 1:
-                img[yi, xi] = [10, 6, 3, 230]; img[yi, xi + 1] = [10, 6, 3, 200]
-                img[yi, xi + 2 if xi + 2 < R else xi] = [255, 230, 190, 50]
-            x += d * 0.6 + r.uniform(-0.7, 0.7); y += 1
     return img
 
 # ---------------------------------------------------------------------
@@ -268,10 +213,10 @@ if __name__ == "__main__":
         for v in range(3):
             save(mapart.cave_top_tile(li, v, Lc["base"], Lc["peb"]), f"{A}/tiles/cave/top_{li}_{v}.png"); n += 1
     for v in range(2):
-        save(stone_tile(v), f"{A}/tiles/stone_{v}.png"); save(hard_tile(v), f"{A}/tiles/hard_{v}.png")
+        save(mapart.stone_tile(v), f"{A}/tiles/stone_{v}.png"); save(mapart.hard_tile(v), f"{A}/tiles/hard_{v}.png")
         save(mapart.grass_tile(v), f"{A}/tiles/grass_{v}.png"); n += 3
-    save(bedrock_tile(), f"{A}/tiles/bedrock.png"); save(plinth(1), f"{A}/tiles/plinth_top.png"); save(plinth(0), f"{A}/tiles/plinth_low.png")
-    for i in range(3): save(crack_img(i), f"{A}/tiles/crack_{i}.png")
+    save(mapart.bedrock_tile(), f"{A}/tiles/bedrock.png"); save(plinth(1), f"{A}/tiles/plinth_top.png"); save(plinth(0), f"{A}/tiles/plinth_low.png")
+    for i in range(3): save(mapart.crack_img(i), f"{A}/tiles/crack_{i}.png")
     for i, im in enumerate(mapart.tuft_tiles()): save(im, f"{A}/tiles/deco_{i}.png")
     for i, im in enumerate(mapart.cave_bot_tiles()): save(im, f"{A}/tiles/cave/bot_{i}.png")
     n += 12

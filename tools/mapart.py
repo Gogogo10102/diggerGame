@@ -302,3 +302,61 @@ def cave_bot_tiles():
         img[m & ((xx - cx) / rx + (yy - cy) / ry < -.6)] = [*hx("#c4c8d2"), 255]
     out.append(up2(img))
     return out
+
+# ---------------------------------------------------------------------
+#  돌(12) · 경암(16) · 기반암(7) · 균열 — 같은 말투 (덩이 + 외곽선 + 위왼 빛)
+# ---------------------------------------------------------------------
+def _slabs(n, cells, seed, ramp, gap, bevel=True):
+    """칸 안에서 이어지는 큰 덩이들: 덩이마다 밝기, 위왼 빛·아래오른 그늘, 틈은 gap 색"""
+    idx, edge, ux, uy = pvoronoi(n, cells, seed)
+    tone = np.random.default_rng(seed + 1).integers(1, 3, idx.max() + 1)[idx]
+    g = tone.copy()
+    if bevel:
+        g = np.where((ux + uy < -.45) & (edge > 2.2), tone + 1, g)
+        g = np.where(ux + uy > .5, tone - 1, g)
+    img = np.array(ramp)[np.clip(g, 0, len(ramp) - 1)].astype(float)
+    img[edge < 1.3] = gap
+    img[(edge >= 1.3) & (edge < 2.3) & (uy < 0)] = np.array(ramp)[-1]       # 덩이 윗변 밝은 테
+    return img, idx, edge
+
+def stone_tile(v):
+    ramp = [hx("#3e4250"), hx("#666c7c"), hx("#8a90a0"), hx("#b4bac8"), hx("#dfe3ec")]
+    img, idx, edge = _slabs(TS, 2, 7100 + v, ramp, OL)
+    r = np.random.default_rng(7150 + v)
+    for _ in range(3):                                       # 잔금
+        x, y = r.uniform(4, 28), r.uniform(4, 20)
+        for k in range(int(r.uniform(4, 8))):
+            xi, yi = int(x) % TS, int(y) % TS
+            if edge[yi, xi] > 2.5: img[yi, xi] = ramp[0]
+            x += r.integers(-1, 2) * .8; y += 1
+    return up2(img)
+
+def hard_tile(v):
+    ramp = [hx("#1a1d2a"), hx("#2e3346"), hx("#454b63"), hx("#5e6688"), hx("#8a94bc")]
+    img, idx, edge = _slabs(TS, 3, 7200 + v, ramp, hx("#0e0f16"))
+    r = np.random.default_rng(7250 + v)
+    for _ in range(4):                                       # 박힌 반짝이 (희귀 광물을 감싼 돌 느낌)
+        x, y = int(r.uniform(3, 29)), int(r.uniform(3, 29))
+        if edge[y, x] > 2.5: img[y, x] = hx("#c8d4ff"); img[y + 1, x] = hx("#6a7498")
+    return up2(img)
+
+def bedrock_tile():
+    ramp = [hx("#121218"), hx("#1d1d26"), hx("#2b2b36"), hx("#3a3a4a"), hx("#4e4e62")]
+    img, idx, edge = _slabs(TS, 3, 7300, ramp, hx("#08080c"))
+    return up2(img)
+
+def crack_img(stage):
+    """파는 중 금 (3단계): 굵은 검은 금 + 아래오른쪽 밝은 테"""
+    n = TS; img = np.zeros((n, n, 4)); r = np.random.default_rng(7400)
+    paths = [[(16, 1), (15, 6), (17, 10), (14, 15)]]
+    if stage >= 1: paths += [[(14, 15), (9, 18), (6, 23)], [(17, 10), (22, 13), (26, 12)]]
+    if stage >= 2: paths += [[(14, 15), (16, 21), (13, 26), (15, 31)], [(9, 18), (4, 17)], [(22, 13), (24, 19), (29, 22)]]
+    for pts in paths:
+        for (a, b) in zip(pts, pts[1:]):
+            for t in np.linspace(0, 1, 24):
+                x, y = a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
+                xi, yi = int(x), int(y)
+                if 0 <= xi < n - 1 and 0 <= yi < n - 1:
+                    img[yi, xi] = [*OL, 255]; img[yi, xi + 1] = [*OL, 255]           # 2칸 굵기 (흙 무늬 위에서도 또렷하게)
+                    if xi + 2 < n and img[yi, xi + 2, 3] == 0: img[yi, xi + 2] = [255, 236, 200, 90]
+    return up2(img)
