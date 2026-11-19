@@ -24,7 +24,8 @@ export function mkBtn(text, fn, cls) {
 }
 export function showOv(root) {
   while (ov.firstChild) ov.removeChild(ov.firstChild);
-  const p = el("div", "pnl" + (String(root.className || "").indexOf("wide") >= 0 ? " wide" : ""));
+  const opening = !ov.classList.contains("on");                       // 처음 열 때만 톡 튀어나오게 (안에서 탭을 바꿀 땐 그대로)
+  const p = el("div", "pnl" + (String(root.className || "").indexOf("wide") >= 0 ? " wide" : "") + (opening ? " pop" : ""));
   p.appendChild(root);
   ov.appendChild(p);
   ov.classList.add("on");

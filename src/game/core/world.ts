@@ -169,6 +169,21 @@ export function chunkCaves(cx, cy) {
   return caves;
 }
 
+// ---- 보물 상자 ----
+// 구역마다 0~2개, 10m 아래부터. 깊을수록 조금 더 자주. 광맥·동굴과 다른 난수라 기존 배치는 그대로 (흙 칸만 상자로 바뀜)
+export const CHEST_TOP = SURF + 10;
+export function chunkChests(cx, cy) {
+  const rng = mulberry32(hash32(WGEN.seed, cx, cy, 0xc4e5)), out = [];
+  const y0 = Math.max(CHEST_TOP, cy * CH), y1 = Math.min(H - 4, cy * CH + CH - 1);
+  if (y0 > y1) return out;
+  const p = Math.min(0.75, 0.45 + (y0 - SURF) / 4000);
+  for (let n = 0; n < 2 && rng() < (n === 0 ? p : p * 0.3); n++) {
+    const x = Math.max(1, cx * CH) + ((rng() * (Math.min(W - 2, cx * CH + CH - 1) - Math.max(1, cx * CH) + 1)) | 0);
+    out.push([x, y0 + ((rng() * (y1 - y0 + 1)) | 0)]);
+  }
+  return out;
+}
+
 // 가로 암석대(2칸 두께): 48칸마다 좁은 통로가 하나씩 있어서 찾아 돌아가거나 폭파해서 뚫음
 export function makeBands(seed) {
   const rng = mulberry32((seed ^ 0x5f3759df) | 0), bands = [];
@@ -213,6 +228,7 @@ export function genChunk(cx, cy) {
   for (const f of near) for (const cv of f.caves) for (const [x, y, id] of cv.ores) {      // 동굴 벽 광물
     if (inside(x, y) && tiles[y * W + x] === 1) tiles[y * W + x] = id;
   }
+  for (const [x, y] of chunkChests(cx, cy)) if (tiles[y * W + x] === 1) tiles[y * W + x] = 17;   // 보물 상자 (흙 칸만)
   for (let r = Math.max(y0, SURF); r <= SURF + 1 && r < y1; r++) for (let c = x0; c < x1; c++) {   // 마을 땅은 기초석(못 팜)
     if (inTown(c)) tiles[r * W + c] = 13;
   }

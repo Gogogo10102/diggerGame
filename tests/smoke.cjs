@@ -836,7 +836,7 @@ async function login(t, name) {
   t40.key("KeyM"); t40.run(1);
   ok(t40.ev("mapColor(300, SURF + 1500)") !== t40.ev("MAP_UNSEEN") && t40.ev("mapColor(300, SURF + 2200)") === t40.ev("MAP_UNSEEN"), "지도는 본 칸만 색칠");
   // 광물 위치는 지도에 안 나옴: 같은 지층의 흙·광물·돌은 같은 색, 빈칸만 길 색
-  t40.ev("(() => { const r = SURF + 1500; for (let c = 290; c <= 296; c++) seen[r*W+c] = 1; tiles[r*W+290] = 1; tiles[r*W+291] = 11; tiles[r*W+292] = 5; tiles[r*W+293] = 12; tiles[r*W+294] = 0; })()");
+  t40.ev("(() => { const r = SURF + 1500; for (let c = 290; c <= 296; c++) seen[r*W+c] = 1; tiles[r*W+290] = 1; tiles[r*W+291] = 11; tiles[r*W+292] = 5; tiles[r*W+293] = 12; tiles[r*W+294] = 0; baseTiles[r*W+294] = 1; })()");   // 294 = 판 굴 (자연 동굴이면 색이 달라서 고정)
   ok(t40.ev("(() => { const r = SURF + 1500, a = mapColor(290, r); return a === mapColor(291, r) && a === mapColor(292, r) && a === mapColor(293, r) && mapColor(294, r) === MAP_PATH && a !== MAP_PATH; })()"), "지도에 광물 위치는 안 보이고 길만 보임");
 
   console.log("[28] 파기 방향 이펙트 / 위로 파기 / 동굴");
@@ -935,12 +935,135 @@ async function login(t, name) {
   // ---- 고해상도 그림 ----
   const man = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "../public/assets/manifest.json"), "utf8"));
   const minerKeys = t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('miner/'))");
-  ok(minerKeys.length === 13 && minerKeys.every((k) => man.files[k]), "캐릭터 고해상도 부품 13개가 그림 목록에 있음");
+  ok(minerKeys.length === 21 && minerKeys.every((k) => man.files[k]), "캐릭터 고해상도 부품 21개가 그림 목록에 있음");
   ok(["tiles/dirt/7_7.png", "tiles/back/7_3.png", "ores/world/11_3.png", "bars/mi.png"].every((k) => man.files[k]), "지층·광물·주괴 고해상도 그림 목록");
   ok(t60.ev("getMiner('side', 0, 0).width") === 40, "부품 그림이 없으면 코드로 그린 40x40 캐릭터");
   ok(t60.ev("(() => { for (const k in MINER_HI) MINER_HI[k].width = MINER_HI[k].height = 120; minerCache.clear(); const w = getMiner('down', 1, 1, 'drill').width; for (const k in MINER_HI) MINER_HI[k].width = MINER_HI[k].height = 1; minerCache.clear(); return w; })()") === 120,
     "부품 그림을 읽으면 120x120 고해상도 캐릭터로 조립");
   ok(t60.ev("ORE_HI_SPARK.length === 4 && ORE_HI_SPARK.every((v) => v.every(([x, y]) => x >= 0 && x < 16 && y >= 0 && y < 16))"), "고해상도 광물 반짝임 자리 4변형");
+
+  // ---- 알림 띠 (지층 진입 · 최고 기록 · 새 광물) ----
+  for (let k = 0; k < 3 && t60.ev("S.state") !== "play"; k++) { t60.key("Escape"); t60.run(1); }
+  ok(t60.ev("S.state") === "play", "(알림 시험 준비) 게임 화면");
+  t60.ev("bannerQ.length = 0; S.banner = null; S.bannerT = 0; acct.stats.maxDepth = 95; P.layerMax = 0; P.x = 30.5 * T; P.y = (SURF + 105.5) * T; P.vx = P.vy = 0");
+  t60.run(1);
+  const bq = () => t60.ev("[S.banner && S.banner.title].concat(bannerQ.map((b) => b.title)).join('|')");
+  ok(bq().includes("최고 기록 100m"), "100m 마다 최고 기록 알림");
+  t60.ev("P.y = (SURF + 150.5) * T"); t60.run(1);
+  ok(bq().includes("암석층"), "새 지층에 들어가면 지층 알림");
+  ok(t60.ev("layerSub(2)").includes("에메랄드") && !t60.ev("layerSub(2)").includes("구리"), "지층 알림 둘째 줄: 그 지층에서 새로 나오는 광물");
+  ok(!bq().includes("최고 기록 100m|최고 기록 100m"), "같은 기록 알림은 한 번만");
+  t60.ev("acct.stats.mined[10] = 0"); t60.ev("onMined(10)");
+  ok(bq().includes("새 광물 발견! 루비"), "처음 캔 광물은 새 광물 알림");
+  t60.ev("onMined(10)");
+  ok(bq().split("새 광물 발견! 루비").length === 2, "두 번째부터는 알림 없음");
+  t60.ev("for (let k = 0; k < 9; k++) pushBanner('x' + k)");
+  ok(t60.ev("bannerQ.length") <= 4, "알림이 너무 쌓이면 오래된 것부터 버림");
+  t60.ev("bannerQ.length = 0; P.y = (SURF - 1) * T"); t60.run(1);
+  // ---- 파편·먼지 ----
+  t60.ev("parts.length = 0; dust.length = 0; P.x = 30.5 * T; P.y = (SURF + 20.5) * T; P.vx = P.vy = 0; for (let c = 28; c <= 33; c++) { tiles[(SURF + 20) * W + c] = 0; tiles[(SURF + 19) * W + c] = 0; tiles[(SURF + 21) * W + c] = 1; }");
+  t60.ev("chips(31, SURF + 21, 1, 12, 1.4, 'down')");
+  t60.run(40);
+  ok(t60.ev("parts.filter((q) => q.bounce).every((q) => !solid(Math.floor(q.x / T), Math.floor(q.y / T)))"), "흙 부스러기는 땅을 뚫고 떨어지지 않음(튀고 멈춤)");
+  t60.ev("dust.length = 0; P.y = (SURF + 19.3) * T; P.vy = 500 * PX"); t60.run(20);
+  ok(t60.ev("dust.length") >= 2, "세게 착지하면 궤도 양 끝에서 먼지");
+  ok(/^#[0-9a-f]{6}$/.test(t60.ev("dustCol(SURF + 300)")), "깊이별 먼지 색");
+  // ---- 타이틀 화면 ----
+  {
+    const tt = boot(path, { w: 1000, h: 640 }); tt.run(5);
+    const tx = tt.canvasTexts();
+    ok(tt.ev("S.state") === "title" && tx.some((x) => x.includes("아무 키나 눌러 시작")) && tx.some((x) => x.includes("땅속 끝까지")), "타이틀: 부제 + 시작 버튼");
+    ok(!tx.some((x) => x.includes("광물 없음")), "타이틀에선 HUD 를 숨김");
+    ok(tt.ev("!!S.titleLogo && S.titleLogo.width > 0"), "타이틀 로고 그림을 만듦");
+  }
+  // ---- 업적 추가 · 이름표 ----
+  ok(t60.ev("questLabel(QUEST_BY.cave_0)") === "동굴 1개 발견" && t60.ev("questLabel(QUEST_BY.chest_1)") === "보물 상자 10개 열기", "업적 이름표가 자연스러운 문장");
+  ok(["trip", "bomb", "close", "level"].every((g) => t60.ev("QUESTS.some((q) => q.group === '" + g + "')")), "새 업적: 귀환 · 폭파 · 아슬아슬 · 광부 레벨");
+  t60.ev("acct.stats.trips = 0; acct.stats.close = 0; P.cargo = { 2: 1 }; P.x = 30.5 * T; P.y = (SURF + 3.5) * T; P.fuel = maxFuel() * 0.05; S.inShop = false; P.vx = P.vy = 0");
+  t60.ev("P.y = (SURF - 1) * T + HH"); t60.run(3);
+  ok(t60.ev("acct.stats.trips") === 1 && t60.ev("acct.stats.close") === 1, "광물 싣고 연료 10% 미만으로 올라오면 귀환·아슬아슬 기록");
+  ok(t60.ev("(() => { const d = snapshot(); applyAccount(d); return acct.stats.trips === 1 && acct.stats.close === 1; })()"), "귀환 기록이 저장됨");
+  t60.ev("P.cargo = {}");
+  // ---- 처음 안내 ----
+  t60.ev("acct.tut = 0; S.tutFlash = 0; S.showHelp = true; P.cargo = {}; acct.stats.trips = 0; acct.stats.earned = 0; P.items = {}; P.x = 30.5 * T; P.y = (SURF - 1) * T + HH; P.vx = P.vy = 0"); t60.run(3);
+  ok(t60.ev("acct.tut") === 0 && t60.canvasTexts().some((x) => x.includes("처음 안내")), "처음 안내 카드: 첫 단계");
+  t60.ev("P.y = (SURF + 5.5) * T"); t60.run(2);
+  ok(t60.ev("acct.tut") === 1 && t60.ev("S.tutFlash > 0"), "땅을 파고 4m 내려가면 다음 단계 (완료 표시)");
+  t60.ev("S.tutFlash = 0; P.cargo = { 2: 1 }"); t60.run(2);
+  ok(t60.ev("acct.tut") === 2, "광물을 캐면 다음 단계");
+  t60.ev("S.tutFlash = 0; P.cargo = {}; P.y = (SURF - 1) * T + HH"); t60.run(3);
+  ok(t60.ev("acct.tut") === 2, "광물 없이 올라오면 '귀환' 단계는 그대로");
+  t60.ev("acct.stats.trips = 1"); t60.run(2);
+  ok(t60.ev("acct.tut") === 3, "광물 싣고 귀환하면 다음 단계");
+  ok(t60.ev("(() => { const d = snapshot(); applyAccount(d); return acct.tut; })()") === 3, "안내 단계가 저장됨");
+  ok(t60.ev("(() => { const d = snapshot(); delete d.tut; d.stats.earned = 50; applyAccount(d); return acct.tut; })()") === t60.ev("TUT_STEPS.length"), "예전 세이브(판 적 있음)는 안내를 건너뜀");
+  t60.ev("S.showHelp = false; acct.tut = 0"); t60.run(1);
+  ok(!t60.canvasTexts().some((x) => x.includes("처음 안내")), "도움말을 끄면 안내도 숨김");
+  t60.ev("S.showHelp = true; acct.tut = TUT_STEPS.length; S.tutFlash = 0; P.items = {}");
+  // ---- 눌림 · 열림 애니메이션 ----
+  t60.ev("P.x = (BUILD_COLS[B_SHOP][0] + 1.5) * T; P.y = (SURF - 1) * T + HH; P.vx = P.vy = 0; P.money = 99999"); t60.run(2);
+  t60.ev("openShop()"); t60.run(1);
+  ok(t60.ev("S.townOpenT > 0"), "마을 창을 열면 열림 애니메이션 시작 시각 기록");
+  {
+    const b = t60.ev("shopBtn.find((q) => q.act === 'tab')");
+    t60.ptr("pointerdown", b.x + 4, b.y + 4); t60.ptr("pointerup", 0, 0); t60.run(1);
+    ok(t60.ev("S.pressBtn && S.pressBtn.x") === b.x, "누른 캔버스 버튼을 기억해 눌린 모양으로 그림");
+  }
+  t60.key("Escape"); t60.run(1);
+  ok(t60.ev("S.townOpenT") === 0, "창을 닫으면 다시 처음부터");
+  t60.ev("P.inv.fuel_s = 1; P.y = (SURF + 5.5) * T; P.fuel = 1; useConsumable('fuel_s')");
+  ok(t60.ev("S.hotPress && S.hotPress.id") === "fuel_s", "소모품을 쓰면 단축 슬롯이 눌린 모양");
+  t60.ev("P.y = (SURF - 1) * T + HH"); t60.run(1);
+  // ---- 미니맵 다듬기 ----
+  t60.ev("ensureAround(30, SURF + 50); for (const c of [30, 31, 32]) seen[(SURF + 50) * W + c] = 1; tiles[(SURF + 50) * W + 30] = 0; baseTiles[(SURF + 50) * W + 30] = 0; tiles[(SURF + 50) * W + 31] = 0; baseTiles[(SURF + 50) * W + 31] = 1; tiles[(SURF + 50) * W + 32] = 1;");
+  ok(t60.ev("mapColor(30, SURF + 50)") === t60.ev("MAP_CAVE") && t60.ev("mapColor(31, SURF + 50)") === t60.ev("MAP_PATH"), "지도: 자연 동굴과 판 굴 색이 다름");
+  ok(t60.ev("mapColor(32, SURF + 50, true)") !== t60.ev("mapColor(32, SURF + 50)"), "미니맵은 굴 벽 테두리를 밝게");
+  // ---- 마을 다듬기 ----
+  ok(t60.ev("windowMask(null)") === null && t60.ev("windowMask(sprite(16, 16, () => {}))") === null, "창문 불빛: 작은(도트 원본) 그림이면 만들지 않음");
+  t60.ev("P.x = (BUILD_COLS[B_SHOP][0] + 1.5) * T; P.y = (SURF - 1) * T + HH; P.vx = P.vy = 0"); t60.run(3);
+  ok(t60.ev("S.nearItems") === true, "(마을 화살표 확인) 상점 앞");
+  // ---- 좁은 화면 겹침 점검 ----
+  {
+    const tp = boot(path, { w: 360, h: 740, touch: true }); tp.run(5); await login(tp, "Narrow"); tp.run(10);
+    tp.ev("pushBanner('알림 시험', '둘째 줄')"); tp.run(30);
+    const mb = tp.ev("S.miniBtn"), by = tp.ev("S.bannerY");
+    ok(!mb || by >= mb.y + mb.h, "좁은 화면: 알림 띠가 미니맵과 겹치지 않음");
+    ok(by > 740 / 2, "좁은 화면: 알림 띠는 캐릭터(화면 가운데) 아래");
+  }
+  // ---- 돈 굴러 올라가기 ----
+  t60.ev("S.moneyShown = undefined; P.money = 100"); t60.run(1);
+  t60.ev("P.money = 1100"); t60.run(1);
+  { const m1 = t60.ev("S.moneyShown"); ok(m1 > 100 && m1 < 1100, "돈이 늘면 HUD 숫자가 한 번에가 아니라 굴러 올라감"); }
+  t60.run(90);
+  ok(t60.ev("S.moneyShown") === 1100, "잠시 뒤 실제 돈과 같아짐");
+  // ---- 지하 조명 ----
+  ok(t60.ev("DARK_COL.length === LAYERS.length && DARK_COL[4][0] > DARK_COL[4][2] && DARK_COL[5][2] > DARK_COL[5][0]"), "어둠 색이 지층마다 다름 (용암 붉게 · 수정 푸르게)");
+  t60.ev("P.x = 30.5 * T; P.y = (SURF + 40.5) * T; ensureAround(30, SURF + 40); tiles[(SURF + 40) * W + 31] = 5; seen[(SURF + 40) * W + 31] = 1; tiles[(SURF + 40) * W + 29] = 9; seen[(SURF + 40) * W + 29] = 0"); t60.run(2);
+  ok(t60.ev("(S.oreGlows || []).some((g) => g[2] === 5) && !(S.oreGlows || []).some((g) => g[2] === 9)"), "본 적 있는 희귀 광물만 어둠 속에서 빛남");
+  t60.ev("P.y = (SURF - 1) * T"); t60.run(1);
+  // ---- 보물 상자 ----
+  ok(t60.ev("JSON.stringify(chunkChests(1, 3)) === JSON.stringify(chunkChests(1, 3))"), "보물 상자 자리는 시드·구역으로 정해짐");
+  ok(t60.ev("(() => { let n = 0; for (let cy = 1; cy < 12; cy++) for (let cx = 0; cx < CW; cx++) n += chunkChests(cx, cy).length; return n; })()") > 10, "구역마다 드물게 보물 상자");
+  ok(t60.ev("chunkChests(0, 0).every(([x, y]) => y >= CHEST_TOP)"), "지표 근처엔 상자 없음");
+  {
+    const m0 = t60.ev("acct.stats.chests = 0; bannerQ.length = 0; P.money"), got = t60.ev("openChest(30, SURF + 100)");
+    ok(got > 0 && t60.ev("P.money") === m0 + got && t60.ev("acct.stats.chests") === 1, "상자를 열면 깊이에 따라 돈 + 기록");
+    ok(t60.ev("bannerQ.some((b) => b.title.includes('보물 상자'))"), "처음 연 상자는 알림");
+    t60.ev("tiles[(SURF + 30) * W + 40] = 17; bombs.push({ c: 40, r: SURF + 30, t: 0, rad: 1 }); updateBombs(0.01)");
+    ok(t60.ev("acct.stats.chests") === 2 && t60.ev("tiles[(SURF + 30) * W + 40]") === 0, "다이너마이트로 터뜨려도 상자가 열림");
+    ok(t60.ev("QUESTS.some((q) => q.group === 'chest')"), "보물 사냥 업적");
+    t60.ev("acct.stats.smelted = 7");
+    ok(t60.ev("(() => { const d = snapshot(); applyAccount(d); return acct.stats.chests === 2 && acct.stats.smelted === 7; })()"), "보물 상자 수 · 제련 수가 저장 후 다시 불러와도 남음");
+    ok(t60.ev("(() => { const d = snapshot(); delete d.stats.chests; applyAccount(d); return acct.stats.chests === 0; })()"), "옛 세이브(상자 기록 없음)는 0 으로");
+  }
+  // ---- 로봇 눈 깜빡임 · 안테나 흔들림 ----
+  ok(t60.ev("S.blinkT = 0; S.minerBlink = false; animMiner(0.01); S.minerBlink") === true, "때가 되면 눈을 감음");
+  ok(t60.ev("animMiner(0.2); S.minerBlink") === false, "잠깐 뒤 다시 뜸");
+  ok(t60.ev("S.antA = 0; S.antV = 0; P.facing = 1; P.vx = 0; S.lastVx = 0; P.vx = 300 * PX; for (let k = 0; k < 12; k++) animMiner(1 / 120); S.minerAnt") === 0, "앞으로 갑자기 달리면 안테나가 뒤로 기욺");
+  ok(t60.ev("P.vx = 0; for (let k = 0; k < 240; k++) animMiner(1 / 120); S.minerAnt") === 1, "시간이 지나면 안테나가 가운데로 돌아옴");
+  ok(t60.ev("Object.keys(MINER_HI).length") === 21 && t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('miner/')).length") === 21, "캐릭터 부품 21개(안테나 3 · 불빛 3 · 눈 감은 덮개 3 포함)");
+
+  t60.ev("P.y = (SURF - 1) * T"); t60.run(1);
 
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });

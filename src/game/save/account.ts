@@ -3,7 +3,7 @@ import "./worldSave.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 
 import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, LAYERS, MINE_COL, SURF, T, TILE, W, inB } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { FUEL_BASE, bombs, flashes, floaters, maxFuel, parts, recalcStats, say } from "../core/stats.ts";
+import { FUEL_BASE, bannerQ, bombs, flashes, floaters, maxFuel, parts, recalcStats, say } from "../core/stats.ts";
 import { fixFoundation, genWorld, legacySeen, regenT, rub, rubSet, warn } from "../core/world.ts";
 import { HOT } from "../data/consumables.ts";
 import { ITEMS } from "../data/items.ts";
@@ -15,7 +15,7 @@ import { debrisList, debrisT, dust } from "../systems/collapseFx.ts";
 import { drops } from "../systems/drops.ts";
 import { chunks, floatT, withChunksSettled } from "../systems/floating.ts";
 import { BARS } from "../systems/furnace.ts";
-import { collide, revealAround } from "../systems/update.ts";
+import { TUT_STEPS, collide, revealAround } from "../systems/update.ts";
 import { SaveStore, lsSet } from "../ui/inventory.ts";
 import { hideOv, openAccountScreen } from "../ui/overlay.ts";
 
@@ -38,6 +38,7 @@ export function snapshot() {
     mineNo: S.acct.mineNo || 1,
     furnace: S.acct.furnace,
     xp: S.acct.xp, quest: S.acct.quest, title: S.acct.title || "",
+    tut: S.acct.tut | 0,                                       // 처음 안내 진행 단계
   }));
 }
 export function saveNow(force, quiet) {
@@ -56,7 +57,7 @@ export function applyAccount(d) {
     id: d.id, name: d.name, created: d.created || Date.now(), seed: d.seed | 0, mineNo: Math.max(1, Math.min(9999, d.mineNo | 0)),
     playTime: Number(d.playTime) || 0,
     stats: {
-      maxDepth: Number(st.maxDepth) || 0, earned: Number(st.earned) || 0, deaths: Number(st.deaths) || 0, crafted: Number(st.crafted) || 0, collapses: Number(st.collapses) || 0, caves: Number(st.caves) || 0,
+      maxDepth: Number(st.maxDepth) || 0, earned: Number(st.earned) || 0, deaths: Number(st.deaths) || 0, crafted: Number(st.crafted) || 0, collapses: Number(st.collapses) || 0, caves: Number(st.caves) || 0, chests: Number(st.chests) || 0, smelted: Number(st.smelted) || 0, bombs: Number(st.bombs) || 0, trips: Number(st.trips) || 0, close: Number(st.close) || 0,   // chests: 연 보물 상자 수 (옛 세이브는 0) · smelted 는 예전에 불러올 때 빠져 있었음
       mined: st.mined && typeof st.mined === "object" ? st.mined : {},
     },
   };
@@ -111,13 +112,16 @@ export function applyAccount(d) {
   S.dig = null; parts.length = 0; floaters.length = 0;
   bombs.length = 0; flashes.length = 0; S.shakeT = 0; S.lastRevealKey = "";
   S.showHelp = !(d.settings && d.settings.showHelp === false);
+  // 처음 안내: 저장된 단계, 예전 세이브(기록 없음)는 이미 팔아 본 적이 있으면 끝난 것으로
+  S.acct.tut = d.tut !== undefined ? Math.max(0, d.tut | 0) : (S.acct.stats.earned > 0 ? TUT_STEPS.length : 0);
+  S.tutFlash = 0;
   const row = Math.floor(P.y / T), col = Math.floor(P.x / T);
   S.inShop = row < SURF;
   S.nearItems = row < SURF && inB(B_SHOP, col);
   S.nearCraft = row < SURF && inB(B_CRAFT, col);
   S.nearFurnace = row < SURF && inB(B_FURN, col);
   revealAround();
-  S.msgT = 0; S.bannerT = 0; S.playT = 0; S.saveT = 0; S.lastSave = performance.now();
+  S.msgT = 0; S.bannerT = 0; S.banner = null; bannerQ.length = 0; S.playT = 0; S.saveT = 0; S.lastSave = performance.now();
   S.state = "play";
   checkQuests(true);
   if (regenWorld) say("맵이 넓어져서 광산을 새로 만들었어요 (돈·장비·업적은 그대로)");
@@ -128,7 +132,7 @@ export function newAccountData(name) {
   genWorld(seed);
   const now = Date.now();
   return {
-    ver: SAVE_VER, id: newId(), name, created: now, updated: now, seed, mineNo: 1, xp: 0, quest: {}, title: "", playTime: 0,
+    ver: SAVE_VER, id: newId(), name, created: now, updated: now, seed, mineNo: 1, xp: 0, quest: {}, title: "", playTime: 0, tut: 0,
     stats: { maxDepth: 0, earned: 0, deaths: 0, crafted: 0, collapses: 0, caves: 0, mined: {} },
     player: { ts: T, x: 6 * T + T / 2, y: SURF * T - HH - 1, fuel: FUEL_BASE, money: 0, cargo: {}, stash: {}, bars: {}, inv: {}, items: {}, layerMax: 0, facing: 1 },
     settings: { showHelp: true },

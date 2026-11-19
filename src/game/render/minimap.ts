@@ -3,8 +3,8 @@ import "./townUI.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실
 import { H, LAYERS, SURF, T, W, BUILD_COLS, layerOf } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { isGen, seen, tiles } from "../core/world.ts";
-import { ctx, panel, txt } from "./util.ts";
+import { baseTiles, isGen, seen, tiles } from "../core/world.ts";
+import { SY, ctx, panel, txt } from "./util.ts";
 import { uiBtn } from "./townUI.ts";
 import { shopBtn, touch } from "../systems/input.ts";
 
@@ -19,6 +19,10 @@ import { shopBtn, touch } from "../systems/input.ts";
 const MAP_RGB = (hex: string): number[] => { const h = hex.replace("#", ""); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; };
 const MAP_PACK = ([r, g, b]: number[]): number => ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;   // 리틀엔디언 RGBA
 export const MAP_UNSEEN = MAP_PACK([7, 7, 11]), MAP_SKY = MAP_PACK([106, 166, 224]), MAP_PATH = MAP_PACK([214, 196, 160]);
+export const MAP_CAVE = MAP_PACK([126, 154, 184]);               // 처음부터 비어 있던 자연 동굴 (판 굴과 구분: 푸른 회색)
+// 지층별 막힌 칸 색 두 톤(칸마다 섞어 결이 보이게) + 굴 벽 테두리(빈칸과 맞닿은 칸, 조금 밝게)
+const MAP_ROCK2 = LAYERS.map((L) => [0.55, 0.47].map((k) => MAP_PACK(MAP_RGB(L.base).map((v) => Math.round(v * k)))));
+const MAP_RIM = LAYERS.map((L) => MAP_PACK(MAP_RGB(L.hi).map((v) => Math.round(v * 0.85))));
 export const MAP_LUT = (() => {
   const lut = new Uint32Array(LAYERS.length * 256);
   LAYERS.forEach((L, li) => {
@@ -28,28 +32,52 @@ export const MAP_LUT = (() => {
   return lut;
 })();
 // 칸 하나의 지도 색
-export function mapColor(c: number, r: number): number {
+export function mapColor(c: number, r: number, fine = false): number {
   if (c < 0 || c >= W || r < 0 || r >= H) return MAP_UNSEEN;
   if (r < SURF) return MAP_SKY;
   const i = r * W + c;
   if (!seen[i] || !isGen(c, r)) return MAP_UNSEEN;
-  return MAP_LUT[layerOf(r - SURF) * 256 + tiles[i]];
+  const v = MAP_LUT[layerOf(r - SURF) * 256 + tiles[i]];
+  if (v === MAP_PATH) return tiles[i] === 0 && baseTiles[i] === 0 ? MAP_CAVE : MAP_PATH;
+  if (!fine) return v;
+  // 미니맵(작은 범위)만: 굴 벽 테두리 + 칸마다 두 톤 섞기
+  const li = layerOf(r - SURF), air = (cc: number, rr: number) => rr >= SURF && cc >= 0 && cc < W && rr < H && seen[rr * W + cc] && (tiles[rr * W + cc] === 0 || tiles[rr * W + cc] === 14 || tiles[rr * W + cc] === 15);
+  if (air(c - 1, r) || air(c + 1, r) || air(c, r - 1) || air(c, r + 1)) return MAP_RIM[li];
+  return MAP_ROCK2[li][((c * 7 + r * 13) ^ (c >> 2)) & 1];
 }
 // (c0, r0)부터 tw x th 칸을 캔버스에 칸당 1점으로 그림
 type MapCanvas = HTMLCanvasElement & { _img?: ImageData | null };
-function paintMap(cv: MapCanvas, c0: number, r0: number, tw: number, th: number) {
+function paintMap(cv: MapCanvas, c0: number, r0: number, tw: number, th: number, fine = false) {
   if (cv.width !== tw || cv.height !== th) { cv.width = tw; cv.height = th; cv._img = null; }
   const g = cv.getContext("2d") as CanvasRenderingContext2D;
   if (!cv._img) cv._img = g.createImageData(tw, th);
   const img = cv._img, data = img.data, u32 = data.buffer ? new Uint32Array(data.buffer) : null;
   for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
-    const v = mapColor(c0 + x, r0 + y);
+    const v = mapColor(c0 + x, r0 + y, fine);
     if (u32) u32[y * tw + x] = v;
     else { const k = (y * tw + x) * 4; data[k] = v & 255; data[k + 1] = (v >>> 8) & 255; data[k + 2] = (v >>> 16) & 255; data[k + 3] = 255; }
   }
   g.putImageData(img, 0, 0);
 }
 
+// 나를 나타내는 화살표: 보는 쪽(드릴 방향)을 가리키는 도트 삼각형 + 검은 테두리, 천천히 깜빡
+function mapArrow(cx: number, cy: number, u: number) {
+  const on = ((S.animT * 3) | 0) % 2 === 0, dir = P.mode === "down" ? "d" : P.mode === "up" ? "u" : P.facing < 0 ? "l" : "r";
+  const rows = [1, 2, 3, 2, 1];                                    // 오른쪽을 보는 삼각형(가로 칸 수)
+  const put = (col: string, grow: number) => {
+    ctx.fillStyle = col;
+    rows.forEach((n, k) => {
+      const a = k - 2;                                             // -2..2
+      for (let j = 0; j < n; j++) {
+        const b = j - 1;                                           // -1..1 (앞으로)
+        const [dx, dy] = dir === "r" ? [b, a] : dir === "l" ? [-b, a] : dir === "d" ? [a, b] : [a, -b];
+        ctx.fillRect(cx + dx * u - grow, cy + dy * u - grow, u + grow * 2, u + grow * 2);
+      }
+    });
+  };
+  put("#14151f", 1);
+  put(on ? "#ffd34d" : "#fff3a8", 0);
+}
 // ---------------------------------------------------------------------
 //  미니맵: 주변 64 x 48칸을 2배로
 // ---------------------------------------------------------------------
@@ -66,16 +94,21 @@ export function drawMinimap(vw: number, vh: number, by: number) {
   const pc = Math.floor(P.x / T), pr = Math.floor(P.y / T);
   const c0 = pc - (MINI.tw >> 1), r0 = pr - (MINI.th >> 1);
   panel(x, y, pw, ph);
-  paintMap(miniCv, c0, r0, MINI.tw, MINI.th);
+  ctx.fillStyle = SY.y; ctx.fillRect(x + 2, y + 2, pw - 4, 2);              // 노란 머리띠 (다른 창과 같은 말투)
+  paintMap(miniCv, c0, r0, MINI.tw, MINI.th, true);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(miniCv, x + 6, y + 6, iw, ih);
+  // 가장자리를 어둡게 (안쪽 2칸) → 지도 창처럼 보이게
+  ctx.fillStyle = "rgba(7,7,11,0.45)";
+  ctx.fillRect(x + 6, y + 6, iw, 2); ctx.fillRect(x + 6, y + 6 + ih - 2, iw, 2); ctx.fillRect(x + 6, y + 8, 2, ih - 4); ctx.fillRect(x + 6 + iw - 2, y + 8, 2, ih - 4);
   // 마을 위치 표시(화면 안에 있으면)
   const tx = (BUILD_COLS[0][0] + 1 - c0) * MINI.s, ty = (SURF - 1 - r0) * MINI.s;
   if (tx >= 0 && tx < iw && ty >= 0 && ty < ih) { ctx.fillStyle = "#ffd34d"; ctx.fillRect(x + 6 + tx, y + 6 + ty - 2, (BUILD_COLS[BUILD_COLS.length - 1][1] - BUILD_COLS[0][0] - 1) * MINI.s, 2); }
-  // 나 (깜빡임)
-  const on = ((S.animT * 3) | 0) % 2 === 0;
-  ctx.fillStyle = "#14151f"; ctx.fillRect(x + 6 + (MINI.tw >> 1) * MINI.s - 2, y + 6 + (MINI.th >> 1) * MINI.s - 2, 6, 6);
-  ctx.fillStyle = on ? "#ffd34d" : "#fff3a8"; ctx.fillRect(x + 6 + (MINI.tw >> 1) * MINI.s - 1, y + 6 + (MINI.th >> 1) * MINI.s - 1, 4, 4);
+  // 나: 보는 쪽을 가리키는 화살표 (깜빡임)
+  mapArrow(x + 6 + (MINI.tw >> 1) * MINI.s + 1, y + 6 + (MINI.th >> 1) * MINI.s + 1, 2);
+  // 아래 줄: 지금 지층 · 깊이
+  const d = Math.max(0, Math.floor(P.y / T - SURF) + 1);
+  txt(P.y / T < SURF ? "마을" : LAYERS[layerOf(P.y / T - SURF)].name + " " + d + "m", x + 4, y + ph + 3, "#c9cfe6", 12, "left", SY.ink);
   if (!S.usedTouch) txt("M 지도", x + pw - 6, y + ph + 3, "#9aa3c8", 12, "right");
   S.miniBtn = { x, y, w: pw, h: ph };
 }
@@ -149,9 +182,8 @@ export function drawMapModal(vw: number, vh: number) {
   }
   // 나
   const px = A.x + (P.x / T - c0) * s, py = A.y + (P.y / T - r0) * s, on = ((S.animT * 3) | 0) % 2 === 0;
-  const ps = Math.max(4, s * 1.5) | 0;
-  ctx.fillStyle = "#14151f"; ctx.fillRect(px - ps / 2 - 1, py - ps / 2 - 1, ps + 2, ps + 2);
-  ctx.fillStyle = on ? "#ffd34d" : "#fff3a8"; ctx.fillRect(px - ps / 2, py - ps / 2, ps, ps);
+  mapArrow(Math.round(px), Math.round(py), Math.max(2, Math.min(4, s)));
+  void on;
   ctx.restore();
   ctx.fillStyle = "#14151f"; ctx.fillRect(A.x - 2, A.y - 2, A.w + 4, 2); ctx.fillRect(A.x - 2, A.y + A.h, A.w + 4, 2);
   if (!S.usedTouch) txt("드래그·방향키 이동 · +/- 확대 · M/Esc 닫기", vw - 20, vh - 30, "#9aa3c8", 12, "right");

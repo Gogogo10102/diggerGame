@@ -57,7 +57,8 @@ const KIND_COL = { go: "green", gold: "orange", plain: "blue", danger: "red", st
 export function uiBtn(x: number, y: number, w: number, h: number, label: string, sub: string | null, kind: string, on: boolean, act?: string | null, arg?: any, i?: number) {
   const col = on ? (KIND_COL[kind] || "steel") : "steel";
   const tc = { green: "#1f5418", blue: "#0b3f6c", orange: "#7a3006", red: "#6e1222", steel: "#3e4552" }[col];
-  const cy = btnPx(x, y, w, h, col, !on && kind === "steel");
+  const pb = S.pressBtn, pressed = !!(pb && pb.x === x && pb.y === y && performance.now() - pb.t < 150);   // 방금 누른 버튼은 눌린 모양
+  const cy = btnPx(x, y, w, h, col, pressed || (!on && kind === "steel"));
   if (sub && h >= 40) {
     txt(fitText(label, w - 8, 16), x + w / 2, cy - 17, tc, 16, "center", NO_SH);
     txt(fitText(sub, w - 8, 12), x + w / 2, cy + 2, tc, 12, "center", NO_SH);

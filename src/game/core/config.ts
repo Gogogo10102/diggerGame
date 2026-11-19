@@ -16,7 +16,7 @@ export const MINE_COL = BUILD_COLS[BUILD_COLS.length - 1][1] + 3;  // 여기부�
 export const inTown = (c) => c >= 1 && c < MINE_COL;             // 마을 땅(기초석, 못 팜)
 export const inB = (k, c) => c >= BUILD_COLS[k][0] && c <= BUILD_COLS[k][1];
 
-// 타일 종류: 0 공기, 1 흙, 2 구리, 3 철, 4 금, 5 다이아, 7 암반
+// 타일 종류: 0 공기, 1 흙, 2 구리, 3 철, 4 금, 5 다이아, 7 암반, 17 보물 상자
 export const TILE = {
   1: { name: "흙",     hard: 0.35, value: 0 },
   2: { name: "구리",   hard: 0.55, value: 10 },
@@ -34,6 +34,7 @@ export const TILE = {
   12: { name: "돌",    hard: Infinity, value: 0 },     // 드릴로 못 팜 → 다이너마이트
   16: { name: "경암",  hard: 2.6, value: 0 },          // 희귀 광물을 감싼 단단한 암석 (드릴로 오래 걸림)
   7: { name: "암반",   hard: Infinity, value: 0 },
+  17: { name: "보물 상자", hard: 0.5, value: 0 },     // 땅속에 드물게 묻힌 상자: 부수면 돈 (가끔 소모품)
 };
 // 광물 색상 [밝은색, 기본색, 어두운색]
 export const ORE_COL = {
