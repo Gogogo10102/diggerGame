@@ -911,7 +911,7 @@ async function login(t, name) {
   t60.ev("P.x = 4 * T; P.y = SURF * T - 20; P.vx = P.vy = 0; P.money = 1000"); t60.run(5);
   t60.key("KeyE"); t60.run(1);
   ok(t60.ev("state") === "shop" && t60.ev("shopBtn.filter((b) => b.act === 'tab').length") === t60.ev("CATS.length"), "상점: 왼쪽에 분류 버튼 " + t60.ev("CATS.length") + "개");
-  ok(t60.ev("shopBtn.filter((b) => b.act === 'buy').length") === t60.ev("SHOP_PER"), "목록 줄마다 구매 버튼");
+  ok(t60.ev("shopBtn.filter((b) => b.act === 'buy').length") === t60.ev("Math.min(S.shopPer, CATS[shopTab].ids.length)") && t60.ev("S.shopPer") >= 3, "목록 줄마다 구매 버튼 (창 높이에 맞춘 줄 수)");
   t60.tapAct("buy", "steel_drill"); t60.run(1);
   ok(t60.ev("!!P.items.steel_drill") && t60.ev("P.money") === 920, "줄의 구매 버튼으로 바로 구매");
   t60.tapAct("tab", 2); t60.run(1);

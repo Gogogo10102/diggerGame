@@ -49,11 +49,11 @@ addEventListener("keydown", (e) => {
     else if (e.code === "ArrowRight" || e.code === "KeyD") { S.shopTab = (S.shopTab + 1) % n; S.shopSel = 0; }
     else if (e.code === "ArrowUp" || e.code === "KeyW") S.shopSel = (S.shopSel + len - 1) % len;
     else if (e.code === "ArrowDown" || e.code === "KeyS") S.shopSel = (S.shopSel + 1) % len;
-    else if (e.code === "PageDown") S.shopSel = Math.min(len - 1, (Math.floor(S.shopSel / SHOP_PER) + 1) * SHOP_PER);
-    else if (e.code === "PageUp") S.shopSel = Math.max(0, (Math.floor(S.shopSel / SHOP_PER) - 1) * SHOP_PER);
+    else if (e.code === "PageDown") S.shopSel = Math.min(len - 1, (Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) + 1) * (S.shopPer || SHOP_PER));
+    else if (e.code === "PageUp") S.shopSel = Math.max(0, (Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) - 1) * (S.shopPer || SHOP_PER));
     else if (e.code === "Enter" || e.code === "Space") buyItem(CATS[S.shopTab].ids[S.shopSel]);
-    else if (/^Digit[1-4]$/.test(e.code)) {
-      const idx = Math.floor(S.shopSel / SHOP_PER) * SHOP_PER + Number(e.code.slice(5)) - 1;
+    else if (/^Digit[1-9]$/.test(e.code)) {
+      const idx = Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) * (S.shopPer || SHOP_PER) + Number(e.code.slice(5)) - 1;
       if (idx < len) { S.shopSel = idx; buyItem(CATS[S.shopTab].ids[idx]); }
     }
     return;
@@ -206,8 +206,8 @@ stage.addEventListener("pointerdown", (e) => {
       else if (b.act === "sel") S.shopSel = b.i;              // 줄을 누르면 고르기, 아래 [구매] 버튼으로 사기
       else if (b.act === "buy") { const k = CATS[S.shopTab].ids.indexOf(b.arg); if (k >= 0) S.shopSel = k; buyItem(b.arg); }
       else if (b.act === "page") {
-        const np = Math.max(0, Math.min(Math.ceil(CATS[S.shopTab].ids.length / SHOP_PER) - 1, Math.floor(S.shopSel / SHOP_PER) + b.arg));
-        S.shopSel = np * SHOP_PER;
+        const np = Math.max(0, Math.min(Math.ceil(CATS[S.shopTab].ids.length / (S.shopPer || SHOP_PER)) - 1, Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) + b.arg));
+        S.shopSel = np * (S.shopPer || SHOP_PER);
       }
       else if (b.act === "close") closeShop();
       return;

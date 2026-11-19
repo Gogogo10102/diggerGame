@@ -6,7 +6,6 @@ import { ICON, oreIcon } from "../art/sprites.ts";
 import { TILE } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { SHOP_PER } from "../core/stats.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { GLYPH, SY, blit, btnPx, ctx, glyph, hazard, keycap, panel, pxBox, segBar, setFont, txt, well } from "./util.ts";
@@ -207,11 +206,16 @@ export function drawShopModal(vw, vh) {
   const cat = CATS[S.shopTab];
   const f = townFrame(vw, vh, cat.name, CATS.map((c) => ({ name: c.name, icon: c.icon, img: ICON[c.icon] })), S.shopTab, "tab",
     "[ ] 건물 이동 · ←→ 분류 · ↑↓ 고르기 · Enter 구매 · Esc 닫기");
-  const len = cat.ids.length, pages = Math.ceil(len / SHOP_PER), page = Math.floor(S.shopSel / SHOP_PER);
+  // 한 쪽에 몇 줄: 창 높이에 맞춰 3~9줄 (예전엔 4줄 고정이라 빈 자리가 남아도 쪽을 넘겨야 했음)
+  const len = cat.ids.length;
+  let per = Math.max(3, Math.min(9, Math.floor(f.ch / 52)));
+  if (len > per) per = Math.max(3, Math.min(9, Math.floor((f.ch - 38) / 52)));
+  S.shopPer = per;
+  const pages = Math.ceil(len / per), page = Math.floor(S.shopSel / per);
   const pagerH = pages > 1 ? 38 : 0;
-  const rh = Math.max(40, Math.min(66, Math.floor((f.ch - pagerH) / SHOP_PER))), inner = rh - 6;
-  for (let k = 0; k < SHOP_PER; k++) {
-    const i = page * SHOP_PER + k;
+  const rh = Math.max(40, Math.min(66, Math.floor((f.ch - pagerH) / Math.min(per, Math.max(4, len))))), inner = rh - 6;
+  for (let k = 0; k < per; k++) {
+    const i = page * per + k;
     if (i >= len) break;
     const id = cat.ids[i], it = ITEMS[id], ry = f.cy + k * rh;
     const owned = !it.cons && !!P.items[id];
