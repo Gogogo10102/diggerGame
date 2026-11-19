@@ -273,7 +273,7 @@ def cave_top_tile(li, v, base, peb):
     return up2(img)
 
 def cave_bot_tiles():
-    """동굴 바닥 장식 4종 (칸 아래쪽에 붙음): 푸른 빛버섯 · 빨간 버섯 · 수정 · 돌무더기"""
+    """동굴 바닥 장식 7종 (칸 아래쪽에 붙음): 0 푸른 빛버섯 · 1 빨간 버섯 · 2 수정 · 3 돌무더기 · 4 용암 웅덩이 · 5 뼈 무더기 · 6 보라 수정"""
     n = TS; out = []; yy, xx = np.mgrid[0:n, 0:n] + 0.5
     def cap(cx, cy, rx, ry, cols, stemc):
         img_m = (((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 <= 1) & (yy <= cy + ry * .25)
@@ -316,6 +316,35 @@ def cave_bot_tiles():
     for (m, cx, cy, rx, ry) in parts:
         img[m] = [*hx("#8a8e9a"), 255]; img[m & ((xx - cx) / rx + (yy - cy) / ry > .5)] = [*hx("#5e6270"), 255]
         img[m & ((xx - cx) / rx + (yy - cy) / ry < -.6)] = [*hx("#c4c8d2"), 255]
+    out.append(up2(img))
+    # 4: 용암 웅덩이 (용암 지대) — 바닥에 고인 빛나는 용암 + 테두리 돌
+    img = np.zeros((n, n, 4)); rim = (((xx - 16) / 14) ** 2 + ((yy - 30) / 5) ** 2 <= 1) & (yy < n)
+    pool = (((xx - 16) / 11.5) ** 2 + ((yy - 30.5) / 3.4) ** 2 <= 1) & (yy < n)
+    g = np.clip(1 - np.hypot(xx - 16, (yy - 29) * 1.6) / 18, 0, 1); img[..., :3] = hx("#ff8a1f"); img[..., 3] = (g * 90).astype(int)
+    img[ring(rim, wrap=False) & (yy < n - .5)] = [*OL, 255]; img[rim] = [*hx("#3a1c14"), 255]; img[rim & (yy < 28)] = [*hx("#5a2a1e"), 255]
+    img[pool] = [*hx("#ff5a1a"), 255]; img[pool & (yy < 29.5)] = [*hx("#ffb020"), 255]
+    for (x, y) in ((10, 29), (19, 30), (23, 29)): img[y, x] = [*hx("#fff0a0"), 255]
+    for (x, y) in ((12, 22), (20, 18), (16, 13)): img[y, x] = [*hx("#ffb020"), 220]       # 떠오르는 불씨
+    out.append(up2(img))
+    # 5: 뼈 무더기 (고대 화석층)
+    img = np.zeros((n, n, 4)); allm = np.zeros((n, n), bool); parts = []
+    sk = (((xx - 18) / 6) ** 2 + ((yy - 25) / 5) ** 2 <= 1) & (yy < 29); parts.append(sk); allm |= sk
+    for (x0, y0, x1, y1) in ((4, 30, 15, 27), (20, 31, 29, 28)):
+        for t in np.linspace(0, 1, 30):
+            x, y = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t; m = np.hypot(xx - x, yy - y) <= 1.4; allm |= m
+    img[ring(allm, wrap=False) & (yy < n - .5)] = [*OL, 255]; img[allm] = [*hx("#efe4c8"), 255]
+    img[allm & (yy > 27)] = [*hx("#c8b894"), 255]
+    for (ex, ey) in ((16, 25), (20, 25)): img[int(ey) - 1:int(ey) + 1, int(ex) - 1:int(ex) + 1] = [*hx("#3a2a1a"), 255]   # 눈구멍
+    out.append(up2(img))
+    # 6: 보라 수정 (심층 코어 · 심연)
+    img = np.zeros((n, n, 4)); allm = np.zeros((n, n), bool); parts = []
+    for (cx, h, w, t) in ((12, 15, 3.6, -2), (19, 11, 3.2, 2)):
+        m = _poly(n, [(cx - w, n), (cx - w + t * .2, n - h * .75), (cx + t, n - h), (cx + w + t * .2, n - h * .75), (cx + w, n)]); parts.append((m, cx, t, h)); allm |= m
+    g = np.clip(1 - np.hypot(xx - 15, yy - 25) / 14, 0, 1); img[..., :3] = hx("#c486ff"); img[..., 3] = (g * 60).astype(int)
+    img[ring(allm, wrap=False) & (yy < n - .5)] = [*OL, 255]
+    for (m, cx, t, h) in parts:
+        img[m] = [*hx("#8c40da"), 255]; img[m & (xx < cx + t * (n - yy) / h * .8)] = [*hx("#c486ff"), 255]; img[m & (yy > n - 3)] = [*hx("#5c1c9c"), 255]
+        img[m & (np.abs(xx - (cx - 1.2)) < .6) & (yy > n - h * .7) & (yy < n - 4)] = [255, 255, 255, 255]
     out.append(up2(img))
     return out
 

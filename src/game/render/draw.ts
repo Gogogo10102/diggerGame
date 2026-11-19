@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -253,6 +253,7 @@ export function draw() {
       if (r === SURF) ctx.drawImage(grassTiles[hv(c, 9) & 1], px, py, T, T);
     }
   };
+  decoGlows.length = 0;
   const c0 = Math.max(0, Math.floor(camX / T)), c1 = Math.min(W - 1, Math.floor((camX + vw) / T));
   const r0 = Math.max(0, Math.floor(camY / T)), r1 = Math.min(H - 1, Math.floor((camY + vh) / T));
   ensureRect(c0 - 1, r0 - 1, c1 + 1, r1 + 1);                         // 화면에 보이는 땅은 꼭 만들어 둠(멀리 축소해서 볼 때)
@@ -268,8 +269,11 @@ export function draw() {
             const h = hv(c, r + 7);
             const ct = caveTop[L][(h >>> 3) % 3];
             if ((h & 3) < 2 && ct.width > 1 && solidTile(tiles[(r - 1) * W + c])) ctx.drawImage(ct, px, py, T, T);
-            const cb = caveBot[(h >> 6) & 3];
-            if (((h >> 9) & 3) === 0 && cb.width > 1 && solidTile(tiles[(r + 1) * W + c])) ctx.drawImage(cb, px, py, T, T);
+            const bi = CAVE_BOT_BY_LAYER[L][(h >> 6) & 3], cb = caveBot[bi];
+            if (((h >> 9) & 3) === 0 && cb.width > 1 && solidTile(tiles[(r + 1) * W + c])) {
+              ctx.drawImage(cb, px, py, T, T);
+              if (CAVE_BOT_GLOW[bi] && seen[r * W + c]) decoGlows.push([px + T / 2 + camX, py + T - 12 + camY, CAVE_BOT_GLOW[bi]]);   // 빛나는 장식은 어둠 속에서도 은은하게
+            }
           }
           if (r - SURF < 4) { ctx.fillStyle = "rgba(176,132,96," + [0.34, 0.22, 0.12, 0.05][r - SURF] + ")"; ctx.fillRect(px, py, T, T); }
           if (r === SURF) {                                      // 굴 너머 뒤편 잔디(앞쪽 잔디보다 한 톤 어둡게)
@@ -598,6 +602,9 @@ export function draw() {
       glows.push([gx * 4, gy * 4, id, pulse]);
     }
     S.oreGlows = glows;
+    for (const [wx, wy] of decoGlows) {                           // 동굴 빛 장식(빛버섯·수정·용암)도 어둠을 살짝 밝힘
+      lg.fillStyle = "rgba(0,0,0,0.3)"; lg.beginPath(); lg.arc((wx - camX) / 4, (wy - camY) / 4, 7, 0, 7); lg.fill();
+    }
     for (const b of bombs) {                                // 폭약 불빛
       lg.fillStyle = "rgba(0,0,0,0.7)";
       lg.beginPath(); lg.arc(((b.c + 0.5) * T - camX) / 4, ((b.r + 0.5) * T - camY) / 4, 14, 0, 7); lg.fill();
@@ -616,6 +623,13 @@ export function draw() {
       if (g && g.addColorStop) {
         g.addColorStop(0, hexA(lc, 0.2)); g.addColorStop(0.6, hexA(lc, 0.07)); g.addColorStop(1, hexA(lc, 0));
         ctx.fillStyle = g; ctx.fillRect(px - rr, py - rr, rr * 2, rr * 2);
+      }
+      for (const [wx, wy, col] of decoGlows) {
+        const gx = wx - camX, gy = wy - camY, q = ctx.createRadialGradient(gx, gy, 0, gx, gy, 40);
+        if (!q || !q.addColorStop) break;
+        const pulse = col === "#ff8a1f" ? 0.75 + 0.25 * Math.sin(S.animT * 3 + wx * 0.01) : 1;
+        q.addColorStop(0, hexA(col, 0.3 * pulse)); q.addColorStop(1, hexA(col, 0));
+        ctx.fillStyle = q; ctx.fillRect(gx - 40, gy - 40, 80, 80);
       }
       for (const g of gases) {                                      // 가스 구름: 어둠 속에서도 초록빛이 보이게
         const gx = g.x - camX, gy = g.y - camY, R = gasR(g), q = ctx.createRadialGradient(gx, gy, 0, gx, gy, R);
@@ -964,6 +978,7 @@ export function drawStick() {
 
 // 어둠 색(지층별): 지층 바탕색을 아주 어둡게 → 깊이마다 공기 색이 다르게 느껴짐
 const DARK_COL = LAYERS.map((L) => { const v = parseInt(L.base.slice(1), 16); return [((v >> 16) & 255) * 0.09 + 2, ((v >> 8) & 255) * 0.09 + 2, (v & 255) * 0.09 + 5].map(Math.round); });
+const decoGlows = [];                                             // [월드 x, 월드 y, 색] 이번 프레임에 보이는 빛나는 동굴 장식
 const GLOW_ORES = { 5: 1, 9: 1, 10: 1, 11: 1 };                 // 어둠 속에서 빛나는 광물: 다이아 · 에메랄드 · 루비 · 미스릴
 const hexA = (hex, a) => { const v = parseInt(hex.slice(1), 16); return "rgba(" + ((v >> 16) & 255) + "," + ((v >> 8) & 255) + "," + (v & 255) + "," + Math.max(0, a).toFixed(3) + ")"; };
 

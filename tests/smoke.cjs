@@ -1115,9 +1115,9 @@ async function login(t, name) {
     t60.ev("S.sellSel = 0");
   }
   // ---- 자연 동굴 그림 ----
-  ok(t60.ev("caveBack.length === LAYERS.length && caveBack[0].length === 4 && caveTop[0].length === 3 && caveBot.length === 4"), "자연 동굴 뒷벽 · 고드름 돌 · 바닥 장식 그림 자리");
-  ok(t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('tiles/cave/')).length") === 8 * 4 + 8 * 3 + 4, "자연 동굴 그림 60장");
-  ok(Object.keys(man.files).filter((k) => k.startsWith("tiles/cave/")).length === 60, "자연 동굴 그림이 그림 목록(manifest)에 있음");
+  ok(t60.ev("caveBack.length === LAYERS.length && caveBack[0].length === 4 && caveTop[0].length === 3 && caveBot.length === 7 && CAVE_BOT_BY_LAYER.length === LAYERS.length && CAVE_BOT_BY_LAYER.every((a) => a.length === 4 && a.every((i) => i < caveBot.length))"), "자연 동굴 뒷벽 · 고드름 돌 · 바닥 장식 7종(지층마다 고름) 그림 자리");
+  ok(t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('tiles/cave/')).length") === 8 * 4 + 8 * 3 + 7, "자연 동굴 그림 63장");
+  ok(Object.keys(man.files).filter((k) => k.startsWith("tiles/cave/")).length === 63, "자연 동굴 그림이 그림 목록(manifest)에 있음");
   ok(t60.ev("dirtOver.length === LAYERS.length && dirtOver[0].length === DIRT_OVER && treeImgs.length === 3"), "흙 위 자갈 덮개 · 지상 나무 그림 자리");
   ok(Object.keys(man.files).filter((k) => /^tiles\/dirt\/over_/.test(k)).length === 8 * 6 && Object.keys(man.files).filter((k) => /^tiles\/tree_/.test(k)).length === 3, "자갈 덮개 48장 · 나무 3장이 그림 목록에 있음");
   // ---- 로봇(캐릭터) 종류 ----
