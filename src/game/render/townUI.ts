@@ -12,7 +12,7 @@ import { RECIPE_CATS } from "../data/recipes.ts";
 import { GLYPH, SY, blit, btnPx, ctx, glyph, hazard, keycap, panel, pxBox, segBar, setFont, txt, well } from "./util.ts";
 import { BARS, BAR_KEYS, FURNACE_LV, ORE_PER_BAR, barIcon, furnaceCan, matHave, matIcon, matName } from "../systems/furnace.ts";
 import { TOWN, shopBtn, townActive } from "../systems/input.ts";
-import { SELL_KEYS, SELL_ORES, stashValue, unitPrice } from "../systems/town.ts";
+import { ORDER_N, SELL_KEYS, SELL_ORES, ensureOrders, orderRerollCost, stashValue, unitPrice } from "../systems/town.ts";
 
 // =====================================================================
 //  마을 창 (상점 · 제작 · 용광로 · 판매) — "안전 노랑" 스타일
@@ -308,10 +308,10 @@ export function drawCraftModal(vw, vh) {
 //  창고 · 판매: 왼쪽 원석/주괴 → 오른쪽 목록 (줄마다 1개 · 전부)
 // ---------------------------------------------------------------------
 function drawSellModal(vw, vh) {
+  if (S.sellSel >= SELL_KEYS.length) return drawOrders(vw, vh);
   const onBar = S.sellSel >= SELL_ORES;
-  const f = townFrame(vw, vh, onBar ? "판매 · 주괴" : "판매 · 원석",
-    [{ name: "원석", img: oreIcon[4] }, { name: "주괴", img: barIcon.au }], onBar ? 1 : 0, "scat",
-    "[ ] 건물 이동 · ←→ 원석/주괴 · ↑↓ 고르기 · Space 1개 · Enter 전부 · F 원석 모두");
+  const f = townFrame(vw, vh, onBar ? "판매 · 주괴" : "판매 · 원석", SELL_CATS(), onBar ? 1 : 0, "scat",
+    "[ ] 건물 이동 · ←→ 원석/주괴/의뢰 · ↑↓ 고르기 · Space 1개 · Enter 전부 · F 원석 모두");
   const keys = onBar ? SELL_KEYS.slice(SELL_ORES) : SELL_KEYS.slice(0, SELL_ORES), base = onBar ? SELL_ORES : 0;
   const tot = stashValue(), allH = onBar ? 0 : 52;
   const per = Math.max(1, Math.floor((f.ch - allH - 38) / 46)), pages = Math.ceil(keys.length / per);
@@ -343,6 +343,31 @@ function drawSellModal(vw, vh) {
   }
   if (!onBar) uiBtn(f.cx, f.cy + f.ch - 46, f.cw, 44, "원석 모두 팔기", money(tot), "gold", tot > 0, "sellall");
   else if (!(S.msgT > 0)) txt("주괴는 용광로에서 원석 " + ORE_PER_BAR + "개 + 석탄으로 만들어요", f.cx, f.noteY, SY.mute, 12);
+}
+
+const SELL_CATS = () => [{ name: "원석", img: oreIcon[4] }, { name: "주괴", img: barIcon.au }, { name: "의뢰", img: ICON.order }];
+// 의뢰: 줄마다 [아이콘 · 무엇 N개 · 보상] + 납품 버튼, 아래에 '새 의뢰 받기'($)
+function drawOrders(vw, vh) {
+  ensureOrders();
+  const f = townFrame(vw, vh, "판매 · 의뢰", SELL_CATS(), 2, "scat", "[ ] 건물 이동 · ←→ 원석/주괴/의뢰 · ↑↓ 고르기 · Enter 납품 · R 새 의뢰");
+  const sel = S.sellSel - SELL_KEYS.length, footH = 52;
+  const rh = Math.max(46, Math.min(72, Math.floor((f.ch - footH) / ORDER_N))), inner = rh - 6;
+  S.acct.orders.forEach((o, k) => {
+    const ry = f.cy + k * rh, have = matHave(o.k), ok = have >= o.n;
+    townRow(f.cx, ry, f.cw, inner, k === sel, k);
+    const ib = Math.min(40, inner - 4);
+    iconSlot(matIcon(o.k), f.cx + 6, ry + Math.floor((inner - ib) / 2), ib, 1);
+    const lx = f.cx + 6 + ib + 10, bw = f.narrow ? 70 : 92, bh = Math.min(inner - 6, 44);
+    const bx = f.cx + f.cw - 6 - bw, by2 = ry + Math.floor((inner - bh) / 2);
+    uiBtn(bx, by2, bw, bh, "납품", bh >= 40 ? money(o.pay) : null, "go", ok, "order", k);
+    const nameW = bx - 8 - lx, t = ry + Math.floor((inner - 34) / 2);
+    txt(fitText(matName(o.k) + " " + o.n + "개", nameW, 16), lx, t, SY.txt, 16);
+    txt(fitText("가진 것 " + have + " / " + o.n + "  ·  보상 " + money(o.pay) + " · 경험치 " + o.xp, nameW, 12), lx, t + 21, ok ? SY.green : SY.dim, 12);
+    shopBtn.push({ x: f.cx, y: ry, w: bx - f.cx - 4, h: inner, act: "sellsel", i: SELL_KEYS.length + k });
+  });
+  const c = orderRerollCost();
+  uiBtn(f.cx, f.cy + f.ch - 46, f.cw, 44, "새 의뢰 받기 (셋 다 바꿈)", money(c), "plain", P.money >= c, "oreroll");
+  if (!(S.msgT > 0)) txt(fitText("의뢰 = 판매가 1.6배 + 경험치 · 캐 본 광물만 나와요", f.cw, 12), f.cx, f.noteY, SY.mute, 12);
 }
 
 // ---------------------------------------------------------------------

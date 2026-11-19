@@ -40,6 +40,7 @@ export function snapshot() {
     xp: S.acct.xp, quest: S.acct.quest, title: S.acct.title || "",
     tut: S.acct.tut | 0,                                       // 처음 안내 진행 단계
     char: S.charId || "yellow", chars: S.acct.chars || [],     // 고른 캐릭터 · 열려서 알린 캐릭터
+    orders: S.acct.orders || [],                               // 의뢰 3개
   }));
 }
 export function saveNow(force, quiet) {
@@ -58,7 +59,7 @@ export function applyAccount(d) {
     id: d.id, name: d.name, created: d.created || Date.now(), seed: d.seed | 0, mineNo: Math.max(1, Math.min(9999, d.mineNo | 0)),
     playTime: Number(d.playTime) || 0,
     stats: {
-      maxDepth: Number(st.maxDepth) || 0, earned: Number(st.earned) || 0, deaths: Number(st.deaths) || 0, crafted: Number(st.crafted) || 0, collapses: Number(st.collapses) || 0, caves: Number(st.caves) || 0, chests: Number(st.chests) || 0, smelted: Number(st.smelted) || 0, bombs: Number(st.bombs) || 0, trips: Number(st.trips) || 0, close: Number(st.close) || 0,   // chests: 연 보물 상자 수 (옛 세이브는 0) · smelted 는 예전에 불러올 때 빠져 있었음
+      maxDepth: Number(st.maxDepth) || 0, earned: Number(st.earned) || 0, deaths: Number(st.deaths) || 0, crafted: Number(st.crafted) || 0, collapses: Number(st.collapses) || 0, caves: Number(st.caves) || 0, chests: Number(st.chests) || 0, smelted: Number(st.smelted) || 0, bombs: Number(st.bombs) || 0, trips: Number(st.trips) || 0, close: Number(st.close) || 0, orders: Number(st.orders) || 0,   // orders: 끝낸 의뢰 수 · chests: 연 보물 상자 수 (옛 세이브는 0) · smelted 는 예전에 불러올 때 빠져 있었음
       mined: st.mined && typeof st.mined === "object" ? st.mined : {},
     },
   };

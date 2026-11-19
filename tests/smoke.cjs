@@ -917,13 +917,16 @@ async function login(t, name) {
   ok(t60.ev("shopTab") === 2 && t60.canvasTexts().some((x) => x.includes("확장 화물칸")), "분류를 누르면 오른쪽 목록이 바뀜");
   // 판매: 원석 / 주괴 분류
   t60.ev("P.stash = { 2: 5 }; P.bars = { fe: 2 }; switchTown('sell')"); t60.run(1);
-  ok(t60.ev("shopBtn.filter((b) => b.act === 'scat').length") === 2 && t60.canvasTexts().some((x) => x.includes("구리")), "판매: 원석/주괴 분류 + 원석 목록");
+  ok(t60.ev("shopBtn.filter((b) => b.act === 'scat').length") === 3 && t60.canvasTexts().some((x) => x.includes("구리")), "판매: 원석/주괴/의뢰 분류 + 원석 목록");
   const m60 = t60.ev("P.money");
   t60.tapAct("sell", [2, 1]); t60.run(1);
   ok(t60.ev("P.stash[2]") === 4 && t60.ev("P.money") > m60, "줄의 1개 버튼으로 판매");
   t60.tapAct("scat", 1); t60.run(1);
   ok(t60.ev("sellSel") === t60.ev("SELL_ORES") && t60.canvasTexts().some((x) => x.includes("철 주괴")), "주괴 분류로 바꾸면 주괴 목록");
   t60.key("ArrowLeft"); ok(t60.ev("sellSel") === 0, "← 키로 원석 분류");
+  t60.tapAct("scat", 2); t60.run(1);
+  ok(t60.ev("sellSel") === t60.ev("SELL_KEYS.length") && t60.canvasTexts().some((x) => x.includes("새 의뢰 받기")) && t60.ev("shopBtn.filter((b) => b.act === 'order').length") === 3, "의뢰 분류: 의뢰 3줄 + 새 의뢰 받기");
+  t60.key("ArrowRight"); ok(t60.ev("sellSel") === 0, "→ 키로 의뢰 다음은 원석 분류");
   t60.key("Escape"); t60.run(1);
   // 설정: 효과음 크기 (− 칸 막대 +)
   t60.ev("openMenu()"); await t60.click("설정");
@@ -1062,6 +1065,29 @@ async function login(t, name) {
   ok(t60.ev("S.antA = 0; S.antV = 0; P.facing = 1; P.vx = 0; S.lastVx = 0; P.vx = 300 * PX; for (let k = 0; k < 12; k++) animMiner(1 / 120); S.minerAnt") === 0, "앞으로 갑자기 달리면 안테나가 뒤로 기욺");
   ok(t60.ev("P.vx = 0; for (let k = 0; k < 240; k++) animMiner(1 / 120); S.minerAnt") === 1, "시간이 지나면 안테나가 가운데로 돌아옴");
   ok(t60.ev("Object.keys(MINER_HI).length") === 21 && t60.ev("Object.keys(assetTable()).filter((k) => /^miner\\/[^/]+\\.png$/.test(k)).length") === 21, "캐릭터 부품 21개(안테나 3 · 불빛 3 · 눈 감은 덮개 3 포함)");
+  // ---- 의뢰 ----
+  t60.ev("acct.orders = []; acct.stats.mined = { 2: 5, 6: 3 }; acct.stats.smelted = 0; acct.stats.maxDepth = 50; ensureOrders()");
+  ok(t60.ev("acct.orders.length") === 3 && t60.ev("acct.orders.every((o) => (o.k === 2 || o.k === 6) && o.n >= 2 && o.pay > 0 && o.xp > 0)"), "의뢰 3개: 캐 본 광물만 (주괴는 제련해 본 뒤)");
+  ok(t60.ev("acct.orders.every((o) => o.pay >= Math.round(o.n * TILE[o.k].value * 1.5))"), "의뢰 보상은 판매가보다 큼");
+  {
+    t60.ev("P.stash = {}; P.money = 0; acct.stats.orders = 0; acct.orders[0] = { k: 2, n: 4, pay: 200, xp: 12 }");
+    t60.ev("deliverOrder(0)");
+    ok(t60.ev("P.money") === 0 && t60.ev("acct.stats.orders") === 0, "재료가 모자라면 납품 안 됨");
+    const xp0 = t60.ev("acct.xp");
+    t60.ev("P.stash = { 2: 6 }; deliverOrder(0)");
+    ok(t60.ev("P.money") >= 200 && t60.ev("P.stash[2]") === 2 && t60.ev("acct.stats.orders") === 1 && t60.ev("acct.xp") > xp0, "납품하면 재료가 빠지고 돈·경험치·기록");
+    ok(t60.ev("acct.orders.length === 3 && !(acct.orders[0].k === 2 && acct.orders[0].n === 4 && acct.orders[0].pay === 200)"), "끝낸 자리에 새 의뢰");
+    ok(t60.ev("QUESTS.some((q) => q.group === 'order') && questLabel(QUESTS.find((q) => q.group === 'order')).includes('의뢰')"), "의뢰 업적");
+    t60.ev("P.money = 0; rerollOrders()");
+    ok(t60.ev("P.money") === 0, "돈이 없으면 새 의뢰 못 받음");
+    t60.ev("P.money = 99999; rerollOrders()");
+    ok(t60.ev("P.money") === 99999 - t60.ev("orderRerollCost()") && t60.ev("acct.orders.length") === 3, "새 의뢰 받기 = 돈 내고 셋 다 바꿈");
+    ok(t60.ev("(() => { const o = JSON.stringify(acct.orders); const d = snapshot(); applyAccount(d); return JSON.stringify(acct.orders) === o && acct.stats.orders === 1; })()"), "의뢰 · 끝낸 수가 저장됨");
+    ok(t60.ev("(() => { const d = snapshot(); delete d.orders; d.stats.orders = undefined; applyAccount(d); return acct.orders.length === 0 && acct.stats.orders === 0; })()"), "옛 세이브(의뢰 없음)는 빈 목록 → 열 때 새로 만듦");
+    t60.ev("S.sellSel = SELL_KEYS.length; sellCat()");
+    ok(t60.ev("sellCat()") === 2 && t60.ev("SELL_CAT_START[2]") === t60.ev("SELL_KEYS.length"), "판매 탭 세 번째 분류 = 의뢰");
+    t60.ev("S.sellSel = 0");
+  }
   // ---- 자연 동굴 그림 ----
   ok(t60.ev("caveBack.length === LAYERS.length && caveBack[0].length === 4 && caveTop[0].length === 3 && caveBot.length === 4"), "자연 동굴 뒷벽 · 고드름 돌 · 바닥 장식 그림 자리");
   ok(t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('tiles/cave/')).length") === 8 * 4 + 8 * 3 + 4, "자연 동굴 그림 60장");

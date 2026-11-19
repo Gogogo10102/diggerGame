@@ -9,6 +9,7 @@ import { ITEMS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
 import { BARS, barValue, isBar, matHave, matName, matTake } from "./furnace.ts";
+import { addXP, checkQuests, minedOf } from "../data/progress.ts";
 import { stashCargo, touch } from "./input.ts";
 
 // 안 되는 이유를 알려 줄 때: 삐 소리 + 안내
@@ -45,6 +46,9 @@ export function stashValue() {
 // 판매 목록: 원석 9종 + 주괴 5종
 export const SELL_KEYS = [6, 2, 3, 8, 4, 9, 5, 10, 11, "cu", "fe", "ag", "au", "mi"];
 export const SELL_ORES = 9;                                 // 앞 9개는 원석, 나머지는 주괴
+// 판매 탭 분류: 0 원석 · 1 주괴 · 2 의뢰 (S.sellSel 이 SELL_KEYS 뒤로 넘어가면 의뢰 줄)
+export const SELL_CAT_START = [0, SELL_ORES, SELL_KEYS.length];
+export const sellCat = () => (S.sellSel >= SELL_KEYS.length ? 2 : S.sellSel >= SELL_ORES ? 1 : 0);
 export const unitPrice = (k) => Math.round((BARS[k] ? barValue(k) : TILE[k].value) * STAT.sell);
 export function sellItem(k, n) {
   if (!BARS[k]) return sellOre(k, n);
@@ -101,3 +105,53 @@ export function buyItem(id) {
   saveNow(true);
 }
 
+// ---------------------------------------------------------------------
+//  의뢰 (판매 탭의 세 번째 분류): 광물·주괴 N개를 가져오면 판매가의 1.6배 + 경험치
+//   늘 3개. 캐 본 적 있는 광물(주괴는 그 원석)만 나옴. 끝내면 그 자리에 새 의뢰. '새 의뢰 받기'로 셋 다 바꿈($)
+// ---------------------------------------------------------------------
+export const ORDER_N = 3, ORDER_BONUS = 1.6;
+export const orderRerollCost = () => 40 + Math.round(Math.min(2000, (S.acct ? S.acct.stats.maxDepth : 0)) * 0.6);
+function orderPool() {
+  const ores = SELL_KEYS.slice(0, SELL_ORES).filter((id) => minedOf(id) > 0);
+  const bars = SELL_KEYS.slice(SELL_ORES).filter((k) => minedOf(BARS[k].ore) > 0 && S.acct && (S.acct.stats.smelted || 0) > 0);
+  return ores.length ? ores.concat(bars) : [6, 2];                    // 처음엔 석탄·구리
+}
+export function makeOrder(avoid = []) {
+  const pool = orderPool().filter((k) => !avoid.includes(k));
+  const list = pool.length ? pool : orderPool();
+  const k = list[Math.floor(Math.random() * list.length)];
+  const unit = BARS[k] ? barValue(k) : TILE[k].value;
+  const V = 100 + Math.min(2400, S.acct ? S.acct.stats.maxDepth : 0) * 2;   // 의뢰 하나의 크기(판매가 기준): 깊이 들어갈수록 큼
+  const n = Math.max(2, Math.min(30, Math.round(V / unit * (0.7 + Math.random() * 0.6))));
+  const pay = Math.round(n * unit * ORDER_BONUS / 5) * 5;
+  return { k, n, pay, xp: Math.max(5, Math.round(pay * 0.06)) };
+}
+export function ensureOrders() {
+  if (!S.acct) return;
+  if (!Array.isArray(S.acct.orders)) S.acct.orders = [];
+  while (S.acct.orders.length < ORDER_N) S.acct.orders.push(makeOrder(S.acct.orders.map((o) => o.k)));
+}
+export function deliverOrder(i) {
+  ensureOrders();
+  const o = S.acct.orders[i];
+  if (!o) return;
+  if (matHave(o.k) < o.n) return townFail(matName(o.k) + "이(가) " + (o.n - matHave(o.k)) + "개 모자라요");
+  matTake(o.k, o.n);
+  P.money += o.pay;
+  S.acct.stats.earned += o.pay;
+  S.acct.stats.orders = (S.acct.stats.orders || 0) + 1;
+  addXP(o.xp);
+  S.acct.orders[i] = makeOrder(S.acct.orders.map((x) => x.k));
+  say("의뢰 완료! +$" + o.pay + " · 경험치 +" + o.xp); sfx("sell");
+  checkQuests();
+  saveNow(true, true);
+}
+export function rerollOrders() {
+  const c = orderRerollCost();
+  if (P.money < c) return townFail("돈이 부족해요 ($" + c + ")");
+  P.money -= c;
+  S.acct.orders = [];
+  ensureOrders();
+  say("새 의뢰를 받았어요 (-$" + c + ")"); sfx("buy");
+  saveNow(true, true);
+}

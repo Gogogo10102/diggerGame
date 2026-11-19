@@ -69,6 +69,7 @@ addQuests("chest", "보물 사냥", [1, 10, 30, 100], ["보물 사냥꾼", "상�
 const questStat = (k) => () => (S.acct ? S.acct.stats[k] || 0 : 0);
 addQuests("trip", "귀환", [5, 25, 100, 300], ["첫 출근", "성실한 광부", "베테랑 운반꾼", "지하 철도왕"], questStat("trips"), "광물 싣고 귀환", [100, 600, 3000, 12000]);
 addQuests("bomb", "폭파", [5, 30, 100, 300], ["불꽃놀이 입문", "폭파 기술자", "발파 전문가", "폭약의 달인"], questStat("bombs"), "다이너마이트 사용", [150, 800, 3000, 10000]);
+addQuests("order", "의뢰", [1, 10, 40, 120], ["심부름꾼", "믿음직한 광부", "마을의 해결사", "전설의 납품왕"], questStat("orders"), "의뢰 완료", [150, 1200, 6000, 25000]);
 addQuests("close", "아슬아슬", [1, 5, 20], ["간 큰 광부", "벼랑 끝 귀환자", "연료 0의 마술사"], questStat("close"), "연료 10% 미만으로 귀환", [200, 1500, 6000]);
 addQuests("level", "광부 레벨", [5, 10, 20, 30], ["새내기 광부", "든든한 광부", "노련한 광부", "광부 명장"], () => (S.acct ? levelOf(S.acct.xp).lv : 0), "레벨 달성", [300, 1500, 8000, 30000]);
 QUESTS.forEach((q) => { q.xp = Math.max(10, Math.round(q.money * 0.15)); });
@@ -76,7 +77,7 @@ const QLABEL = {
   depth: (n) => "깊이 " + n + "m 도달", craft: (n) => "장비 " + n + "개 제작", earn: (n) => "누적 수익 $" + n, types: (n) => "광물 " + n + "종 채굴",
   cave: (n) => "동굴 " + n + "개 발견", chest: (n) => "보물 상자 " + n + "개 열기", smelt: (n) => "주괴 " + n + "개 제련", dirt: (n) => "흙 " + n + "개 파기",
   all: (n) => "광물 " + n + "개 채굴", trip: (n) => "광물 싣고 " + n + "번 귀환", bomb: (n) => "다이너마이트 " + n + "번 사용",
-  close: (n) => "연료 10% 미만으로 " + n + "번 귀환", level: (n) => "광부 레벨 " + n + " 달성",
+  close: (n) => "연료 10% 미만으로 " + n + "번 귀환", level: (n) => "광부 레벨 " + n + " 달성", order: (n) => "마을 의뢰 " + n + "개 완료",
 };
 export function questLabel(q) { const n = q.need.toLocaleString(); return QLABEL[q.group] ? QLABEL[q.group](n) : q.unit + " " + n + "개"; }
 export const QUEST_BY = {}; QUESTS.forEach((q) => { QUEST_BY[q.id] = q; });
@@ -158,5 +159,8 @@ export function initProgress(d) {                               // 저장 데이
   S.acct.chars = Array.isArray(d.chars) ? d.chars.filter((x) => CHAR_IDS.includes(x)) : [];
   const pick = CHAR_INFO.find((c) => c.id === d.char);
   S.charId = pick && charOpen(pick) ? pick.id : "yellow";
+  // 의뢰: 저장된 것 중 올바른 것만 (옛 세이브는 빈 목록 → 판매 탭을 열 때 새로 만듦)
+  S.acct.orders = Array.isArray(d.orders) ? d.orders.filter((o) => o && (TILE[o.k] || BARS[o.k]) && o.n > 0 && o.pay > 0).slice(0, 3)
+    .map((o) => ({ k: TILE[o.k] ? Number(o.k) : o.k, n: o.n | 0, pay: o.pay | 0, xp: o.xp | 0 })) : [];
 }
 
