@@ -467,7 +467,7 @@ export function draw() {
     const pdx = P.mode === "side" ? push : 0, pdy = P.mode === "down" ? push : P.mode === "up" ? -push : 0;
     if (push > 0) {                                                  // 모터와 드릴 사이 축(밀려 나간 만큼)
       const L = Math.round(push) + 3;
-      const [sx, sy, sw, sh] = P.mode === "side" ? [21, -33, L, 9] : P.mode === "down" ? [12, 3, 9, L] : [9, -63 - L + 3, 9, L];
+      const [sx, sy, sw, sh] = P.mode === "side" ? [21, -33, L, 9] : P.mode === "down" ? [18, 3, 9, L] : [9, -63 - L + 3, 9, L];
       ctx.fillStyle = "#14151f"; ctx.fillRect(sx, sy, sw, sh);
       ctx.fillStyle = "#9aa3b8"; ctx.fillRect(sx + (sw > sh ? 0 : 3), sy + (sw > sh ? 3 : 0), sw > sh ? sw : 3, sw > sh ? 3 : sh);
       ctx.fillStyle = "#e3e8f2"; ctx.fillRect(sx + (sw > sh ? 0 : 3), sy + (sw > sh ? 3 : 0), sw > sh ? sw : 1, sw > sh ? 1 : sh);

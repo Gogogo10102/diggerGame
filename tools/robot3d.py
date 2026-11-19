@@ -54,7 +54,7 @@ def sd_cone(q, base, tip, R):
 #  무리: body(색 그대로) / trk / cw / lamp / bit
 DRILL = {  # 드릴 원뿔(밑변 가운데, 끝, 밑변 반지름)과 척(원기둥 시작, 끝, 반지름) — 카메라 좌표
     "side": (np.array([84, 55.5]), np.array([117, 55.5]), np.array([75, 55.5]), 13.5),
-    "down": (np.array([76.5, 91]), np.array([76.5, 117]), np.array([76.5, 79]), 13.5),
+    "down": (np.array([82.5, 91]), np.array([82.5, 117]), np.array([82.5, 79]), 13.5),   # 궤도 앞쪽 끝을 비켜 조금 앞으로
     "up":   (np.array([73.5, 19]), np.array([73.5, 2]), np.array([73.5, 32]), 13.5),
 }
 SHOULDER = (4, 31, 13.5)
@@ -62,6 +62,8 @@ SHOULDER = (4, 31, 13.5)
 def scene(mode, leg, dig, lean=0):
     sh = to_cam(*SHOULDER)
     zd = sh[2] + 2                                     # 팔·척·드릴은 어깨와 같은 깊이(보는 쪽)
+    if mode == "down":                                 # 아래로 팔 땐 척·드릴이 궤도 높이를 지나가므로 가까운 궤도보다 앞에 둠 (궤도에 가려지지 않게)
+        zd = max(zd, to_cam(0, 7, 17.5)[2] + 3)
     base, tip, chuck0, R = DRILL[mode]
     B3, T3, C3 = [np.array([v[0], v[1], zd]) for v in (base, tip, chuck0)]
     ob = []
