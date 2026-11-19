@@ -59,7 +59,7 @@ export function applyAccount(d) {
     id: d.id, name: d.name, created: d.created || Date.now(), seed: d.seed | 0, mineNo: Math.max(1, Math.min(9999, d.mineNo | 0)),
     playTime: Number(d.playTime) || 0,
     stats: {
-      maxDepth: Number(st.maxDepth) || 0, earned: Number(st.earned) || 0, deaths: Number(st.deaths) || 0, crafted: Number(st.crafted) || 0, collapses: Number(st.collapses) || 0, caves: Number(st.caves) || 0, chests: Number(st.chests) || 0, smelted: Number(st.smelted) || 0, bombs: Number(st.bombs) || 0, trips: Number(st.trips) || 0, close: Number(st.close) || 0, orders: Number(st.orders) || 0,   // orders: 끝낸 의뢰 수 · chests: 연 보물 상자 수 (옛 세이브는 0) · smelted 는 예전에 불러올 때 빠져 있었음
+      maxDepth: Number(st.maxDepth) || 0, earned: Number(st.earned) || 0, deaths: Number(st.deaths) || 0, crafted: Number(st.crafted) || 0, collapses: Number(st.collapses) || 0, caves: Number(st.caves) || 0, chests: Number(st.chests) || 0, smelted: Number(st.smelted) || 0, bombs: Number(st.bombs) || 0, trips: Number(st.trips) || 0, close: Number(st.close) || 0, orders: Number(st.orders) || 0, combo: Number(st.combo) || 0,   // orders: 끝낸 의뢰 수 · combo: 최고 콤보 · chests: 연 보물 상자 수 (옛 세이브는 0) · smelted 는 예전에 불러올 때 빠져 있었음
       mined: st.mined && typeof st.mined === "object" ? st.mined : {},
     },
   };
@@ -112,7 +112,7 @@ export function applyAccount(d) {
   }
   P.vx = 0; P.vy = 0; P.dead = 0; P.digging = false;
   S.dig = null; parts.length = 0; floaters.length = 0;
-  bombs.length = 0; flashes.length = 0; S.shakeT = 0; S.lastRevealKey = "";
+  bombs.length = 0; flashes.length = 0; S.shakeT = 0; S.lastRevealKey = ""; S.combo = 0; S.comboT = 0;
   S.showHelp = !(d.settings && d.settings.showHelp === false);
   // 처음 안내: 저장된 단계, 예전 세이브(기록 없음)는 이미 팔아 본 적이 있으면 끝난 것으로
   S.acct.tut = d.tut !== undefined ? Math.max(0, d.tut | 0) : (S.acct.stats.earned > 0 ? TUT_STEPS.length : 0);

@@ -1065,6 +1065,15 @@ async function login(t, name) {
   ok(t60.ev("S.antA = 0; S.antV = 0; P.facing = 1; P.vx = 0; S.lastVx = 0; P.vx = 300 * PX; for (let k = 0; k < 12; k++) animMiner(1 / 120); S.minerAnt") === 0, "앞으로 갑자기 달리면 안테나가 뒤로 기욺");
   ok(t60.ev("P.vx = 0; for (let k = 0; k < 240; k++) animMiner(1 / 120); S.minerAnt") === 1, "시간이 지나면 안테나가 가운데로 돌아옴");
   ok(t60.ev("Object.keys(MINER_HI).length") === 21 && t60.ev("Object.keys(assetTable()).filter((k) => /^miner\\/[^/]+\\.png$/.test(k)).length") === 21, "캐릭터 부품 21개(안테나 3 · 불빛 3 · 눈 감은 덮개 3 포함)");
+  // ---- 연속 채굴 콤보 ----
+  t60.ev("S.combo = 0; S.comboT = 0; acct.stats.combo = 0; floaters.length = 0");
+  ok(t60.ev("bumpCombo(2)") === 0 && t60.ev("bumpCombo(2)") === 0 && t60.ev("S.combo") === 2, "광물을 이어서 캐면 콤보가 쌓임 (2까지는 보너스 없음)");
+  ok(t60.ev("bumpCombo(4)") > 0 && t60.ev("floaters.some((f) => f.text.includes('콤보 x3'))"), "콤보 3부터 보너스 경험치 + 떠오르는 글자");
+  t60.ev("S.state = 'play'; update(COMBO_T + 0.1)");
+  ok(t60.ev("S.combo") === 0 && t60.ev("acct.stats.combo") === 3, "시간이 지나면 콤보가 끊기고 최고 기록은 남음");
+  ok(t60.ev("bumpCombo(2); S.combo") === 1, "끊긴 뒤엔 1부터");
+  ok(t60.ev("(() => { const d = snapshot(); applyAccount(d); return acct.stats.combo; })()") === 3, "최고 콤보가 저장됨");
+  ok(t60.ev("QUESTS.some((q) => q.group === 'combo')"), "콤보 업적");
   // ---- 의뢰 ----
   t60.ev("acct.orders = []; acct.stats.mined = { 2: 5, 6: 3 }; acct.stats.smelted = 0; acct.stats.maxDepth = 50; ensureOrders()");
   ok(t60.ev("acct.orders.length") === 3 && t60.ev("acct.orders.every((o) => (o.k === 2 || o.k === 6) && o.n >= 2 && o.pay > 0 && o.xp > 0)"), "의뢰 3개: 캐 본 광물만 (주괴는 제련해 본 뒤)");

@@ -10,7 +10,7 @@ import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMu
 import { baseTiles, ensureRect, hardOf, isAir, natAir, seen, tiles } from "../core/world.ts";
 import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
-import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
+import { COMBO_T, MAX_LV, levelOf, titleName } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { FONT_M, GLYPH, SY, blit, btnPx, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt, well } from "./util.ts";
 import { DEBRIS_T, debrisT, dust } from "../systems/collapseFx.ts";
@@ -727,6 +727,21 @@ function hudBar(x, y, img, n, filled, kind, label, labelCol) {
   return x + 22 + w;
 }
 
+// 연속 채굴 콤보 표시: 노란 판에 "콤보 x5" + 남은 시간 칸 막대 (2 이상일 때만). 너비를 돌려줌
+function comboBadge(x, y) {
+  if (!(S.combo >= 2 && S.comboT > 0)) return 0;
+  const label = "콤보 x" + S.combo; setFont(16);
+  const w = Math.ceil(ctx.measureText(label).width) + 20, pop = S.comboT > COMBO_T - 0.12 ? -2 : 0;
+  pxBox(x, y + pop, w, 30, SY.ink);
+  ctx.fillStyle = S.combo >= 10 ? "#ff8ad0" : SY.y; ctx.fillRect(x + 2, y + 2 + pop, w - 4, 26);
+  ctx.fillStyle = S.combo >= 10 ? "#ffd0ee" : SY.yHi; ctx.fillRect(x + 2, y + 2 + pop, w - 4, 2);
+  txt(label, x + 10, y + 6 + pop, "#1a1a1a", 16, "left", "rgba(0,0,0,0)");
+  const left = Math.max(0, S.comboT / COMBO_T);
+  ctx.fillStyle = SY.ink; ctx.fillRect(x + 4, y + 24 + pop, w - 8, 4);
+  ctx.fillStyle = "#c43a4c"; ctx.fillRect(x + 4, y + 24 + pop, Math.round((w - 8) * left), 4);
+  return w;
+}
+
 export function drawHUD(vw, vh, depth) {
   shopBtn.length = 0;
   const wide = vw >= 760;                     // 넓으면 위 가운데에 광물 칸 + 깊이
@@ -761,6 +776,7 @@ export function drawHUD(vw, vh, depth) {
     setFont(16); const dw = Math.ceil(ctx.measureText(dTxt).width) + 48;
     plate(Math.floor(vw / 2 - dw / 2), ob + 6, dw, 30); blit(ICON.depth, Math.floor(vw / 2 - dw / 2) + 8, ob + 13, 16, 16);
     txt(dTxt, Math.floor(vw / 2 - dw / 2) + 30, ob + 13, "#9fd8ff", 16);
+    comboBadge(Math.floor(vw / 2 + dw / 2) + 8, ob + 6);
     const mw = Math.ceil(ctx.measureText(mTxt).width) + 50, mx0 = bx0 - 10 - mw;
     plate(mx0, by0, mw, bs); blit(ICON.coin, mx0 + 8, by0 + 6 + coinBob, 32, 32);
     txt(mTxt, mx0 + mw - 10, by0 + 14, mCol, 16, "right");
@@ -768,6 +784,7 @@ export function drawHUD(vw, vh, depth) {
     blit(ICON.coin, 10, 102 + coinBob, 24, 24); txt(mTxt, 38, 106, mCol, 16, "left", SY.ink);
     setFont(16); const mw = Math.ceil(ctx.measureText(mTxt).width);
     blit(ICON.depth, 38 + mw + 14, 106, 16, 16); txt(dTxt, 38 + mw + 34, 106, "#9fd8ff", 16, "left", SY.ink);
+    comboBadge(38 + mw + 34 + Math.ceil(ctx.measureText(dTxt).width) + 12, 100);
     S.hudBottom = drawOreBar(10, 134, vw - 20 - 46, false);      // 좁은 화면: 왼쪽 줄 아래에 광물 칸 (미니맵은 그 아래로)
     S.bannerY = Math.max(S.hudBottom + 12, vh - 270);              // 좁은 화면: 캐릭터(화면 가운데) 아래 빈 곳, 도움말·슬롯 위
   }

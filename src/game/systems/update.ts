@@ -186,6 +186,7 @@ export function update(dt) {
   if (S.acct) { S.acct.playTime += dt; S.saveT += dt; if (S.saveT >= 15) saveNow(true, true); }   // 15초마다 자동 저장
   if (S.msgT > 0) S.msgT -= dt;
   if (S.bannerT > 0) S.bannerT -= dt;
+  if (S.comboT > 0) { S.comboT -= dt; if (S.comboT <= 0) S.combo = 0; }   // 콤보 시간이 지나면 끊김
   if (S.bannerT <= 0 && bannerQ.length) { S.banner = bannerQ.shift(); S.bannerText = S.banner.title; S.bannerT = BANNER_T; }
   animMiner(dt);
   updateTutorial(dt);

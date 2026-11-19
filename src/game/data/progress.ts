@@ -69,6 +69,7 @@ addQuests("chest", "보물 사냥", [1, 10, 30, 100], ["보물 사냥꾼", "상�
 const questStat = (k) => () => (S.acct ? S.acct.stats[k] || 0 : 0);
 addQuests("trip", "귀환", [5, 25, 100, 300], ["첫 출근", "성실한 광부", "베테랑 운반꾼", "지하 철도왕"], questStat("trips"), "광물 싣고 귀환", [100, 600, 3000, 12000]);
 addQuests("bomb", "폭파", [5, 30, 100, 300], ["불꽃놀이 입문", "폭파 기술자", "발파 전문가", "폭약의 달인"], questStat("bombs"), "다이너마이트 사용", [150, 800, 3000, 10000]);
+addQuests("combo", "콤보", [5, 10, 20], ["손이 빠른 광부", "콤보 장인", "광맥 사냥꾼"], questStat("combo"), "연속 채굴", [200, 1500, 8000]);
 addQuests("order", "의뢰", [1, 10, 40, 120], ["심부름꾼", "믿음직한 광부", "마을의 해결사", "전설의 납품왕"], questStat("orders"), "의뢰 완료", [150, 1200, 6000, 25000]);
 addQuests("close", "아슬아슬", [1, 5, 20], ["간 큰 광부", "벼랑 끝 귀환자", "연료 0의 마술사"], questStat("close"), "연료 10% 미만으로 귀환", [200, 1500, 6000]);
 addQuests("level", "광부 레벨", [5, 10, 20, 30], ["새내기 광부", "든든한 광부", "노련한 광부", "광부 명장"], () => (S.acct ? levelOf(S.acct.xp).lv : 0), "레벨 달성", [300, 1500, 8000, 30000]);
@@ -77,7 +78,7 @@ const QLABEL = {
   depth: (n) => "깊이 " + n + "m 도달", craft: (n) => "장비 " + n + "개 제작", earn: (n) => "누적 수익 $" + n, types: (n) => "광물 " + n + "종 채굴",
   cave: (n) => "동굴 " + n + "개 발견", chest: (n) => "보물 상자 " + n + "개 열기", smelt: (n) => "주괴 " + n + "개 제련", dirt: (n) => "흙 " + n + "개 파기",
   all: (n) => "광물 " + n + "개 채굴", trip: (n) => "광물 싣고 " + n + "번 귀환", bomb: (n) => "다이너마이트 " + n + "번 사용",
-  close: (n) => "연료 10% 미만으로 " + n + "번 귀환", level: (n) => "광부 레벨 " + n + " 달성", order: (n) => "마을 의뢰 " + n + "개 완료",
+  close: (n) => "연료 10% 미만으로 " + n + "번 귀환", level: (n) => "광부 레벨 " + n + " 달성", order: (n) => "마을 의뢰 " + n + "개 완료", combo: (n) => "광물 연속 채굴 콤보 x" + n,
 };
 export function questLabel(q) { const n = q.need.toLocaleString(); return QLABEL[q.group] ? QLABEL[q.group](n) : q.unit + " " + n + "개"; }
 export const QUEST_BY = {}; QUESTS.forEach((q) => { QUEST_BY[q.id] = q; });
@@ -131,9 +132,22 @@ export function checkQuests(quiet) {
   addXP(xp);
   saveNow(false, true);
 }
+// ---- 연속 채굴 콤보: 광물을 COMBO_T 초 안에 이어서 캐면 x2, x3 … · 3부터 보너스 경험치 ----
+export const COMBO_T = 3;
+S.combo = 0; S.comboT = 0;
+export function bumpCombo(id) {
+  S.combo = S.comboT > 0 ? S.combo + 1 : 1; S.comboT = COMBO_T;
+  if (S.combo > (S.acct.stats.combo || 0)) S.acct.stats.combo = S.combo;
+  if (S.combo < 3) return 0;
+  const bonus = Math.max(1, Math.round((XP_ORE[id] || 1) * Math.min(5, S.combo - 2) * 0.5));
+  floaters.push({ x: P.x, y: P.y - 76, text: "콤보 x" + S.combo + "  +" + bonus + " 경험치", color: S.combo >= 10 ? "#ff8ad0" : "#ffd34d", life: 1.1 });
+  if (S.combo % 5 === 0) sfx("ore", { pitch: 1.8 });
+  return bonus;
+}
 export function onMined(id) {                                   // 광물/흙을 하나 캤을 때
   if (!S.acct) return;
   S.acct.stats.mined[id] = (S.acct.stats.mined[id] || 0) + 1;
+  if (ORE_COL[id]) addXP(bumpCombo(id));
   if (S.acct.stats.mined[id] === 1 && ORE_COL[id] && oreIcon[id]) {          // 처음 캔 광물: 도감에 새로 올라감
     pushBanner("새 광물 발견! " + TILE[id].name, "판매가 $" + TILE[id].value + " · 가방 도감에 기록됐어요", oreIcon[id], ORE_COL[id][0]);
     sfx("ore", { pitch: 1.5 });
