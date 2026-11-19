@@ -1101,6 +1101,8 @@ async function login(t, name) {
   ok(t60.ev("caveBack.length === LAYERS.length && caveBack[0].length === 4 && caveTop[0].length === 3 && caveBot.length === 4"), "자연 동굴 뒷벽 · 고드름 돌 · 바닥 장식 그림 자리");
   ok(t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('tiles/cave/')).length") === 8 * 4 + 8 * 3 + 4, "자연 동굴 그림 60장");
   ok(Object.keys(man.files).filter((k) => k.startsWith("tiles/cave/")).length === 60, "자연 동굴 그림이 그림 목록(manifest)에 있음");
+  ok(t60.ev("dirtOver.length === LAYERS.length && dirtOver[0].length === DIRT_OVER && treeImgs.length === 3"), "흙 위 자갈 덮개 · 지상 나무 그림 자리");
+  ok(Object.keys(man.files).filter((k) => /^tiles\/dirt\/over_/.test(k)).length === 8 * 6 && Object.keys(man.files).filter((k) => /^tiles\/tree_/.test(k)).length === 3, "자갈 덮개 48장 · 나무 3장이 그림 목록에 있음");
   // ---- 로봇(캐릭터) 종류 ----
   ok(t60.ev("CHAR_INFO.length === CHAR_IDS.length && CHAR_INFO.every((c, i) => c.id === CHAR_IDS[i])"), "캐릭터 목록이 그림 목록과 같은 순서");
   ok(t60.ev("Object.keys(assetTable()).filter((k) => /^miner\\/\\w+\\//.test(k)).length") === (6 - 1) * 12, "다른 캐릭터마다 부품 12개 그림 자리");

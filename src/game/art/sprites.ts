@@ -69,6 +69,12 @@ export const backTiles = LAYERS.map((L, li) => Array.from({ length: 4 }, () => s
 export const caveBack = LAYERS.map((L, li) => [0, 1, 2, 3].map((v) => sprite(16, 16, (p, g) => { g.drawImage(backTiles[li][v], 0, 0); p(0, 0, 16, 16, "rgba(12,20,44,0.35)"); })));
 export const caveTop = LAYERS.map(() => [0, 1, 2].map(() => sprite(1, 1, () => {})));
 export const caveBot = [0, 1, 2, 3].map(() => sprite(1, 1, () => {}));
+// 흙 위에 칸마다 골라 얹는 자갈·반짝이·뼈·뿌리 (지층마다 6종, 고해상도 tiles/dirt/over_<지층>_<v>.png 만)
+//  4x4 이어지는 흙 무늬가 되풀이돼 보이지 않게 칸마다 다르게 얹음
+export const DIRT_OVER = 6;
+export const dirtOver = LAYERS.map(() => Array.from({ length: DIRT_OVER }, () => sprite(1, 1, () => {})));
+// 지상 나무 3종 (광산 터 땅 위, 64x128 · 아래 끝 = 땅). 고해상도 tiles/tree_<v>.png 만 (없으면 안 그림)
+export const treeImgs = [0, 1, 2].map(() => sprite(1, 1, () => {}));
 
 // 광물 가장자리에 어두운 테두리를 둘러 흙 위에서 또렷하게
 export function rimmed(src) {

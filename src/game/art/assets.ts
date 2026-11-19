@@ -6,7 +6,7 @@
 //  - 그림을 바꾸려면: PNG를 수정해서 같은 경로에 덮어쓰기 → 새로고침. 크기는 원래와 달라도 됩니다.
 //  - 새 PNG를 추가했다면 manifest.json 에도 경로를 넣어 주세요 (npm run assets:manifest).
 // =====================================================================
-import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg, MINER_HI, MINER_CH, minerCache, chestTile, caveBack, caveTop, caveBot } from "./sprites.ts";
+import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg, MINER_HI, MINER_CH, minerCache, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver } from "./sprites.ts";
 import { ITEM_ICON } from "./itemIcons.ts";
 import { SIGN_IMG, TAB_IMG, plinthTop, plinthLow } from "./buildings.ts";
 import { barIcon, furnaceImg } from "../systems/furnace.ts";
@@ -27,6 +27,8 @@ export function assetTable() {
   caveBack.forEach((arr, L) => arr.forEach((_, v) => { t["tiles/cave/back_" + L + "_" + v + ".png"] = () => caveBack[L][v]; }));
   caveTop.forEach((arr, L) => arr.forEach((_, v) => { t["tiles/cave/top_" + L + "_" + v + ".png"] = () => caveTop[L][v]; }));
   caveBot.forEach((_, i) => { t["tiles/cave/bot_" + i + ".png"] = () => caveBot[i]; });
+  treeImgs.forEach((_, i) => { t["tiles/tree_" + i + ".png"] = () => treeImgs[i]; });
+  dirtOver.forEach((arr, L) => arr.forEach((_, v) => { t["tiles/dirt/over_" + L + "_" + v + ".png"] = () => dirtOver[L][v]; }));
   grassTiles.forEach((_, i) => { t["tiles/grass_" + i + ".png"] = () => grassTiles[i]; });
   decoTiles.forEach((_, i) => { t["tiles/deco_" + i + ".png"] = () => decoTiles[i]; });
   hardTiles.forEach((_, i) => { t["tiles/hard_" + i + ".png"] = () => hardTiles[i]; });

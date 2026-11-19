@@ -175,6 +175,8 @@ if __name__ == "__main__":
     for li, Lc in enumerate(LAYERS):
         for v, im in enumerate(mapart.dirt_tiles(li, Lc["base"], Lc["peb"])):    # 4x4칸 이어지는 무늬 16조각
             save(im, f"{A}/tiles/dirt/{li}_{v}.png"); n += 1
+        for v in range(mapart.DIRT_OVER):                                         # 칸마다 골라 얹는 자갈·반짝이
+            save(mapart.dirt_over(li, v, Lc["base"], Lc["peb"]), f"{A}/tiles/dirt/over_{li}_{v}.png"); n += 1
         for v in range(4):
             save(mapart.back_tile(li, v, Lc["base"], Lc["peb"]), f"{A}/tiles/back/{li}_{v}.png"); n += 1
         for v in range(4):                                                       # 자연 동굴 뒷벽 · 천장 고드름 돌
@@ -188,6 +190,7 @@ if __name__ == "__main__":
     for i in range(3): save(mapart.crack_img(i), f"{A}/tiles/crack_{i}.png")
     for i, im in enumerate(mapart.tuft_tiles()): save(im, f"{A}/tiles/deco_{i}.png")
     for i, im in enumerate(mapart.cave_bot_tiles()): save(im, f"{A}/tiles/cave/bot_{i}.png")
+    for i in range(3): save(mapart.tree_img(i), f"{A}/tiles/tree_{i}.png")
     n += 12
     for id_ in ORE_COL:
         for v in range(4): save(mapart.ore_tile(id_, v), f"{A}/ores/world/{id_}_{v}.png")

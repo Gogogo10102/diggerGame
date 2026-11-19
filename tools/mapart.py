@@ -82,28 +82,32 @@ def dirt_sheet(li, base, peb):
     g = np.where(edge < 1.6, 0, g)                                              # 덩이 사이 틈
     pal = np.array([lr["d2"], lr["d1"], lr["m"], lr["l1"], lr["l2"]])
     img = pal[g].astype(float)
-    r = np.random.default_rng(1200 + li)
-    for _ in range(9):                                        # 자갈 (외곽선 있는 작은 돌)
-        x, y = r.uniform(0, n), r.uniform(0, n); p = disk(n, x, y, r.uniform(1.8, 3.2), r.uniform(1.5, 2.6))
-        yy = np.mgrid[0:n, 0:n][0] + 0.5; below = ((yy - y + n / 2) % n - n / 2) > 0
-        img[p] = lr["peb"]; img[p & below] = lr["peb"] * .78; img[ring(p)] = OL
-    if li in SPECK:                                           # 깊은 지층의 반짝이 (2x2 + 외곽선)
-        a, b = hx(SPECK[li][0]), hx(SPECK[li][1])
-        for _ in range(14):
-            x, y = int(r.uniform(0, n - 3)), int(r.uniform(0, n - 3))
-            m = np.zeros((n, n), bool); m[y:y + 2, x:x + 2] = True
-            img[ring(m)] = OL * 0 + pal[0]; img[m] = a; img[y, x] = b
-    if li == 6:                                               # 고대 화석층: 뼈 조각
-        for _ in range(4):
-            x, y = int(r.uniform(4, n - 16)), int(r.uniform(4, n - 8))
-            m = np.zeros((n, n), bool); m[y:y + 2, x + 1:x + 9] = True; m[y - 1:y + 3, x:x + 2] = True; m[y - 1:y + 3, x + 8:x + 10] = True
-            img[ring(m)] = OL; img[m] = hx("#efe4c8"); img[y + 1, x + 2:x + 8] = hx("#b8aa88")
-    if li == 0:                                               # 흙층: 가는 뿌리
-        for _ in range(5):
-            x, y = r.uniform(0, n), r.uniform(0, n)
-            for k in range(int(r.uniform(6, 12))):
-                img[int(y) % n, int(x) % n] = hx("#a07a48"); x += r.uniform(-0.9, 0.9); y += 1
     return img
+
+DIRT_OVER = 6
+def dirt_over(li, v, base, peb):
+    """흙 위에 칸마다 골라 얹는 자갈·반짝이·뼈·뿌리 (투명 바탕, 칸 안에서만) → 4x4 무늬가 되풀이돼 보이지 않게"""
+    n = TS; lr = lramp(base, peb); img = np.zeros((n, n, 4)); r = np.random.default_rng(1200 + li * 17 + v)
+    yy = np.mgrid[0:n, 0:n][0] + 0.5
+    for _ in range(1 + (v % 3 == 0)):                        # 자갈 (외곽선 있는 작은 돌)
+        x, y = r.uniform(6, n - 6), r.uniform(6, n - 6); p = disk(n, x, y, r.uniform(1.8, 3.2), r.uniform(1.5, 2.6), wrap=False)
+        img[ring(p, wrap=False)] = [*OL, 255]; img[p] = [*lr["peb"], 255]; img[p & (yy > y)] = [*(lr["peb"] * .78), 255]
+    if li in SPECK and v % 2 == 0:                            # 깊은 지층의 반짝이 (2x2 + 테)
+        a, b = hx(SPECK[li][0]), hx(SPECK[li][1])
+        for _ in range(2):
+            x, y = int(r.uniform(3, n - 5)), int(r.uniform(3, n - 5))
+            m = np.zeros((n, n), bool); m[y:y + 2, x:x + 2] = True
+            img[ring(m, wrap=False)] = [*lr["d2"], 255]; img[m] = [*a, 255]; img[y, x] = [*b, 255]
+    if li == 6 and v in (1, 4):                               # 고대 화석층: 뼈 조각
+        x, y = int(r.uniform(4, n - 14)), int(r.uniform(5, n - 8))
+        m = np.zeros((n, n), bool); m[y:y + 2, x + 1:x + 9] = True; m[y - 1:y + 3, x:x + 2] = True; m[y - 1:y + 3, x + 8:x + 10] = True
+        img[ring(m, wrap=False)] = [*OL, 255]; img[m] = [*hx("#efe4c8"), 255]; img[y + 1, x + 2:x + 8] = [*hx("#b8aa88"), 255]
+    if li == 0 and v in (2, 5):                               # 흙층: 가는 뿌리
+        x, y = r.uniform(6, n - 6), r.uniform(1, 10)
+        for k in range(int(r.uniform(8, 14))):
+            if 0 <= int(y) < n and 0 <= int(x) < n: img[int(y), int(x)] = [*hx("#a07a48"), 255]
+            x += r.uniform(-0.9, 0.9); y += 1
+    return up2(img)
 
 def dirt_tiles(li, base, peb):
     """16조각 (번호 = cx + cy*4), 각각 64x64 RGB"""
@@ -371,4 +375,40 @@ def crack_img(stage):
                 if 0 <= xi < n - 1 and 0 <= yi < n - 1:
                     img[yi, xi] = [*OL, 255]; img[yi, xi + 1] = [*OL, 255]           # 2칸 굵기 (흙 무늬 위에서도 또렷하게)
                     if xi + 2 < n and img[yi, xi + 2, 3] == 0: img[yi, xi + 2] = [255, 236, 200, 90]
+    return up2(img)
+
+# ---------------------------------------------------------------------
+#  지상 나무 (광산 터 땅 위, 64x128 = 도트 32x64 × 2). 아래 끝 = 땅
+# ---------------------------------------------------------------------
+def tree_img(v):
+    W, H = 32, 64; img = np.zeros((H, W, 4)); yy, xx = np.mgrid[0:H, 0:W] + 0.5
+    r = np.random.default_rng(1700 + v)
+    trunk = (np.abs(xx - 16) < 2.6) & (yy > 30) | (np.abs(xx - 16) < 4) & (yy > 61)   # 줄기 + 땅에 닿는 뿌리
+    leaf = np.zeros((H, W), bool); blobs = []
+    if v == 2:                                               # 뾰족한 침엽수
+        tri = np.zeros((H, W), bool)
+        for (yt, yb, wdt) in ((12, 30, 8), (21, 42, 11), (32, 54, 14)):
+            t = (yy >= yt) & (yy <= yb) & (np.abs(xx - 16) <= (yy - yt) / (yb - yt) * wdt + 1)
+            tri |= t; blobs.append(t)
+        leaf = tri
+    else:
+        cs = [(16, 30, 11, 9), (9, 37, 7.5, 6.5), (23, 37, 7.5, 6.5), (16, 41, 10, 6)] if v == 0 else [(16, 34, 10, 10), (10, 42, 7, 6), (22, 43, 7, 6)]
+        for (cx, cy, rx, ry) in cs:
+            m = ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 <= 1; leaf |= m; blobs.append(m)
+    trunk &= ~leaf
+    img[ring(trunk | leaf, wrap=False)] = [*OL, 255]
+    img[trunk] = [*hx("#8a5428"), 255]; img[trunk & (xx < 15)] = [*hx("#b47a3e"), 255]; img[trunk & (xx > 17.4)] = [*hx("#5a3418"), 255]
+    G = [hx("#1e6a24"), hx("#2e8a2a"), hx("#4cc43a"), hx("#86e64a")] if v != 2 else [hx("#0e4a2a"), hx("#1a6a3a"), hx("#2e9a4e"), hx("#5ac46a")]
+    for m in blobs:                                          # 덩이마다 위왼 밝게 · 아래 어둡게 + 덩이 사이 선
+        ys, xs = np.nonzero(m)
+        cy, cx = ys.mean(), xs.mean(); ry = max(1, ys.max() - ys.min()) / 2; rx = max(1, xs.max() - xs.min()) / 2
+        s = (xx - cx) / rx * .6 + (yy - cy) / ry
+        img[ring(m, wrap=False) & leaf] = [*G[0], 255]
+        img[m] = [*G[1], 255]; img[m & (s < .1)] = [*G[2], 255]; img[m & (s < -.65)] = [*G[3], 255]
+    for _ in range(5 if v != 2 else 0):                      # 잎 반짝 점
+        x, y = int(r.uniform(6, 26)), int(r.uniform(24, 42))
+        if leaf[y, x]: img[y, x] = [*hx("#c4ff7a"), 255]
+    if v == 1:                                               # 빨간 열매
+        for (x, y) in ((11, 36), (20, 31), (22, 42), (14, 44)):
+            img[y:y + 2, x:x + 2] = [*hx("#ff4a5a"), 255]; img[y, x] = [*hx("#ffc0c8"), 255]
     return up2(img)

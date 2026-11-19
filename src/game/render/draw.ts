@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -199,12 +199,12 @@ export function draw() {
   const sunY = 70 + Math.round(-camY * 0.1);
   if (sunY + 64 < surfY) ctx.drawImage(sunImg, vw - 160, sunY, 64, 64);
   if (surfY > 0) {                                               // 먼 산과 언덕(시차 스크롤)
-    for (const m of [{ k: 0.08, col: "#a9cfe9", h: 78, f: 0.011, a: 1 }, { k: 0.18, col: "#86b9a4", h: 46, f: 0.018, a: 2.3 }]) {
-      ctx.fillStyle = m.col;
+    for (const m of [{ k: 0.08, col: "#a9cfe9", top: "#7aa8d0", h: 78, f: 0.011, a: 1 }, { k: 0.18, col: "#86b9a4", top: "#5a8a74", h: 46, f: 0.018, a: 2.3 }]) {
       for (let x = 0; x < vw; x += 4) {
         const wx = x + camX * m.k;
-        const h = Math.round(m.h * (0.55 + 0.25 * Math.sin(wx * m.f + m.a) + 0.2 * Math.sin(wx * m.f * 2.7 + m.a * 1.9)) / 2) * 2;
-        ctx.fillRect(x, surfY - h, 4, h);
+        const h = Math.round(m.h * (0.55 + 0.25 * Math.sin(wx * m.f + m.a) + 0.2 * Math.sin(wx * m.f * 2.7 + m.a * 1.9)) / 4) * 4;
+        ctx.fillStyle = m.col; ctx.fillRect(x, surfY - h, 4, h);
+        ctx.fillStyle = m.top; ctx.fillRect(x, surfY - h, 4, 4);                    // 능선 윤곽 (맵 스타일: 굵은 테)
       }
     }
   }
@@ -227,7 +227,10 @@ export function draw() {
     else if (id === 16) ctx.drawImage(hardTiles[(c * 7 + r * 13) & 1], px, py, T, T);
     else if (id === 13 && r === SURF && BUILD_COLS.some((b) => c >= b[0] && c <= b[1])) ctx.drawImage(plinthTop, px, py, T, T);   // 건물 바로 아래 한 줄만 돌 기단 (그 아래는 흙처럼)
     else {                                                         // 건물 사이 마을 땅(13)은 잔디 흙처럼 보이게
-      ctx.drawImage(dirtTiles[layerOf(r - SURF)][((c & 3) | ((r & 3) << 2)) % DIRT_VAR], px, py, T, T);   // 4x4칸마다 무늬가 이어짐
+      const Ld = layerOf(r - SURF);
+      ctx.drawImage(dirtTiles[Ld][((c & 3) | ((r & 3) << 2)) % DIRT_VAR], px, py, T, T);   // 4x4칸마다 무늬가 이어짐
+      const hd = hv(c, r);
+      if ((hd >>> 4) % 5 < 2) { const ov = dirtOver[Ld][(hd >>> 9) % DIRT_OVER]; if (ov.width > 1) ctx.drawImage(ov, px, py, T, T); }   // 칸마다 자갈 등 (5칸에 2칸)
       if (id === 17) {                                             // 보물 상자: 흙 위에 상자, 금테가 가끔 반짝
         ctx.drawImage(chestTile, px, py, T, T);
         const k = (S.animT * 1.2 + (c * 3 + r * 7) * 0.31) % 2.4;
@@ -274,8 +277,9 @@ export function draw() {
           // 천장 쪽은 살짝 어둡게 (굴 벽 모양은 흙 칸 쪽에서 깎아서 그림 → softEdge)
           if (r > SURF && solidTile(tiles[(r - 1) * W + c])) { ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fillRect(px, py, T, 12); }
         } else if (r === SURF - 1 && id === 0 && tiles[SURF * W + c] !== 13 && solidTile(tiles[SURF * W + c])) {
-          const dc = decoFor(c);
-          if (dc) ctx.drawImage(dc, px, py, T, T);
+          const tr = c >= MINE_COL + 3 && hv(c, 101) % 9 === 0 ? treeImgs[hv(c, 103) % 3] : null;   // 광산 터에 드문드문 나무
+          if (tr && tr.width > 1) ctx.drawImage(tr, px + Math.floor((T - tr.width) / 2), py + T - tr.height);
+          else { const dc = decoFor(c); if (dc) ctx.drawImage(dc, px, py, T, T); }
         }
         if (id > 0) ctx.drawImage(id === 14 ? ICON.sup_w : ICON.sup_s, px, py, T, T);
         continue;
