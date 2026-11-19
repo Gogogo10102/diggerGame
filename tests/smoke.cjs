@@ -1022,6 +1022,14 @@ async function login(t, name) {
   ok(t60.ev("windowMask(null)") === null && t60.ev("windowMask(sprite(16, 16, () => {}))") === null, "창문 불빛: 작은(도트 원본) 그림이면 만들지 않음");
   t60.ev("P.x = (BUILD_COLS[B_SHOP][0] + 1.5) * T; P.y = (SURF - 1) * T + HH; P.vx = P.vy = 0"); t60.run(3);
   ok(t60.ev("S.nearItems") === true, "(마을 화살표 확인) 상점 앞");
+  // ---- 좁은 화면 겹침 점검 ----
+  {
+    const tp = boot(path, { w: 360, h: 740, touch: true }); tp.run(5); await login(tp, "Narrow"); tp.run(10);
+    tp.ev("pushBanner('알림 시험', '둘째 줄')"); tp.run(30);
+    const mb = tp.ev("S.miniBtn"), by = tp.ev("S.bannerY");
+    ok(!mb || by >= mb.y + mb.h, "좁은 화면: 알림 띠가 미니맵과 겹치지 않음");
+    ok(by > 740 / 2, "좁은 화면: 알림 띠는 캐릭터(화면 가운데) 아래");
+  }
   // ---- 지하 조명 ----
   ok(t60.ev("DARK_COL.length === LAYERS.length && DARK_COL[4][0] > DARK_COL[4][2] && DARK_COL[5][2] > DARK_COL[5][0]"), "어둠 색이 지층마다 다름 (용암 붉게 · 수정 푸르게)");
   t60.ev("P.x = 30.5 * T; P.y = (SURF + 40.5) * T; ensureAround(30, SURF + 40); tiles[(SURF + 40) * W + 31] = 5; seen[(SURF + 40) * W + 31] = 1; tiles[(SURF + 40) * W + 29] = 9; seen[(SURF + 40) * W + 29] = 0"); t60.run(2);

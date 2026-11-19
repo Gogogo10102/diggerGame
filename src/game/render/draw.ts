@@ -728,7 +728,7 @@ export function drawHUD(vw, vh, depth) {
     setFont(16); const mw = Math.ceil(ctx.measureText(mTxt).width);
     blit(ICON.depth, 38 + mw + 14, 106, 16, 16); txt(dTxt, 38 + mw + 34, 106, "#9fd8ff", 16, "left", SY.ink);
     S.hudBottom = drawOreBar(10, 134, vw - 20 - 46, false);      // 좁은 화면: 왼쪽 줄 아래에 광물 칸 (미니맵은 그 아래로)
-    S.bannerY = Math.max(S.hudBottom + 12, Math.floor(vh * 0.36));  // 좁은 화면: 미니맵 아래, 캐릭터 위
+    S.bannerY = Math.max(S.hudBottom + 12, vh - 270);              // 좁은 화면: 캐릭터(화면 가운데) 아래 빈 곳, 도움말·슬롯 위
   }
 
   // 오른쪽 위: 가방(초록) · 업적(파랑) · 메뉴(주황) 사각 버튼 + 그 아래 미니맵 · 깊이 미터
@@ -772,7 +772,9 @@ export function drawHUD(vw, vh, depth) {
     const ic = b.icon ? 56 : 0, h = b.sub ? 64 : 48;
     const w = Math.min(vw - 24, Math.max(260, Math.ceil(Math.max(tw, sw)) + ic + 40));
     const x = Math.floor((vw - w) / 2);
-    const top = S.bannerY || 64;
+    let top = S.bannerY || 64;
+    // 겹침 피하기: 미니맵(좁은 화면은 왼쪽 아래로 내려옴)·처음 안내 카드와 가로로 겹치면 그 아래로
+    for (const r of [S.miniBtn, S.tutCard]) if (r && x < r.x + r.w && x + w > r.x && top < r.y + r.h + 22) top = r.y + r.h + 22;
     const k = Math.min(1, S.bannerT * 4, (BANNER_T - S.bannerT) * 4), e = 1 - (1 - k) * (1 - k);   // 들어올 때·나갈 때 부드럽게
     const y = Math.round(top - (1 - e) * (h + top));
     ctx.globalAlpha = Math.min(1, k * 1.5);
@@ -795,11 +797,15 @@ export function drawHUD(vw, vh, depth) {
   // 아이템 상점 열기 버튼 (상점 건물 안에 있을 때만)
   S.promptBtn = null;
   const helpOn = S.showHelp && S.state === "play" && (S.helpPinned || S.playT < 30);
-  const helpStr = S.usedTouch
+  let helpStr = S.usedTouch
     ? "드래그로 조작 · 아래 슬롯: 소모품 · 오른쪽 위: 가방/업적/메뉴"
     : "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-6 소모품 · I 가방 · Q 업적 · M 지도 · Z 확대 · H 도움말";
   setFont(12);
-  const helpW = Math.ceil(ctx.measureText(helpStr).width) + 32;
+  let helpW = Math.ceil(ctx.measureText(helpStr).width) + 32;
+  if (helpW > vw - 24) {                                          // 좁은 화면: 짧은 문구로 (예전엔 화면 밖으로 잘렸음)
+    helpStr = S.usedTouch ? "드래그 조작 · 아래 슬롯: 소모품" : "←→ 이동 · ↑ 추진 · ↓ 파기 · H 도움말";
+    helpW = Math.min(vw - 24, Math.ceil(ctx.measureText(helpStr).width) + 32);
+  }
   const helpUp = helpOn && 12 + helpW > S.hotLeft - 8;      // 슬롯과 겹치면 도움말을 슬롯 위로 올리고, 안내창도 같이 올림
   const helpLift = helpUp ? 44 : 0;
   if ((S.nearItems || S.nearCraft || S.nearFurnace) && S.state === "play" && P.dead <= 0) {

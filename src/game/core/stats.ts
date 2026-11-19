@@ -99,7 +99,7 @@ export function spawn(x, y, vx, vy, life, color, size, g) {
 //   아래를 파면 위로 튀고, 옆을 파면 반대쪽(플레이어 쪽)으로, 위를 파면 아래로 쏟아짐
 export function chips(c, r, id, n, power, dir) {
   const L = LAYERS[layerOf(r - SURF)];
-  const cols = id >= 12 ? ["#8a90a0", "#5b606e", "#b0b6c6"] : id > 1 ? [ORE_COL[id][1], L.base, ORE_COL[id][0]] : [L.base, L.hi, L.lo];
+  const cols = id === 17 ? ["#8a5a30", "#b07a44", "#ffcc33"] : id >= 12 ? ["#8a90a0", "#5b606e", "#b0b6c6"] : id > 1 ? [ORE_COL[id][1], L.base, ORE_COL[id][0]] : [L.base, L.hi, L.lo];   // 17 보물 상자 = 나무·금 조각
   const d = dir || "down", k = PX * power, rnd = Math.random;
   for (let i = 0; i < n; i++) {
     let x, y, vx, vy;
