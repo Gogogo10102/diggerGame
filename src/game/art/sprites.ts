@@ -25,7 +25,7 @@ export function sprite(w, h, fn) {
 export const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 export const mixC = (a, b, t) => { const A = hexRgb(a), B = hexRgb(b); return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
 export const hv = (c, r) => (Math.imul(c + 11, 73856093) ^ Math.imul(r + 7, 19349663)) >>> 0;
-// 흙 타일 (지층별 8종 변형, 이음매가 보이지 않게 가장자리를 감싸서 그림)
+// 흙 타일 (지층별 16조각: 4x4칸이 이어지는 무늬. 고해상도는 tools/mapart.py)
 export const DIRT_VAR = 16;                       // 흙 무늬는 4x4칸이 이어지는 한 장 (번호 = (c&3) + (r&3)*4)
 // 깊은 지층(5번째부터)은 따로 쓰는 난수로 그림 → 기존 지층·광물 그림의 모양(난수 순서)이 바뀌지 않음
 export const artDeep = mulberry32(4242);
@@ -64,6 +64,11 @@ export const backTiles = LAYERS.map((L, li) => Array.from({ length: 4 }, () => s
   for (let i = 0; i < 22; i++) w(rn(16), rn(16), 1, 1, art() < 0.5 ? a : b);
   for (let i = 0; i < 3; i++) { const x = rn(16), y = rn(16); w(x, y, 3, 2, a); w(x, y + 2, 3, 1, b); }
 })));
+// 자연 동굴: 뒷벽(판 굴보다 어둡고 푸르스름) · 천장 고드름 돌(지층마다 3) · 바닥 장식 4종(빛버섯·버섯·수정·돌무더기)
+//  고해상도 그림 tiles/cave/*.png (tools/mapart.py). 파일이 없으면 뒷벽은 판 굴 뒷벽을 어둡게, 장식은 안 그림(1x1)
+export const caveBack = LAYERS.map((L, li) => [0, 1, 2, 3].map((v) => sprite(16, 16, (p, g) => { g.drawImage(backTiles[li][v], 0, 0); p(0, 0, 16, 16, "rgba(12,20,44,0.35)"); })));
+export const caveTop = LAYERS.map(() => [0, 1, 2].map(() => sprite(1, 1, () => {})));
+export const caveBot = [0, 1, 2, 3].map(() => sprite(1, 1, () => {}));
 
 // 광물 가장자리에 어두운 테두리를 둘러 흙 위에서 또렷하게
 export function rimmed(src) {

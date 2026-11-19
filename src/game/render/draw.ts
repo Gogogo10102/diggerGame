@@ -2,12 +2,12 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
-import { ensureRect, hardOf, isAir, seen, tiles } from "../core/world.ts";
+import { baseTiles, ensureRect, hardOf, isAir, natAir, seen, tiles } from "../core/world.ts";
 import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
@@ -138,7 +138,8 @@ function softEdge(c, r, px, py, id) {
   ctx.save();
   ctx.translate(px, py);
   ctx.save(); ctx.clip(e.cut);
-  ctx.drawImage(backTiles[layerOf(r - SURF)][(c * 5 + r * 3) & 3], 0, 0, T, T);
+  const natN = ((bits & 1) && natAir((r - 1) * W + c)) || ((bits & 2) && natAir((r + 1) * W + c)) || ((bits & 4) && natAir(r * W + c - 1)) || ((bits & 8) && natAir(r * W + c + 1));
+  ctx.drawImage((natN ? caveBack : backTiles)[layerOf(r - SURF)][(c * 5 + r * 3) & 3], 0, 0, T, T);   // 자연 동굴 쪽은 동굴 뒷벽
   ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(0, 0, T, T);   // 깎인 자리는 굴 안쪽이라 살짝 어둡게
   ctx.restore();
   ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.fill(e.shade);
@@ -253,7 +254,15 @@ export function draw() {
       let px = c * T - camX, py = r * T - camY;
       if (id === 0 || id === 14 || id === 15) {
         if (r >= SURF) {
-          ctx.drawImage(backTiles[layerOf(r - SURF)][(c * 5 + r * 3) & 3], px, py, T, T);
+          const L = layerOf(r - SURF), nat = id === 0 && r > SURF && baseTiles[r * W + c] === 0;   // 처음부터 빈 칸 = 자연 동굴
+          ctx.drawImage((nat ? caveBack : backTiles)[L][(c * 5 + r * 3) & 3], px, py, T, T);
+          if (nat) {                                              // 동굴 장식: 천장 고드름 돌 · 바닥 버섯/수정/돌 (칸마다 정해진 모양)
+            const h = hv(c, r + 7);
+            const ct = caveTop[L][(h >>> 3) % 3];
+            if ((h & 3) < 2 && ct.width > 1 && solidTile(tiles[(r - 1) * W + c])) ctx.drawImage(ct, px, py, T, T);
+            const cb = caveBot[(h >> 6) & 3];
+            if (((h >> 9) & 3) === 0 && cb.width > 1 && solidTile(tiles[(r + 1) * W + c])) ctx.drawImage(cb, px, py, T, T);
+          }
           if (r - SURF < 4) { ctx.fillStyle = "rgba(176,132,96," + [0.34, 0.22, 0.12, 0.05][r - SURF] + ")"; ctx.fillRect(px, py, T, T); }
           if (r === SURF) {                                      // 굴 너머 뒤편 잔디(앞쪽 잔디보다 한 톤 어둡게)
             ctx.fillStyle = "#3a6b2e"; ctx.fillRect(px, py, T, 4);

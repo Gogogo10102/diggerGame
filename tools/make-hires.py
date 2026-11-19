@@ -263,12 +263,17 @@ if __name__ == "__main__":
             save(im, f"{A}/tiles/dirt/{li}_{v}.png"); n += 1
         for v in range(4):
             save(mapart.back_tile(li, v, Lc["base"], Lc["peb"]), f"{A}/tiles/back/{li}_{v}.png"); n += 1
+        for v in range(4):                                                       # 자연 동굴 뒷벽 · 천장 고드름 돌
+            save(mapart.cave_back_tile(li, v, Lc["base"], Lc["peb"]), f"{A}/tiles/cave/back_{li}_{v}.png"); n += 1
+        for v in range(3):
+            save(mapart.cave_top_tile(li, v, Lc["base"], Lc["peb"]), f"{A}/tiles/cave/top_{li}_{v}.png"); n += 1
     for v in range(2):
         save(stone_tile(v), f"{A}/tiles/stone_{v}.png"); save(hard_tile(v), f"{A}/tiles/hard_{v}.png")
         save(mapart.grass_tile(v), f"{A}/tiles/grass_{v}.png"); n += 3
     save(bedrock_tile(), f"{A}/tiles/bedrock.png"); save(plinth(1), f"{A}/tiles/plinth_top.png"); save(plinth(0), f"{A}/tiles/plinth_low.png")
     for i in range(3): save(crack_img(i), f"{A}/tiles/crack_{i}.png")
     for i, im in enumerate(mapart.tuft_tiles()): save(im, f"{A}/tiles/deco_{i}.png")
+    for i, im in enumerate(mapart.cave_bot_tiles()): save(im, f"{A}/tiles/cave/bot_{i}.png")
     n += 12
     for id_ in ORE_COL:
         for v in range(4): save(mapart.ore_tile(id_, v), f"{A}/ores/world/{id_}_{v}.png")

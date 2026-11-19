@@ -226,3 +226,79 @@ def cloud_img():
     img = np.zeros((H, W, 4)); img[ring(cl, wrap=False)] = [*hx("#5a8ac8"), 255]
     img[cl] = [255, 255, 255, 255]; img[cl & (yy > 11)] = [*hx("#d8ecff"), 255]
     return up2(img)
+
+# ---------------------------------------------------------------------
+#  자연 동굴: 뒷벽(판 굴보다 차갑고 바위 결) · 천장 고드름 돌 · 바닥 장식(버섯·수정·돌무더기)
+# ---------------------------------------------------------------------
+def cave_back_tile(li, v, base, peb):
+    lr = lramp(base, peb)
+    b = sat(lr["d1"] * .55, 0.8) * np.array([.86, .92, 1.16])     # 판 굴보다 어둡고 푸르스름
+    n = TS
+    idx, edge, ux, uy = pvoronoi(n, 4, 6100 + li * 7 + v)        # 큰 바위 결 (칸 안에서 이어짐)
+    tone = np.random.default_rng(6200 + li * 7 + v).integers(0, 3, idx.max() + 1)[idx]
+    k = np.choose(tone, [0.9, 1.0, 1.1])
+    img = b[None, None, :] * k[..., None]
+    img = np.where(((ux + uy) < -.45)[..., None], img * 1.12, img)
+    img = np.where((edge < 1.2)[..., None], b * .62, img)
+    return up2(np.clip(img, 0, 255))
+
+def cave_top_tile(li, v, base, peb):
+    """천장에서 내려온 고드름 돌 (칸 위쪽에 붙음, 나머지는 투명)"""
+    lr = lramp(base, peb); n = TS; img = np.zeros((n, n, 4))
+    r = np.random.default_rng(6400 + li * 5 + v); m = np.zeros((n, n), bool); sh = np.zeros((n, n), int)
+    yy, xx = np.mgrid[0:n, 0:n] + 0.5
+    for _ in range(2 + v % 2):
+        x = r.uniform(5, 27); L = r.uniform(7, 15); w = r.uniform(2.6, 4.2)
+        p = _poly(n, [(x - w, -1), (x + w, -1), (x + r.uniform(-.8, .8), L)])
+        m |= p; sh = np.where(p & (xx < x - w * .2), 1, np.where(p & (xx > x + w * .35), 2, np.where(p, sh, sh)))
+    img[ring(m, wrap=False) & (yy > 0.5)] = [*OL, 255]
+    img[m] = [*lr["m"], 255]; img[m & (sh == 1)] = [*lr["l1"], 255]; img[m & (sh == 2)] = [*lr["d1"], 255]
+    img[m & (yy < 2)] = [*lr["d1"], 255]
+    return up2(img)
+
+def cave_bot_tiles():
+    """동굴 바닥 장식 4종 (칸 아래쪽에 붙음): 푸른 빛버섯 · 빨간 버섯 · 수정 · 돌무더기"""
+    n = TS; out = []; yy, xx = np.mgrid[0:n, 0:n] + 0.5
+    def cap(cx, cy, rx, ry, cols, stemc):
+        img_m = (((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 <= 1) & (yy <= cy + ry * .25)
+        st = (np.abs(xx - cx) < rx * .32) & (yy > cy) & (yy < n)
+        return img_m, st
+    # 0, 1: 버섯 둘
+    for cols, glow in ((["#1a4a8a", "#3a8aff", "#9ad8ff", "#e8f8ff"], True), (["#7a1a1a", "#d83a3a", "#ff8a7a", "#fff0e8"], False)):
+        img = np.zeros((n, n, 4)); allm = np.zeros((n, n), bool)
+        parts = []
+        for (cx, cy, rx, ry) in ((12, 22, 7, 5), (22, 25, 4.5, 3.4)):
+            cm, st = cap(cx, cy, rx, ry, cols, None); parts.append((cm, st, cx, cy, rx, ry)); allm |= cm | st
+        if glow:
+            g = np.clip(1 - np.hypot(xx - 14, yy - 22) / 14, 0, 1)
+            img[..., :3] = hx(cols[2]); img[..., 3] = (g * 70).astype(int)
+        img[ring(allm, wrap=False) & (yy < n - .5)] = [*OL, 255]
+        for (cm, st, cx, cy, rx, ry) in parts:
+            img[st] = [*hx("#e8dcc4"), 255]; img[st & (xx > cx + rx * .1)] = [*hx("#b8a888"), 255]
+            img[cm] = [*hx(cols[1]), 255]; img[cm & (yy > cy - ry * .1)] = [*hx(cols[0]), 255]
+            img[cm & (((xx - cx + rx * .35) / (rx * .35)) ** 2 + ((yy - cy + ry * .45) / (ry * .3)) ** 2 <= 1)] = [*hx(cols[2]), 255]
+            for (dx, dy) in ((-.3, -.5), (.35, -.35)):
+                img[(np.abs(xx - (cx + rx * dx)) < 1) & (np.abs(yy - (cy + ry * dy)) < .8) & cm] = [*hx(cols[3]), 255]
+        out.append(up2(img))
+    # 2: 수정
+    img = np.zeros((n, n, 4)); allm = np.zeros((n, n), bool); parts = []
+    for (cx, h, w, t) in ((11, 13, 3.4, -2.5), (17, 18, 4, 0.5), (23, 10, 3, 2.5)):
+        m = _poly(n, [(cx - w, n), (cx - w + t * .2, n - h * .75), (cx + t, n - h), (cx + w + t * .2, n - h * .75), (cx + w, n)])
+        parts.append((m, cx, t, h)); allm |= m
+    g = np.clip(1 - np.hypot(xx - 17, yy - 24) / 15, 0, 1); img[..., :3] = hx("#7fe8ff"); img[..., 3] = (g * 60).astype(int)
+    img[ring(allm, wrap=False) & (yy < n - .5)] = [*OL, 255]
+    for (m, cx, t, h) in parts:
+        img[m] = [*hx("#2ec4e8"), 255]; img[m & (xx < cx + t * (n - yy) / h * .8)] = [*hx("#8ff4ff"), 255]
+        img[m & (yy > n - 3)] = [*hx("#16658a"), 255]
+        img[m & (np.abs(xx - (cx - 1.4)) < .6) & (yy > n - h * .7) & (yy < n - 4)] = [255, 255, 255, 255]
+    out.append(up2(img))
+    # 3: 돌무더기
+    img = np.zeros((n, n, 4)); allm = np.zeros((n, n), bool); parts = []
+    for (cx, cy, rx, ry) in ((10, 28, 6, 4), (20, 28.5, 5, 3.5), (15, 24.5, 4.5, 3.4)):
+        m = (((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 <= 1) & (yy < n); parts.append((m, cx, cy, rx, ry)); allm |= m
+    img[ring(allm, wrap=False) & (yy < n - .5)] = [*OL, 255]
+    for (m, cx, cy, rx, ry) in parts:
+        img[m] = [*hx("#8a8e9a"), 255]; img[m & ((xx - cx) / rx + (yy - cy) / ry > .5)] = [*hx("#5e6270"), 255]
+        img[m & ((xx - cx) / rx + (yy - cy) / ry < -.6)] = [*hx("#c4c8d2"), 255]
+    out.append(up2(img))
+    return out

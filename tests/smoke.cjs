@@ -1062,6 +1062,10 @@ async function login(t, name) {
   ok(t60.ev("S.antA = 0; S.antV = 0; P.facing = 1; P.vx = 0; S.lastVx = 0; P.vx = 300 * PX; for (let k = 0; k < 12; k++) animMiner(1 / 120); S.minerAnt") === 0, "앞으로 갑자기 달리면 안테나가 뒤로 기욺");
   ok(t60.ev("P.vx = 0; for (let k = 0; k < 240; k++) animMiner(1 / 120); S.minerAnt") === 1, "시간이 지나면 안테나가 가운데로 돌아옴");
   ok(t60.ev("Object.keys(MINER_HI).length") === 21 && t60.ev("Object.keys(assetTable()).filter((k) => /^miner\\/[^/]+\\.png$/.test(k)).length") === 21, "캐릭터 부품 21개(안테나 3 · 불빛 3 · 눈 감은 덮개 3 포함)");
+  // ---- 자연 동굴 그림 ----
+  ok(t60.ev("caveBack.length === LAYERS.length && caveBack[0].length === 4 && caveTop[0].length === 3 && caveBot.length === 4"), "자연 동굴 뒷벽 · 고드름 돌 · 바닥 장식 그림 자리");
+  ok(t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('tiles/cave/')).length") === 8 * 4 + 8 * 3 + 4, "자연 동굴 그림 60장");
+  ok(Object.keys(man.files).filter((k) => k.startsWith("tiles/cave/")).length === 60, "자연 동굴 그림이 그림 목록(manifest)에 있음");
   // ---- 로봇(캐릭터) 종류 ----
   ok(t60.ev("CHAR_INFO.length === CHAR_IDS.length && CHAR_INFO.every((c, i) => c.id === CHAR_IDS[i])"), "캐릭터 목록이 그림 목록과 같은 순서");
   ok(t60.ev("Object.keys(assetTable()).filter((k) => /^miner\\/\\w+\\//.test(k)).length") === (6 - 1) * 12, "다른 캐릭터마다 부품 12개 그림 자리");
