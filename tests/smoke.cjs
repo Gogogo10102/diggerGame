@@ -836,7 +836,7 @@ async function login(t, name) {
   t40.key("KeyM"); t40.run(1);
   ok(t40.ev("mapColor(300, SURF + 1500)") !== t40.ev("MAP_UNSEEN") && t40.ev("mapColor(300, SURF + 2200)") === t40.ev("MAP_UNSEEN"), "지도는 본 칸만 색칠");
   // 광물 위치는 지도에 안 나옴: 같은 지층의 흙·광물·돌은 같은 색, 빈칸만 길 색
-  t40.ev("(() => { const r = SURF + 1500; for (let c = 290; c <= 296; c++) seen[r*W+c] = 1; tiles[r*W+290] = 1; tiles[r*W+291] = 11; tiles[r*W+292] = 5; tiles[r*W+293] = 12; tiles[r*W+294] = 0; })()");
+  t40.ev("(() => { const r = SURF + 1500; for (let c = 290; c <= 296; c++) seen[r*W+c] = 1; tiles[r*W+290] = 1; tiles[r*W+291] = 11; tiles[r*W+292] = 5; tiles[r*W+293] = 12; tiles[r*W+294] = 0; baseTiles[r*W+294] = 1; })()");   // 294 = 판 굴 (자연 동굴이면 색이 달라서 고정)
   ok(t40.ev("(() => { const r = SURF + 1500, a = mapColor(290, r); return a === mapColor(291, r) && a === mapColor(292, r) && a === mapColor(293, r) && mapColor(294, r) === MAP_PATH && a !== MAP_PATH; })()"), "지도에 광물 위치는 안 보이고 길만 보임");
 
   console.log("[28] 파기 방향 이펙트 / 위로 파기 / 동굴");
@@ -1018,6 +1018,10 @@ async function login(t, name) {
   t60.ev("ensureAround(30, SURF + 50); for (const c of [30, 31, 32]) seen[(SURF + 50) * W + c] = 1; tiles[(SURF + 50) * W + 30] = 0; baseTiles[(SURF + 50) * W + 30] = 0; tiles[(SURF + 50) * W + 31] = 0; baseTiles[(SURF + 50) * W + 31] = 1; tiles[(SURF + 50) * W + 32] = 1;");
   ok(t60.ev("mapColor(30, SURF + 50)") === t60.ev("MAP_CAVE") && t60.ev("mapColor(31, SURF + 50)") === t60.ev("MAP_PATH"), "지도: 자연 동굴과 판 굴 색이 다름");
   ok(t60.ev("mapColor(32, SURF + 50, true)") !== t60.ev("mapColor(32, SURF + 50)"), "미니맵은 굴 벽 테두리를 밝게");
+  // ---- 마을 다듬기 ----
+  ok(t60.ev("windowMask(null)") === null && t60.ev("windowMask(sprite(16, 16, () => {}))") === null, "창문 불빛: 작은(도트 원본) 그림이면 만들지 않음");
+  t60.ev("P.x = (BUILD_COLS[B_SHOP][0] + 1.5) * T; P.y = (SURF - 1) * T + HH; P.vx = P.vy = 0"); t60.run(3);
+  ok(t60.ev("S.nearItems") === true, "(마을 화살표 확인) 상점 앞");
   // ---- 지하 조명 ----
   ok(t60.ev("DARK_COL.length === LAYERS.length && DARK_COL[4][0] > DARK_COL[4][2] && DARK_COL[5][2] > DARK_COL[5][0]"), "어둠 색이 지층마다 다름 (용암 붉게 · 수정 푸르게)");
   t60.ev("P.x = 30.5 * T; P.y = (SURF + 40.5) * T; ensureAround(30, SURF + 40); tiles[(SURF + 40) * W + 31] = 5; seen[(SURF + 40) * W + 31] = 1; tiles[(SURF + 40) * W + 29] = 9; seen[(SURF + 40) * W + 29] = 0"); t60.run(2);

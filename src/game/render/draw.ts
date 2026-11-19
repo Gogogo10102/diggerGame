@@ -351,6 +351,24 @@ export function draw() {
       ctx.drawImage(S.itemShopImg, sh.x, sh.y, sh.w, sh.h);
       ctx.drawImage(S.craftShopImg, cr.x, cr.y, cr.w, cr.h);
       ctx.drawImage(furnaceImg, fu.x, fu.y, fu.w, fu.h);
+      // 창문 불빛: 따뜻하게 살짝 일렁임 (창문 칸은 그림에서 주황빛 픽셀을 골라 한 번만 만들어 둠)
+      for (const [img, q, ph] of [[S.itemShopImg, sh, 0], [S.craftShopImg, cr, 2.1]]) {
+        const m = windowMask(img);
+        if (!m) continue;
+        ctx.globalCompositeOperation = "screen";
+        ctx.globalAlpha = 0.16 + 0.07 * Math.sin(S.animT * 2.3 + ph) + 0.04 * Math.sin(S.animT * 7.7 + ph * 3);
+        ctx.drawImage(m, q.x, q.y, q.w, q.h);
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+      }
+      // 가까이 가면 그 건물 위에 노란 화살표가 통통 (E 로 들어갈 수 있다는 표시)
+      const near = S.state === "play" ? (S.nearItems ? sh : S.nearCraft ? cr : S.nearFurnace ? fu : null) : null;
+      if (near) {
+        const ax = Math.round(near.x + near.w / 2), ay = Math.round(near.y - 18 + Math.abs(Math.sin(S.animT * 4)) * -8);
+        for (const [col, g] of [["#14151f", 2], [SY.y, 0]]) {
+          ctx.fillStyle = col;
+          for (let k = 0; k < 5; k++) ctx.fillRect(ax - (10 - k * 2) - g, ay + k * 4 - g, (10 - k * 2) * 2 + g * 2, 4 + g * 2);
+        }
+      }
       if (fit(sh, S.itemShopImg) && sh.fx.smoke) smoke(...at(sh, sh.fx.smoke), "#c9ced8");
       if (fit(cr, S.craftShopImg)) {
         if (cr.fx.smoke) smoke(...at(cr, cr.fx.smoke), "#9aa0b4");
@@ -364,6 +382,7 @@ export function draw() {
         ctx.fillStyle = busy ? "rgba(255,138,31,0.22)" : "rgba(255,90,31,0.07)";   // 아궁이 앞 땅에 비친 불빛
         ctx.fillRect(fu.x + 40, base - 4, fu.w - 80, 4);
       }
+      drawButterflies(camX, camY);
       // 광산 입구 표지판 (글자 없이 로고만)
       const sx = (MINE_COL - 1) * T + T / 2 - 22 - camX, sy = SURF * T - camY;   // 마을 끝 칸, 광산 터 바로 앞
       ctx.fillStyle = "#14151f"; ctx.fillRect(sx + 18, sy - 64, 8, 64);
@@ -855,6 +874,44 @@ export function drawStick() {
 const DARK_COL = LAYERS.map((L) => { const v = parseInt(L.base.slice(1), 16); return [((v >> 16) & 255) * 0.09 + 2, ((v >> 8) & 255) * 0.09 + 2, (v & 255) * 0.09 + 5].map(Math.round); });
 const GLOW_ORES = { 5: 1, 9: 1, 10: 1, 11: 1 };                 // 어둠 속에서 빛나는 광물: 다이아 · 에메랄드 · 루비 · 미스릴
 const hexA = (hex, a) => { const v = parseInt(hex.slice(1), 16); return "rgba(" + ((v >> 16) & 255) + "," + ((v >> 8) & 255) + "," + (v & 255) + "," + Math.max(0, a).toFixed(3) + ")"; };
+
+// 건물 그림에서 창문(주황·노란빛 픽셀, 그림 아래쪽 60%)만 골라 밝은 불빛 그림으로. 고해상도 그림일 때만, 한 번 만들어 둠
+const WIN_MASK = new Map();
+function windowMask(img) {
+  if (!img || img.width <= 160) return null;
+  const hit = WIN_MASK.get(img);
+  if (hit && hit.w === img.width) return hit.cv;
+  let cv2 = null;
+  try {
+    const g0 = img.getContext ? img.getContext("2d") : null;
+    const d = g0 && g0.getImageData(0, 0, img.width, img.height);
+    if (d && d.data) {
+      cv2 = sprite(img.width, img.height, (p, g) => {
+        const out = g.createImageData(img.width, img.height), a = d.data, o = out.data;
+        for (let y = Math.floor(img.height * 0.4); y < img.height; y++) for (let x = 0; x < img.width; x++) {
+          const i = (y * img.width + x) * 4;
+          if (a[i + 3] && a[i] > 200 && a[i + 1] > 110 && a[i + 1] < 215 && a[i + 2] < 120) { o[i] = 255; o[i + 1] = 236; o[i + 2] = 170; o[i + 3] = 255; }
+        }
+        g.putImageData(out, 0, 0);
+      });
+    }
+  } catch (e) { cv2 = null; }
+  WIN_MASK.set(img, { w: img.width, cv: cv2 });
+  return cv2;
+}
+// 마을의 나비: 꽃·잔디 위를 팔랑팔랑 (지상이 보일 때만)
+const BUTTERFLY = [{ c: 3, col: "#ffd34d", s: 0 }, { c: 12, col: "#ff9ac0", s: 2.4 }, { c: 21, col: "#bfe8ff", s: 4.1 }];
+function drawButterflies(camX, camY) {
+  for (const b of BUTTERFLY) {
+    const t = S.animT * 0.6 + b.s;
+    const x = Math.round((b.c + Math.sin(t) * 2.2 + Math.sin(t * 2.3) * 0.6) * T - camX), y = Math.round((SURF - 0.7) * T - Math.abs(Math.sin(t * 1.7)) * 46 - camY);
+    const up = ((S.animT * 10 + b.s * 5) | 0) % 2 === 0;
+    ctx.fillStyle = "#14151f"; ctx.fillRect(x - 1, y - 2, 2, 6);
+    ctx.fillStyle = b.col;
+    if (up) { ctx.fillRect(x - 7, y - 6, 6, 6); ctx.fillRect(x + 1, y - 6, 6, 6); }
+    else { ctx.fillRect(x - 6, y - 2, 5, 4); ctx.fillRect(x + 1, y - 2, 5, 4); }
+  }
+}
 
 // 처음 안내 카드: 넓은 화면은 왼쪽 상태 줄 아래, 좁은 화면은 광물 칸 아래 · 미니맵 왼쪽
 function wrapText(s, maxW, size) {
