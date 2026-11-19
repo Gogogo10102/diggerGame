@@ -58,6 +58,8 @@ DRILL = {  # 드릴 원뿔(밑변 가운데, 끝, 밑변 반지름)과 척(원�
     "up":   (np.array([73.5, 19]), np.array([73.5, 2]), np.array([73.5, 32]), 13.5),
 }
 SHOULDER = (4, 31, 13.5)
+# 캐릭터 모양 (make-hires.py 가 캐릭터마다 바꿔 끼움): 머리 box/dome · 안테나 two/one/none · 안테나 길이 · 고글 눈 · 안전모
+STY = dict(head="box", ant="two", antlen=7.0, visor=False, helmet=False)
 
 def scene(mode, leg, dig, lean=0):
     sh = to_cam(*SHOULDER)
@@ -81,14 +83,26 @@ def scene(mode, leg, dig, lean=0):
     add("body", "body", "sy", lambda P: sd_rbox(loc(P), np.array([-2, 30, 0]), (15, 12.5, 12.5), 6.5), None)
     add("panel", "body", "chr", lambda P: sd_rbox(loc(P), np.array([12.6, 27, 0]), (2.2, 7.5, 7.5), 1.5),
         lambda P, q: np.where((np.abs(q[..., 1] - 27) < 4) & ((q[..., 1] % 3) < 1.2) & (np.abs(q[..., 2]) < 5), 1, 0))
-    add("head", "body", "hd", lambda P: sd_rbox(loc(P), np.array([3, 50, 0]), (11, 9.5, 11), 4.6),
+    hr = 8.4 if STY["head"] == "dome" else 4.6       # 둥근 머리 = 모서리를 크게 깎은 상자
+    add("head", "body", "hd", lambda P: sd_rbox(loc(P), np.array([3, 50, 0]), (11, 9.5, 11), hr),
         lambda P, q: np.where((q[..., 2] > 9.5) & (np.abs(q[..., 1] - 48) < 3) & ((q[..., 1] % 2.4) < 1) & (q[..., 0] < 4), -1, 0))
-    add("eyeR", "body", "chr", lambda P: sd_sph(loc(P), np.array([12.8, 51, 3.8]), 5.4), None)
-    add("eye", "body", "eye", lambda P: sd_sph(loc(P), np.array([14.2, 51, 3.8]), 4.3), None)
-    for s0 in (-6.5, 6.5):
+    if STY["visor"]:                                   # 가로로 긴 고글 눈
+        add("eyeR", "body", "chr", lambda P: sd_rbox(loc(P), np.array([12.6, 51, 0]), (2.6, 3.6, 8.6), 1.8), None)
+        add("eye", "body", "eye", lambda P: sd_rbox(loc(P), np.array([13.8, 51, 0]), (2.0, 2.5, 7.4), 1.4), None)
+    else:
+        add("eyeR", "body", "chr", lambda P: sd_sph(loc(P), np.array([12.8, 51, 3.8]), 5.4), None)
+        add("eye", "body", "eye", lambda P: sd_sph(loc(P), np.array([14.2, 51, 3.8]), 4.3), None)
+    if STY["helmet"]:                                  # 광부 안전모 + 앞 램프 (램프는 조명 단계 색)
+        add("hat", "body", "hat", lambda P: np.maximum(sd_sph(loc(P), np.array([2, 55, 0]), 12.6), 55.5 - loc(P)[..., 1]),
+            lambda P, q: np.where(np.abs(q[..., 2]) < 1.3, 1, 0))
+        add("brim", "body", "hat", lambda P: sd_rbox(loc(P), np.array([3.5, 55.6, 0]), (15.5, 1.3, 13.8), 1.2), None)
+        add("tip", "lamp", "gry", lambda P: sd_cyl(loc(P), (12.5, 61, 0), (15.8, 61, 0), 3.2), None)
+    ants = {"two": (-6.5, 6.5), "one": (0.0,), "none": ()}[STY["ant"]]
+    for s0 in ants:
         # 안테나: lean(-1 뒤로 · 0 · +1 앞으로) 만큼 끝이 기울어짐 → 게임에서 움직일 때 흔들림(ant_0~2 · lamp_0~2)
-        add("ant", "ant", "hd", lambda P, s0=s0: sd_cap(loc(P), (1, 58, s0), (-0.5 + lean * 3.0, 65 - abs(lean) * 0.4, s0), 1.5), None)
-        add("tip", "lamp", "gry", lambda P, s0=s0: sd_sph(loc(P), np.array([-0.7 + lean * 3.4, 66.2 - abs(lean) * 0.5, s0]), 2.6), None)
+        al = STY["antlen"]
+        add("ant", "ant", "hd", lambda P, s0=s0: sd_cap(loc(P), (1, 58, s0), (-0.5 + lean * 3.0, 58 + al - abs(lean) * 0.4, s0), 1.5), None)
+        add("tip", "lamp", "gry", lambda P, s0=s0: sd_sph(loc(P), np.array([-0.7 + lean * 3.4, 59.2 + al - abs(lean) * 0.5, s0]), 2.6), None)
     add("pack", "cw", "gry", lambda P: sd_rbox(loc(P), np.array([-19, 31, 0]), (4.5, 10, 9.5), 3),
         lambda P, q: np.where(np.abs(q[..., 1] - 31) < 1.2, -1, 0))
     # 어깨 · 통짜 팔 · 드릴 척

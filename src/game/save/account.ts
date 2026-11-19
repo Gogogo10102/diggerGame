@@ -39,6 +39,7 @@ export function snapshot() {
     furnace: S.acct.furnace,
     xp: S.acct.xp, quest: S.acct.quest, title: S.acct.title || "",
     tut: S.acct.tut | 0,                                       // 처음 안내 진행 단계
+    char: S.charId || "yellow", chars: S.acct.chars || [],     // 고른 캐릭터 · 열려서 알린 캐릭터
   }));
 }
 export function saveNow(force, quiet) {

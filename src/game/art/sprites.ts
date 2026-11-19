@@ -450,6 +450,15 @@ for (const k of ["body_side", "body_down", "body_up", "trk_0", "trk_1", "cw", "l
 //  ant_0~2 · lamp_0/lamp/lamp_2: 안테나가 뒤로 · 가운데 · 앞으로 기운 모습 (S.minerAnt) / blink_<자세>: 눈 감은 덮개 (S.minerBlink)
 S.minerAnt = 1; S.minerBlink = false;
 const minerHiReady = () => Object.values(MINER_HI).every((c) => c.width === MINER_SZ * 3);
+// ---- 캐릭터 종류 (tools/chars.py 와 같은 id 순서). 첫 번째 = 기본(노랑이, MINER_HI 그대로) ----
+//  다른 캐릭터는 몸·눈 덮개·안테나·안테나 끝 12개만 따로(miner/<id>/*.png), 궤도·등 탱크·드릴은 같이 씀
+export const CHAR_IDS = ["yellow", "ruby", "mint", "cobalt", "mole", "night"];
+export const CHAR_PARTS = ["body_side", "body_down", "body_up", "blink_side", "blink_down", "blink_up", "ant_0", "ant_1", "ant_2", "lamp_0", "lamp", "lamp_2"];
+export const MINER_CH = {};
+for (const id of CHAR_IDS.slice(1)) { MINER_CH[id] = {}; for (const k of CHAR_PARTS) MINER_CH[id][k] = sprite(1, 1, () => {}); }
+S.charId = "yellow";
+//  그 캐릭터 그림이 아직 없으면(파일 못 읽음) 기본 부품으로
+const chPart = (k, id) => { const c = MINER_CH[id] && MINER_CH[id][k]; return c && c.width === MINER_SZ * 3 ? c : MINER_HI[k]; };
 // 회색 밝기 → 색 단계 (외곽선 · 어둠 · l · m · h · 반짝)
 function tintGray(src, ramp) {
   return sprite(src.width, src.height, (p, g) => {
@@ -467,7 +476,7 @@ function tintGray(src, ramp) {
   });
 }
 const rampOf = (c) => ["#14151f", mixC(c.l, "#000000", 0.35), c.l, c.m, c.h, mixC(c.h, "#ffffff", 0.45)];
-function getMinerHi(mode, leg, dig, part, ant, blink) {
+function getMinerHi(mode, leg, dig, part, ant, blink, id = S.charId) {
   const TR = LOOK.tracks > 0 ? PAL[LOOK.tracks - 1] : { h: "#c6cedc", m: "#8b93a6", l: "#3a3f52" };
   const DR = LOOK.drill > 0 ? PAL[LOOK.drill - 1] : { h: "#e3e8f2", m: "#9aa3b8", l: "#5b6379" };
   const CP = LOOK.crate > 0 ? PAL[LOOK.crate - 1] : { h: "#4a5262", m: "#2a2e37", l: "#1c1f26" };
@@ -478,18 +487,26 @@ function getMinerHi(mode, leg, dig, part, ant, blink) {
     if (part !== "drill") {
       g.drawImage(tintGray(MINER_HI["trk_" + (leg & 1)], rampOf(TR)), 0, 0);
       g.drawImage(tintGray(MINER_HI.cw, rampOf(CP)), 0, 0);
-      g.drawImage(MINER_HI["body_" + mode], 0, 0);
-      if (blink) g.drawImage(MINER_HI["blink_" + mode], 0, 0);
-      g.drawImage(MINER_HI["ant_" + ant], 0, 0);
-      g.drawImage(tintGray(MINER_HI[ant === 1 ? "lamp" : "lamp_" + ant], rampOf(LP)), 0, 0);
+      g.drawImage(chPart("body_" + mode, id), 0, 0);
+      if (blink) g.drawImage(chPart("blink_" + mode, id), 0, 0);
+      g.drawImage(chPart("ant_" + ant, id), 0, 0);
+      g.drawImage(tintGray(chPart(ant === 1 ? "lamp" : "lamp_" + ant, id), rampOf(LP)), 0, 0);
     }
     if (part !== "body") g.drawImage(tintGray(MINER_HI["bit_" + mode + "_" + (ds & 1)], rampOf(DR)), 0, 0);
   });
 }
+// 캐릭터 고르기 창 그림: 옆모습, 지금 장비 색 (120x120)
+export function minerPreview(id) {
+  const key = "pv|" + id + "|" + LOOK.key + (minerHiReady() ? "hi" : "");
+  if (minerCache.has(key)) return minerCache.get(key);
+  const im = minerHiReady() ? getMinerHi("side", 0, 0, "all", 1, false, id) : getMiner("side", 0, 0);
+  minerCache.set(key, im);
+  return im;
+}
 export function getMiner(mode, leg, dig, part = "all") {
   const hi = minerHiReady();
   const ant = part === "drill" ? 1 : S.minerAnt | 0, blink = part !== "drill" && !!S.minerBlink;   // 드릴 그림은 안테나·눈과 상관없음
-  const key = mode + leg + dig + part + "|" + LOOK.key + (hi ? "|hi" + ant + (blink ? "b" : "") : "");
+  const key = mode + leg + dig + part + "|" + LOOK.key + (hi ? "|hi" + ant + (blink ? "b" : "") + S.charId : "");
   if (minerCache.has(key)) return minerCache.get(key);
   if (hi) { const im = getMinerHi(mode, leg, dig, part, ant, blink); minerCache.set(key, im); return im; }
   const img = sprite(MINER_SZ, MINER_SZ, (p0) => {

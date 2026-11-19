@@ -124,6 +124,7 @@ docs/                  plan.md decisions.md
   부품 PNG `miner/*.png` 21개(`tools/make-hires.py` 가 robot3d 로 만듦. 안테나 3자세 `ant_0~2`·`lamp_0/lamp/lamp_2`, 눈 감은 덮개 `blink_<자세>` 포함)를 읽으면 그것으로 조립하고, 없으면 예전 미니 굴착기 코드 도트(40x40 × 3)로 그립니다.
   `body_<side|down|up>` 은 색 그대로, `trk_<0|1>`·`cw`(등 탱크)·`lamp`(안테나 끝 불빛)·`bit_<자세>_<0|1>` 은 **회색**으로 그려 두면 장비 단계 색(`PAL`·`GLOW`)으로 바꿔 칠합니다
   (밝기 24 미만 = 외곽선, 56/104/160/224 를 경계로 어둠·l·m·h·반짝). 부품 자리는 120x120 안에서 몸통 칸 36~84, 발 = y 84.
+  **로봇 종류**(노랑이 외 5종): 모양 `robot3d.STY` + 색 `tools/chars.py` → `miner/<id>/*.png` 12개(몸·눈 덮개·안테나·안테나 끝). 목록 `CHAR_IDS`(sprites.ts) · 이름·해금 `CHAR_INFO`(progress.ts) 는 chars.py 와 같은 순서. 고른 로봇 `S.charId`.
 
 ## 협업
 - 두 사람이 각자 Claude 계정으로 이 저장소를 씁니다(계정 공유 금지).

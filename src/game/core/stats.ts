@@ -81,7 +81,7 @@ export const say = (s) => { S.msg = s; S.msgT = 2.5; };
 export const BANNER_T = 3.5;
 export const bannerQ = [];
 export function pushBanner(title, sub = "", icon = null, col = "#ffd34d") {
-  if (bannerQ.length >= 4) bannerQ.shift();                    // 너무 쌓이면 오래된 것부터 버림
+  if (bannerQ.length >= 6) bannerQ.shift();                    // 너무 쌓이면 오래된 것부터 버림
   bannerQ.push({ title, sub, icon, col });
 }
 

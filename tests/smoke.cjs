@@ -935,7 +935,7 @@ async function login(t, name) {
   // ---- 고해상도 그림 ----
   const man = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "../public/assets/manifest.json"), "utf8"));
   const minerKeys = t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('miner/'))");
-  ok(minerKeys.length === 21 && minerKeys.every((k) => man.files[k]), "캐릭터 고해상도 부품 21개가 그림 목록에 있음");
+  ok(minerKeys.length === 21 + 5 * 12 && minerKeys.every((k) => man.files[k]), "캐릭터 고해상도 부품(기본 21 + 다른 로봇 5종 x 12)이 그림 목록에 있음");
   ok(["tiles/dirt/7_7.png", "tiles/back/7_3.png", "ores/world/11_3.png", "bars/mi.png"].every((k) => man.files[k]), "지층·광물·주괴 고해상도 그림 목록");
   ok(t60.ev("getMiner('side', 0, 0).width") === 40, "부품 그림이 없으면 코드로 그린 40x40 캐릭터");
   ok(t60.ev("(() => { for (const k in MINER_HI) MINER_HI[k].width = MINER_HI[k].height = 120; minerCache.clear(); const w = getMiner('down', 1, 1, 'drill').width; for (const k in MINER_HI) MINER_HI[k].width = MINER_HI[k].height = 1; minerCache.clear(); return w; })()") === 120,
@@ -958,7 +958,7 @@ async function login(t, name) {
   t60.ev("onMined(10)");
   ok(bq().split("새 광물 발견! 루비").length === 2, "두 번째부터는 알림 없음");
   t60.ev("for (let k = 0; k < 9; k++) pushBanner('x' + k)");
-  ok(t60.ev("bannerQ.length") <= 4, "알림이 너무 쌓이면 오래된 것부터 버림");
+  ok(t60.ev("bannerQ.length") <= 6, "알림이 너무 쌓이면 오래된 것부터 버림");
   t60.ev("bannerQ.length = 0; P.y = (SURF - 1) * T"); t60.run(1);
   // ---- 파편·먼지 ----
   t60.ev("parts.length = 0; dust.length = 0; P.x = 30.5 * T; P.y = (SURF + 20.5) * T; P.vx = P.vy = 0; for (let c = 28; c <= 33; c++) { tiles[(SURF + 20) * W + c] = 0; tiles[(SURF + 19) * W + c] = 0; tiles[(SURF + 21) * W + c] = 1; }");
@@ -1061,7 +1061,30 @@ async function login(t, name) {
   ok(t60.ev("animMiner(0.2); S.minerBlink") === false, "잠깐 뒤 다시 뜸");
   ok(t60.ev("S.antA = 0; S.antV = 0; P.facing = 1; P.vx = 0; S.lastVx = 0; P.vx = 300 * PX; for (let k = 0; k < 12; k++) animMiner(1 / 120); S.minerAnt") === 0, "앞으로 갑자기 달리면 안테나가 뒤로 기욺");
   ok(t60.ev("P.vx = 0; for (let k = 0; k < 240; k++) animMiner(1 / 120); S.minerAnt") === 1, "시간이 지나면 안테나가 가운데로 돌아옴");
-  ok(t60.ev("Object.keys(MINER_HI).length") === 21 && t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('miner/')).length") === 21, "캐릭터 부품 21개(안테나 3 · 불빛 3 · 눈 감은 덮개 3 포함)");
+  ok(t60.ev("Object.keys(MINER_HI).length") === 21 && t60.ev("Object.keys(assetTable()).filter((k) => /^miner\\/[^/]+\\.png$/.test(k)).length") === 21, "캐릭터 부품 21개(안테나 3 · 불빛 3 · 눈 감은 덮개 3 포함)");
+  // ---- 로봇(캐릭터) 종류 ----
+  ok(t60.ev("CHAR_INFO.length === CHAR_IDS.length && CHAR_INFO.every((c, i) => c.id === CHAR_IDS[i])"), "캐릭터 목록이 그림 목록과 같은 순서");
+  ok(t60.ev("Object.keys(assetTable()).filter((k) => /^miner\\/\\w+\\//.test(k)).length") === (6 - 1) * 12, "다른 캐릭터마다 부품 12개 그림 자리");
+  t60.ev("acct.xp = 0; acct.stats.maxDepth = 0; acct.stats.chests = 0; acct.chars = []; S.charId = 'yellow'; bannerQ.length = 0; checkQuests()");
+  ok(t60.ev("CHAR_INFO.filter(charOpen).length") === 1, "처음엔 기본 로봇만 열림");
+  t60.ev("acct.stats.maxDepth = 120; checkQuests()");
+  ok(t60.ev("charOpen(CHAR_INFO[2]) && acct.chars.includes('mint') && bannerQ.some((b) => b.title.includes('새싹이'))"), "100m 도달하면 새싹이 열림 + 알림");
+  t60.ev("bannerQ.length = 0; checkQuests()");
+  ok(t60.ev("!bannerQ.some((b) => b.title.includes('새 로봇'))"), "한 번 알린 로봇은 다시 알리지 않음");
+  ok(t60.ev("typeof minerPreview('mint').width") === "number", "로봇 미리보기 그림");
+  t60.ev("S.charId = 'mint'"); t60.run(2);
+  ok(t60.ev("(() => { const d = snapshot(); S.charId = 'yellow'; applyAccount(d); return S.charId; })()") === "mint", "고른 로봇이 저장됨");
+  ok(t60.ev("(() => { const d = snapshot(); d.char = 'night'; applyAccount(d); return S.charId; })()") === "yellow", "안 열린 로봇을 불러오면 기본 로봇으로");
+  ok(t60.ev("(() => { const d = snapshot(); delete d.char; delete d.chars; applyAccount(d); return S.charId === 'yellow' && Array.isArray(acct.chars); })()"), "옛 세이브(로봇 기록 없음)는 기본 로봇");
+  t60.ev("acct.stats.maxDepth = 120; S.charId = 'yellow'; openInventory(); renderRobots()");
+  {
+    const nms = t60.all().filter((n) => n.className === "nm").map((n) => n.textContent);
+    ok(nms.includes("새싹이") && nms.includes("밤하늘") && t60.ev("S.state") === "menu", "로봇 고르기 창: 로봇 6종");
+    ok(t60.all().filter((n) => n.tag === "button" && n.textContent === "잠김").length === 4, "안 열린 로봇은 잠김 버튼");
+    t60.all().find((n) => n.tag === "button" && n.textContent === "고르기").click();
+    ok(t60.ev("S.charId") === "mint", "고르기 누르면 그 로봇으로 바뀜");
+  }
+  t60.ev("closeMenu(); S.charId = 'yellow'");
 
   t60.ev("P.y = (SURF - 1) * T"); t60.run(1);
 

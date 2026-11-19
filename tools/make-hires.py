@@ -208,22 +208,26 @@ def chest_tile():
 #   body_<자세> 색 그대로 / trk_<0|1> 궤도 · cw 등 탱크 · lamp 안테나 끝 · bit_<자세>_<0|1> 드릴 원뿔 은 회색
 # ---------------------------------------------------------------------
 GRAY = ["#202020", "#505050", "#808080", "#c0c0c0", "#ffffff"]
-def miner_parts():
-    import robot3d
-    ramps = {"sy": ["#5a3400", "#c47e00", "#ffbe1a", "#ffe27a", "#fff6c8"], "chr": ["#0e1014", "#22252d", "#3a3f4b", "#5a6170", "#8a92a2"],
-             "hd": ["#2a2f3a", "#6a7384", "#b4bcca", "#e2e7ef", "#ffffff"], "eye": ["#0a2a5a", "#1a5ac0", "#4aa8ff", "#b8e4ff", "#ffffff"],
-             "steel": ["#1e222c", "#464e60", "#7a8496", "#b6bfce", "#f0f4fa"], "gry": GRAY}
-    ramps = {k: [list(hexrgb(c).astype(int)) for c in v] for k, v in ramps.items()}
+def miner_parts(ch=None):
+    """기본 캐릭터(노랑이)는 부품 21개 전부, 다른 캐릭터(ch)는 모양·색이 다른 12개만 (궤도·탱크·드릴은 같이 씀)"""
+    import robot3d, chars
+    c = ch or chars.CHARS[0]
+    robot3d.STY.update(dict(head="box", ant="two", antlen=7.0, visor=False, helmet=False)); robot3d.STY.update(c[1])
+    ramps = chars.ramps_of(c); ramps["gry"] = GRAY
+    ramps = {k: [list(hexrgb(x).astype(int)) for x in v] for k, v in ramps.items()}
     out = {}
     for mode in ("side", "down", "up"):
         for dig in (0, 1):
+            if ch and dig: continue
             p = robot3d.parts_for(mode, 0, dig, ramps)
-            out["bit_%s_%d" % (mode, dig)] = p["bit"]
+            if not ch: out["bit_%s_%d" % (mode, dig)] = p["bit"]
             if dig == 0:
                 out["body_" + mode] = p["body"]
                 out["blink_" + mode] = robot3d.blink_overlay(mode, ramps)          # 눈 깜빡임 덮개
-                if mode == "side": out["cw"], out["lamp"], out["ant_1"], out["trk_0"] = p["cw"], p["lamp"], p["ant"], p["trk"]
-    out["trk_1"] = robot3d.parts_for("side", 1, 0, ramps)["trk"]
+                if mode == "side":
+                    out["lamp"], out["ant_1"] = p["lamp"], p["ant"]
+                    if not ch: out["cw"], out["trk_0"] = p["cw"], p["trk"]
+    if not ch: out["trk_1"] = robot3d.parts_for("side", 1, 0, ramps)["trk"]
     for k, lean in ((0, -1), (2, 1)):                                              # 안테나 흔들림: 뒤로 · 앞으로 기운 것
         p = robot3d.parts_for("side", 0, 0, ramps, lean=lean)
         out["ant_%d" % k], out["lamp_%d" % k] = p["ant"], p["lamp"]
@@ -275,6 +279,10 @@ if __name__ == "__main__":
     save(mapart.sun_img(), f"{A}/sky/sun.png"); save(mapart.cloud_img(), f"{A}/sky/cloud.png"); save(chest_tile(), f"{A}/tiles/chest.png"); n += 3
     for name, im in miner_parts().items():
         save(im, f"{A}/miner/{name}.png"); n += 1
+    import chars
+    for ch in chars.CHARS[1:]:                                                   # 다른 캐릭터: miner/<id>/*.png
+        for name, im in miner_parts(ch).items():
+            save(im, f"{A}/miner/{ch[0]}/{name}.png"); n += 1
     for b in ("item_shop", "workshop", "furnace"):
         im = hires_building(f"{A}/buildings/{b}.png")
         if im is not None: save(im, f"{A}/buildings/{b}.png"); n += 1

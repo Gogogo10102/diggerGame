@@ -2,7 +2,7 @@
 import "../save/config.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { sfx } from "../core/sound.ts";
 import { ORE_COL, TILE } from "../core/config.ts";
-import { ICON, oreIcon } from "../art/sprites.ts";
+import { CHAR_IDS, ICON, minerPreview, oreIcon } from "../art/sprites.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { floaters, pushBanner, recalcStats, say, spawn } from "../core/stats.ts";
@@ -81,8 +81,36 @@ const QLABEL = {
 export function questLabel(q) { const n = q.need.toLocaleString(); return QLABEL[q.group] ? QLABEL[q.group](n) : q.unit + " " + n + "개"; }
 export const QUEST_BY = {}; QUESTS.forEach((q) => { QUEST_BY[q.id] = q; });
 S.questT = 0;
+// ---- 캐릭터(로봇) 종류: 해금 조건 (그림은 sprites.ts 의 CHAR_IDS · tools/chars.py) ----
+//  need: [기록 종류, 목표] — lv 레벨 · depth 최고 깊이(m) · chests 연 보물 상자 · ores 캔 광물 수
+export const CHAR_INFO = [
+  { id: "yellow", name: "노랑이", desc: "기본 드릴 로봇. 안전 노랑이 자랑", need: null },
+  { id: "ruby", name: "불꽃이", desc: "새빨간 몸 · 안테나 하나 · 호박색 눈", need: ["lv", 3] },
+  { id: "mint", name: "새싹이", desc: "둥근 머리 민트 로봇 · 분홍 눈", need: ["depth", 100] },
+  { id: "cobalt", name: "파랑이", desc: "고글 눈 심해 탐사 로봇 · 안테나 없음", need: ["chests", 5] },
+  { id: "mole", name: "두더지", desc: "광부 안전모 + 이마 램프 (조명 색)", need: ["depth", 300] },
+  { id: "night", name: "밤하늘", desc: "남색 몸 · 금빛 머리 · 긴 안테나", need: ["lv", 15] },
+];
+const CHAR_NEED_TXT = { lv: (n) => "레벨 " + n, depth: (n) => n + "m 도달", chests: (n) => "보물 상자 " + n + "개", ores: (n) => "광물 " + n + "개 캐기" };
+export function charHave(ch) {
+  if (!ch.need || !S.acct) return 0;
+  const k = ch.need[0];
+  return k === "lv" ? levelOf(S.acct.xp).lv : k === "depth" ? Math.floor(S.acct.stats.maxDepth) : k === "chests" ? S.acct.stats.chests || 0 : k === "ores" ? totalOres() : 0;
+}
+export const charOpen = (ch) => !ch.need || charHave(ch) >= ch.need[1];
+export const charNeedText = (ch) => (ch.need ? CHAR_NEED_TXT[ch.need[0]](ch.need[1]) : "처음부터");
+// 새로 열린 캐릭터 알림 (acct.chars = 이미 알린 것). 불러올 때(quiet)는 알림 없이 표시만
+function checkChars(quiet) {
+  if (!S.acct.chars) S.acct.chars = [];
+  for (const ch of CHAR_INFO) {
+    if (!ch.need || S.acct.chars.includes(ch.id) || !charOpen(ch)) continue;
+    S.acct.chars.push(ch.id);
+    if (!quiet) { pushBanner("새 로봇: " + ch.name, "메뉴 › 캐릭터 정보 › 로봇 탭에서 바꿀 수 있어요", minerPreview(ch.id), "#7cff6b"); sfx("levelup"); }
+  }
+}
 export function checkQuests(quiet) {
   if (!S.acct) return;
+  checkChars(quiet);
   const got = [];
   for (const q of QUESTS) {
     if (S.acct.quest[q.id] || q.get() < q.need) continue;
@@ -126,5 +154,9 @@ export function initProgress(d) {                               // 저장 데이
   if (d.quest && typeof d.quest === "object") for (const k in d.quest) if (QUEST_BY[k] && d.quest[k]) S.acct.quest[k] = 1;
   S.acct.title = typeof d.title === "string" && S.acct.quest[d.title] ? d.title : "";
   S.MINER_LV = levelOf(S.acct.xp).lv;
+  // 캐릭터: 고른 것(열린 것만, 아니면 기본) · 이미 알린 것 목록 (옛 세이브는 없음 → 기본)
+  S.acct.chars = Array.isArray(d.chars) ? d.chars.filter((x) => CHAR_IDS.includes(x)) : [];
+  const pick = CHAR_INFO.find((c) => c.id === d.char);
+  S.charId = pick && charOpen(pick) ? pick.id : "yellow";
 }
 

@@ -2,7 +2,9 @@
 import "../data/progress.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { QUESTS, questLabel, titleName } from "../data/progress.ts";
+import { CHAR_INFO, QUESTS, charHave, charNeedText, charOpen, questLabel, titleName } from "../data/progress.ts";
+import { minerPreview } from "../art/sprites.ts";
+import { sfx } from "../core/sound.ts";
 import { saveNow } from "../save/account.ts";
 import { renderInventory } from "./inventory.ts";
 import { closeMenu, renderMenu, renderStats } from "./menu.ts";
@@ -24,7 +26,7 @@ export function barEl(ratio, color) {
 // 캐릭터 창 탭 (장비 · 업적 · 통계) + 닫기
 export function charTabs(active) {
   const bar = el("div", "tabs");
-  for (const [k, label, fn] of [["inv", "장비", () => renderInventory()], ["quest", "업적", () => renderQuests()], ["stat", "통계", () => renderStats()]]) {
+  for (const [k, label, fn] of [["inv", "장비", () => renderInventory()], ["robot", "로봇", () => renderRobots()], ["quest", "업적", () => renderQuests()], ["stat", "통계", () => renderStats()]]) {
     bar.appendChild(mkBtn(label, fn, "tab" + (k === active ? " on" : "")));
   }
   bar.appendChild(mkBtn("✕", closeMenu, "tab x"));
@@ -69,3 +71,31 @@ export function renderQuests(note) {
 }
 export function openQuests() { if (S.state !== "play" || !S.acct || P.dead > 0) return; S.state = "menu"; keysReset(); renderQuests(); }
 
+// 로봇(캐릭터) 고르기: 지금 장비 색으로 옆모습 미리보기 · 해금 조건 막대 · 고르기 버튼
+export function renderRobots(note) {
+  S.invOpen = false;
+  const root = el("div", "wide");
+  root.appendChild(charTabs("robot"));
+  const open = CHAR_INFO.filter(charOpen).length;
+  root.appendChild(el("p", "dim", "로봇 " + open + " / " + CHAR_INFO.length + " · 장비 색은 어떤 로봇이든 그대로 따라가요"));
+  if (note) root.appendChild(el("p", "msg", note));
+  const grid = el("div", "robots");
+  for (const ch of CHAR_INFO) {
+    const on = S.charId === ch.id, ok = charOpen(ch);
+    const card = el("div", "robot" + (on ? " on" : "") + (ok ? "" : " lock"));
+    card.appendChild(iconEl(minerPreview(ch.id), 120));
+    card.appendChild(el("div", "nm", ch.name));
+    card.appendChild(el("div", "dim sm", ch.desc));
+    if (!ok) {
+      const have = Math.min(ch.need[1], charHave(ch));
+      card.appendChild(barEl(have / ch.need[1], "#7cff6b"));
+      card.appendChild(el("div", "dim sm", "🔒 " + charNeedText(ch) + " (" + have.toLocaleString() + " / " + ch.need[1].toLocaleString() + ")"));
+      card.appendChild(mkBtn("잠김", () => sfx("error"), "off"));
+    } else if (on) card.appendChild(mkBtn("사용 중", () => {}, "info"));
+    else card.appendChild(mkBtn("고르기", () => { S.charId = ch.id; sfx("buy"); saveNow(true, true); renderRobots("「" + ch.name + "」(으)로 바꿨어요"); }, "pri"));
+    grid.appendChild(card);
+  }
+  root.appendChild(grid);
+  charFooter(root);
+  showOv(root);
+}
