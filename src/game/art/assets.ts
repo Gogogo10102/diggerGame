@@ -6,7 +6,7 @@
 //  - 그림을 바꾸려면: PNG를 수정해서 같은 경로에 덮어쓰기 → 새로고침. 크기는 원래와 달라도 됩니다.
 //  - 새 PNG를 추가했다면 manifest.json 에도 경로를 넣어 주세요 (npm run assets:manifest).
 // =====================================================================
-import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg, MINER_HI, MINER_CH, minerCache, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver } from "./sprites.ts";
+import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg, MINER_HI, MINER_CH, minerCache, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, gasTile } from "./sprites.ts";
 import { ITEM_ICON } from "./itemIcons.ts";
 import { SIGN_IMG, TAB_IMG, plinthTop, plinthLow } from "./buildings.ts";
 import { barIcon, furnaceImg } from "../systems/furnace.ts";
@@ -45,6 +45,7 @@ export function assetTable() {
   t["sky/sun.png"] = () => sunImg;
   t["sky/cloud.png"] = () => cloudImg;
   t["tiles/chest.png"] = () => chestTile;
+  t["tiles/gas.png"] = () => gasTile;
   for (const k in MINER_HI) t["miner/" + k + ".png"] = () => MINER_HI[k];
   for (const id in MINER_CH) for (const k in MINER_CH[id]) t["miner/" + id + "/" + k + ".png"] = () => MINER_CH[id][k];   // 다른 캐릭터 부품
   return t;

@@ -1066,6 +1066,22 @@ async function login(t, name) {
   ok(t60.ev("S.antA = 0; S.antV = 0; P.facing = 1; P.vx = 0; S.lastVx = 0; P.vx = 300 * PX; for (let k = 0; k < 12; k++) animMiner(1 / 120); S.minerAnt") === 0, "앞으로 갑자기 달리면 안테나가 뒤로 기욺");
   ok(t60.ev("P.vx = 0; for (let k = 0; k < 240; k++) animMiner(1 / 120); S.minerAnt") === 1, "시간이 지나면 안테나가 가운데로 돌아옴");
   ok(t60.ev("Object.keys(MINER_HI).length") === 21 && t60.ev("Object.keys(assetTable()).filter((k) => /^miner\\/[^/]+\\.png$/.test(k)).length") === 21, "캐릭터 부품 21개(안테나 3 · 불빛 3 · 눈 감은 덮개 3 포함)");
+  // ---- 가스 주머니 ----
+  ok(t60.ev("JSON.stringify(chunkGas(2, 8)) === JSON.stringify(chunkGas(2, 8))") && t60.ev("chunkGas(0, 0).length") === 0, "가스 주머니 자리는 시드로 정해지고 지표 근처엔 없음");
+  ok(t60.ev("(() => { let n = 0; for (let cy = 5; cy < 20; cy++) for (let cx = 0; cx < CW; cx++) n += chunkGas(cx, cy).length; return n; })()") > 10, "암석층부터 구역마다 가스 주머니");
+  ok(t60.ev("chunkGas(3, 9).every(([x, y]) => y >= GAS_TOP)"), "가스 주머니는 140m 아래만");
+  t60.ev("gases.length = 0; acct.stats.gas = 0; bannerQ.length = 0; P.x = 30.5 * T; P.y = (SURF + 200.5) * T; P.dead = 0; P.fuel = 50; releaseGas(30, SURF + 200)");
+  ok(t60.ev("gases.length") === 1 && t60.ev("acct.stats.gas") === 1 && t60.ev("bannerQ.some((b) => b.title.includes('가스'))"), "가스가 새어 나오고 처음엔 알림");
+  t60.ev("updateGas(1)");
+  ok(t60.ev("S.inGas") === true && t60.ev("P.fuel") < 50 - 3, "가스 속에선 연료가 빨리 닳음");
+  t60.ev("P.x = 40.5 * T; updateGas(0.1)");
+  ok(t60.ev("S.inGas") === false, "가스 밖으로 나가면 괜찮음");
+  t60.ev("updateGas(GAS_T)");
+  ok(t60.ev("gases.length") === 0, "가스는 시간이 지나면 사라짐");
+  t60.ev("ensureAround(30, SURF + 200); tiles[(SURF + 200) * W + 30] = 18; explode({ c: 30, r: SURF + 200, rad: 1 })");
+  ok(t60.ev("gases.length") === 0 && t60.ev("tiles[(SURF + 200) * W + 30]") === 0, "다이너마이트로 터뜨리면 가스가 타서 안 퍼짐");
+  ok(t60.ev("TILE[18].name") === "가스 주머니" && Object.keys(man.files).includes("tiles/gas.png"), "가스 주머니 타일 · 그림");
+  t60.ev("P.fuel = maxFuel(); P.y = (SURF - 1) * T"); t60.run(1);
   // ---- 연속 채굴 콤보 ----
   t60.ev("S.combo = 0; S.comboT = 0; acct.stats.combo = 0; floaters.length = 0");
   ok(t60.ev("bumpCombo(2)") === 0 && t60.ev("bumpCombo(2)") === 0 && t60.ev("S.combo") === 2, "광물을 이어서 캐면 콤보가 쌓임 (2까지는 보너스 없음)");

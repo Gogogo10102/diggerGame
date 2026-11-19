@@ -4,7 +4,7 @@ import { B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, HW, inB, layerOf, LAYERS, M
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bannerQ, bombs, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, pushBanner, say, spawn, updateFx } from "../core/stats.ts";
-import { ICON, dirtTiles } from "../art/sprites.ts";
+import { ICON, dirtTiles, gasTile } from "../art/sprites.ts";
 
 // 보물 상자 열기: 깊을수록 많은 돈 + 25% 확률로 소모품 하나. 처음 열면 알림
 export function openChest(c, r) {
@@ -23,6 +23,41 @@ export function openChest(c, r) {
   sfx("sell"); sfx("levelup", { pitch: 1.6, vol: 0.4 });
   if (S.acct && S.acct.stats.chests === 1) pushBanner("보물 상자 발견!", "땅속 곳곳에 묻혀 있어요 · 깊을수록 값진 보물", ICON.chest, "#ffd34d");
   return money;
+}
+
+// ---- 가스 주머니: 뚫으면 GAS_T 초 동안 초록 가스가 퍼짐. 그 안에 있으면 연료가 GAS_DRAIN/초 더 닳음 (다이너마이트로 터뜨리면 타서 없어짐) ----
+export const gases = [];                                           // [{ x, y, t }]
+export const GAS_T = 7, GAS_DRAIN = 4;
+S.inGas = false;
+export const gasR = (g) => T * (0.9 + 1.3 * Math.min(1, (GAS_T - g.t) / 1.2));   // 1.2초 동안 2.2칸까지 퍼짐
+export function releaseGas(c, r) {
+  gases.push({ x: (c + 0.5) * T, y: (r + 0.5) * T, t: GAS_T, pt: 0 });
+  floaters.push({ x: (c + 0.5) * T, y: r * T - 10, text: "가스 누출!", color: "#9cff6a", life: 1.4 });
+  sfx("warn"); sfx("thrust", { vol: 0.3, pitch: 0.6 });
+  if (S.acct) {
+    S.acct.stats.gas = (S.acct.stats.gas || 0) + 1;
+    if (S.acct.stats.gas === 1) pushBanner("가스 주머니!", "가스 속에서는 연료가 빨리 닳아요 · 다이너마이트로 터뜨리면 안전", gasTile, "#9cff6a");
+  }
+}
+export function updateGas(dt) {
+  let inside = false;
+  for (let i = gases.length - 1; i >= 0; i--) {
+    const g = gases[i];
+    g.t -= dt; g.pt -= dt;
+    if (g.t <= 0) { gases.splice(i, 1); continue; }
+    const R = gasR(g);
+    if (g.pt <= 0 && g.t > 0.8) {                                 // 초록 가스가 일렁이며 피어오름
+      g.pt = 0.07;
+      const a = Math.random() * 6.283, d = Math.sqrt(Math.random()) * R * 0.8;
+      puff(g.x + Math.cos(a) * d, g.y + Math.sin(a) * d, (Math.random() - 0.5) * 20 * PX, -(4 + Math.random() * 10) * PX, 6 + Math.random() * 6, Math.random() < 0.5 ? "#7cdc5a" : "#b4f07a", 1 + Math.random() * 0.5);
+    }
+    if (Math.hypot(P.x - g.x, P.y - g.y) < R) inside = true;
+  }
+  if (inside && P.dead <= 0) {
+    P.fuel = Math.max(0, P.fuel - GAS_DRAIN * dt);
+    if (!S.inGas) say("가스! 연료가 새요 — 빨리 빠져나가세요");
+  }
+  S.inGas = inside;
 }
 
 // 처음 하는 사람 안내: 한 단계씩, 해내면 다음으로. 진행은 계정에 저장(S.acct.tut). 도움말(H)을 끄면 안 보임
@@ -123,6 +158,7 @@ export function explode(b) {
     broke++;
     if (id < 12 && id !== 7) onMined(id);
     if (id === 17) { onMined(id); openChest(c, r); }               // 폭파해도 상자는 열림
+    if (id === 18) floaters.push({ x: (c + 0.5) * T, y: r * T, text: "가스 연소!", color: "#ffb020", life: 1.1 });   // 폭파하면 가스는 타서 없어짐
     chips(c, r, id, 5, 1.5);
     if (TILE[id].value > 0) {
       if (cargoCount() < cargoCap()) { P.cargo[id] = (P.cargo[id] || 0) + 1; got++; } else { spawnDrop(id, (c + 0.5) * T, (r + 0.5) * T, 1); lost++; }
@@ -192,6 +228,7 @@ export function update(dt) {
   updateTutorial(dt);
   updateFx(dt);
   updateBombs(dt);
+  updateGas(dt);
   if (S.shakeT > 0) S.shakeT -= dt;
   if (S.stoneHintT > 0) S.stoneHintT -= dt;
   updateCave(dt);
@@ -288,6 +325,7 @@ export function update(dt) {
         for (let k = 0; k < 4; k++) puff((tgt[0] + 0.2 + Math.random() * 0.6) * T, (tgt[1] + 0.2 + Math.random() * 0.6) * T, (Math.random() - 0.5) * 40 * PX, -(4 + Math.random() * 14) * PX, 5 + Math.random() * 5, dustCol(tgt[1]), 0.7 + Math.random() * 0.4);
         S.dig = null;
         if (id === 17) openChest(tgt[0], tgt[1]);
+        else if (id === 18) releaseGas(tgt[0], tgt[1]);
         else if (info.value > 0) sfx("ore", { pitch: 0.8 + Math.min(0.9, Math.log10(1 + info.value) * 0.3) }); else sfx("break");
         discoverCave(tgt[0], tgt[1]);                              // 뚫은 칸 옆이 숨은 동굴이면 동굴 전체가 드러남
         if (info.value > 0) {

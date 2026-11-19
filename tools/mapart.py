@@ -412,3 +412,17 @@ def tree_img(v):
         for (x, y) in ((11, 36), (20, 31), (22, 42), (14, 44)):
             img[y:y + 2, x:x + 2] = [*hx("#ff4a5a"), 255]; img[y, x] = [*hx("#ffc0c8"), 255]
     return up2(img)
+
+def gas_tile():
+    """가스 주머니 (흙 위에 겹침): 흙 틈에 고인 초록 거품 몇 개 + 1px 외곽선"""
+    n = TS; img = np.zeros((n, n, 4)); yy, xx = np.mgrid[0:n, 0:n] + 0.5
+    allm = np.zeros((n, n), bool); parts = []
+    for (cx, cy, r) in ((11, 13, 5.2), (20, 18, 6.4), (12, 23, 3.4), (22, 8, 3.0), (17, 11, 2.2)):
+        m = np.hypot(xx - cx, yy - cy) <= r; parts.append((m, cx, cy, r)); allm |= m
+    img[ring(allm, wrap=False)] = [*hx("#12300a"), 255]
+    for (m, cx, cy, r) in parts:
+        img[m] = [*hx("#4ab83a"), 230]
+        img[m & ((xx - cx) + (yy - cy) < -r * .3)] = [*hx("#7cdc5a"), 235]
+        img[m & ((xx - cx) + (yy - cy) > r * .7)] = [*hx("#2a7a24"), 235]
+        img[m & (np.hypot(xx - (cx - r * .4), yy - (cy - r * .4)) < max(.8, r * .25))] = [*hx("#e0ffc0"), 255]
+    return up2(img)

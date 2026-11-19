@@ -198,7 +198,7 @@ if __name__ == "__main__":
     FUR = open(os.path.join(ROOT, "src/game/systems/furnace.ts"), encoding="utf-8").read()
     for k, a, b, c in re.findall(r'(\w\w): \{ name: "[^"]+",\s+ore: \d+,\s+coal: \d+, time: \d+,\s+pal: \["(#\w+)", "(#\w+)", "(#\w+)"\]', FUR):
         save(bar_icon(k, [a, b, c]), f"{A}/bars/{k}.png"); n += 1
-    save(mapart.sun_img(), f"{A}/sky/sun.png"); save(mapart.cloud_img(), f"{A}/sky/cloud.png"); save(chest_tile(), f"{A}/tiles/chest.png"); n += 3
+    save(mapart.sun_img(), f"{A}/sky/sun.png"); save(mapart.cloud_img(), f"{A}/sky/cloud.png"); save(chest_tile(), f"{A}/tiles/chest.png"); save(mapart.gas_tile(), f"{A}/tiles/gas.png"); n += 3
     for name, im in miner_parts().items():
         save(im, f"{A}/miner/{name}.png"); n += 1
     import chars

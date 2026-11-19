@@ -73,6 +73,12 @@ export const caveBot = [0, 1, 2, 3].map(() => sprite(1, 1, () => {}));
 //  4x4 이어지는 흙 무늬가 되풀이돼 보이지 않게 칸마다 다르게 얹음
 export const DIRT_OVER = 6;
 export const dirtOver = LAYERS.map(() => Array.from({ length: DIRT_OVER }, () => sprite(1, 1, () => {})));
+// 가스 주머니 (흙 위에 겹침): 흙 틈의 초록 거품. 고해상도 tiles/gas.png
+export const gasTile = sprite(16, 16, (p) => {
+  for (const [x, y, r] of [[5, 6, 2], [10, 9, 3], [6, 11, 1], [11, 4, 1]]) {
+    p(x - r, y - r + 1, r * 2 + 1, r * 2 - 1, "#1a3a10"); p(x - r + 1, y - r + 1, r * 2 - 1, r * 2 - 1, "#7cdc5a"); p(x - r + 1, y - r + 1, 1, 1, "#e0ffc0");
+  }
+});
 // 지상 나무 3종 (광산 터 땅 위, 64x128 · 아래 끝 = 땅). 고해상도 tiles/tree_<v>.png 만 (없으면 안 그림)
 export const treeImgs = [0, 1, 2].map(() => sprite(1, 1, () => {}));
 

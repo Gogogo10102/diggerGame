@@ -184,6 +184,21 @@ export function chunkChests(cx, cy) {
   return out;
 }
 
+// ---- 가스 주머니 ----
+// 암석층(140m)부터 구역마다 0~3개. 광맥·동굴·상자와 다른 난수(salt 0x9a55)라 기존 배치는 그대로 (흙 칸만 바뀜)
+export const GAS_TOP = SURF + 140;
+export function chunkGas(cx, cy) {
+  const rng = mulberry32(hash32(WGEN.seed, cx, cy, 0x9a55)), out = [];
+  const y0 = Math.max(GAS_TOP, cy * CH), y1 = Math.min(H - 4, cy * CH + CH - 1);
+  if (y0 > y1) return out;
+  const p = Math.min(0.8, 0.5 + (y0 - GAS_TOP) / 3000);
+  for (let n = 0; n < 3 && rng() < p; n++) {
+    const x = Math.max(1, cx * CH) + ((rng() * (Math.min(W - 2, cx * CH + CH - 1) - Math.max(1, cx * CH) + 1)) | 0);
+    out.push([x, y0 + ((rng() * (y1 - y0 + 1)) | 0)]);
+  }
+  return out;
+}
+
 // 가로 암석대(2칸 두께): 48칸마다 좁은 통로가 하나씩 있어서 찾아 돌아가거나 폭파해서 뚫음
 export function makeBands(seed) {
   const rng = mulberry32((seed ^ 0x5f3759df) | 0), bands = [];
@@ -229,6 +244,7 @@ export function genChunk(cx, cy) {
     if (inside(x, y) && tiles[y * W + x] === 1) tiles[y * W + x] = id;
   }
   for (const [x, y] of chunkChests(cx, cy)) if (tiles[y * W + x] === 1) tiles[y * W + x] = 17;   // 보물 상자 (흙 칸만)
+  for (const [x, y] of chunkGas(cx, cy)) if (tiles[y * W + x] === 1) tiles[y * W + x] = 18;      // 가스 주머니 (흙 칸만)
   for (let r = Math.max(y0, SURF); r <= SURF + 1 && r < y1; r++) for (let c = x0; c < x1; c++) {   // 마을 땅은 기초석(못 팜)
     if (inTown(c)) tiles[r * W + c] = 13;
   }

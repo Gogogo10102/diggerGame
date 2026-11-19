@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -19,7 +19,7 @@ import { chunks, floatT, solidTile } from "../systems/floating.ts";
 import { BARS, furnaceImg, matHave, matIcon, matName } from "../systems/furnace.ts";
 import { STICK_R, U_, shopBtn, touch } from "../systems/input.ts";
 import { drawCraftModal, drawFurnaceModal, drawShopModal, fitText } from "./townUI.ts";
-import { TUT_STEPS } from "../systems/update.ts";
+import { TUT_STEPS, gasR, gases } from "../systems/update.ts";
 import { drawMapModal, drawMinimap } from "./minimap.ts";
 import { SELL_KEYS, stashValue, unitPrice } from "../systems/town.ts";
 import { ov } from "../ui/overlay.ts";
@@ -235,6 +235,11 @@ export function draw() {
         ctx.drawImage(chestTile, px, py, T, T);
         const k = (S.animT * 1.2 + (c * 3 + r * 7) * 0.31) % 2.4;
         if (k < 0.5) { const a = Math.sin(k / 0.5 * Math.PI); ctx.globalAlpha = a; ctx.fillStyle = "#fff6c8"; ctx.fillRect(px + 40, py + 18, 2, 8); ctx.fillRect(px + 37, py + 21, 8, 2); ctx.globalAlpha = 1; }
+      }
+      if (id === 18) {                                             // 가스 주머니: 흙 틈의 초록 거품이 천천히 부풀었다 꺼짐
+        ctx.drawImage(gasTile, px, py, T, T);
+        const k = (S.animT * 0.9 + (c * 7 + r * 3) * 0.23) % 2;
+        if (k < 1) { ctx.globalAlpha = Math.sin(k * Math.PI) * 0.6; ctx.fillStyle = "#b4f07a"; ctx.fillRect(px + 28, py + 10 - Math.round(k * 8), 6, 6); ctx.globalAlpha = 1; }
       }
       if (id > 1 && ORE_SPR[id]) {
         const ov = ORE_SPR[id][hv(c, r) & 3];
@@ -612,6 +617,13 @@ export function draw() {
         g.addColorStop(0, hexA(lc, 0.2)); g.addColorStop(0.6, hexA(lc, 0.07)); g.addColorStop(1, hexA(lc, 0));
         ctx.fillStyle = g; ctx.fillRect(px - rr, py - rr, rr * 2, rr * 2);
       }
+      for (const g of gases) {                                      // 가스 구름: 어둠 속에서도 초록빛이 보이게
+        const gx = g.x - camX, gy = g.y - camY, R = gasR(g), q = ctx.createRadialGradient(gx, gy, 0, gx, gy, R);
+        if (!q || !q.addColorStop) break;
+        const a = Math.min(1, g.t / 1.2) * 0.3;
+        q.addColorStop(0, hexA("#7cdc5a", a)); q.addColorStop(1, hexA("#7cdc5a", 0));
+        ctx.fillStyle = q; ctx.fillRect(gx - R, gy - R, R * 2, R * 2);
+      }
       for (const [gx, gy, id, pulse] of S.oreGlows || []) {
         const q = ctx.createRadialGradient(gx, gy, 0, gx, gy, 30);
         if (!q || !q.addColorStop) break;
@@ -748,6 +760,10 @@ function comboBadge(x, y) {
 
 export function drawHUD(vw, vh, depth) {
   shopBtn.length = 0;
+  if (S.inGas && S.state === "play") {                          // 가스 속: 화면 가장자리가 초록으로 일렁임
+    ctx.fillStyle = hexA("#7cdc5a", 0.16 + 0.08 * Math.sin(S.animT * 8));
+    for (const [x, y, w, h] of [[0, 0, vw, 16], [0, vh - 16, vw, 16], [0, 16, 16, vh - 32], [vw - 16, 16, 16, vh - 32]]) ctx.fillRect(x, y, w, h);
+  }
   const wide = vw >= 760;                     // 넓으면 위 가운데에 광물 칸 + 깊이
   const blink = ((S.animT * 4) | 0) % 2;
   // 왼쪽 위: 연료 · 화물 칸 막대 (아이콘이 막대 왼쪽 끝에 겹침)
