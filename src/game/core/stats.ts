@@ -69,7 +69,7 @@ export const bombs = [], flashes = [];
 S.shakeT = 0; S.stoneHintT = 0; S.lastRevealKey = "";
 S.inShop = true;
 S.nearItems = false; S.nearCraft = false; S.nearFurnace = false;
-S.shopTab = 0; S.shopSel = 0; S.craftTab = 0; S.craftSel = 0; S.sellSel = 0;
+S.shopTab = 0; S.shopSel = 0; S.craftTab = 0; S.craftSel = 0; S.sellSel = 0; S.shopPer = 0;
 S.state = "title";       // title | play
 S.showHelp = true;
 S.msg = ""; S.msgT = 0;
@@ -81,7 +81,7 @@ export const say = (s) => { S.msg = s; S.msgT = 2.5; };
 export const BANNER_T = 3.5;
 export const bannerQ = [];
 export function pushBanner(title, sub = "", icon = null, col = "#ffd34d") {
-  if (bannerQ.length >= 4) bannerQ.shift();                    // 너무 쌓이면 오래된 것부터 버림
+  if (bannerQ.length >= 6) bannerQ.shift();                    // 너무 쌓이면 오래된 것부터 버림
   bannerQ.push({ title, sub, icon, col });
 }
 

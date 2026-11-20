@@ -8,7 +8,7 @@ import { CATS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
 import { BAR_KEYS, furnaceAct, openFurnace } from "./furnace.ts";
-import { SELL_KEYS, SELL_ORES, buyItem, craftItem, openCraft, sellItem, sellStash } from "./town.ts";
+import { ORDER_N, SELL_CAT_START, SELL_KEYS, SELL_ORES, buyItem, craftItem, deliverOrder, openCraft, rerollOrders, sellCat, sellItem, sellStash } from "./town.ts";
 import { useConsumable } from "./update.ts";
 import { openQuests } from "../ui/dom.ts";
 import { closeMenu, openInventory, openMenu } from "../ui/menu.ts";
@@ -49,11 +49,11 @@ addEventListener("keydown", (e) => {
     else if (e.code === "ArrowRight" || e.code === "KeyD") { S.shopTab = (S.shopTab + 1) % n; S.shopSel = 0; }
     else if (e.code === "ArrowUp" || e.code === "KeyW") S.shopSel = (S.shopSel + len - 1) % len;
     else if (e.code === "ArrowDown" || e.code === "KeyS") S.shopSel = (S.shopSel + 1) % len;
-    else if (e.code === "PageDown") S.shopSel = Math.min(len - 1, (Math.floor(S.shopSel / SHOP_PER) + 1) * SHOP_PER);
-    else if (e.code === "PageUp") S.shopSel = Math.max(0, (Math.floor(S.shopSel / SHOP_PER) - 1) * SHOP_PER);
+    else if (e.code === "PageDown") S.shopSel = Math.min(len - 1, (Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) + 1) * (S.shopPer || SHOP_PER));
+    else if (e.code === "PageUp") S.shopSel = Math.max(0, (Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) - 1) * (S.shopPer || SHOP_PER));
     else if (e.code === "Enter" || e.code === "Space") buyItem(CATS[S.shopTab].ids[S.shopSel]);
-    else if (/^Digit[1-4]$/.test(e.code)) {
-      const idx = Math.floor(S.shopSel / SHOP_PER) * SHOP_PER + Number(e.code.slice(5)) - 1;
+    else if (/^Digit[1-9]$/.test(e.code)) {
+      const idx = Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) * (S.shopPer || SHOP_PER) + Number(e.code.slice(5)) - 1;
       if (idx < len) { S.shopSel = idx; buyItem(CATS[S.shopTab].ids[idx]); }
     }
     return;
@@ -69,10 +69,15 @@ addEventListener("keydown", (e) => {
     if (e.code === "PageDown") { setTab(S.craftTab + 1); return; }
     if (/^Digit[1-9]$/.test(e.code)) { const t = Number(e.code.slice(5)) - 1; if (t < n) setTab(t); return; }
     if (onSell) {                                       // 판매: ←→ 원석/주괴 분류 · ↑↓ 고르기
-      const len = SELL_KEYS.length, nOre = SELL_ORES;
-      if (e.code === "ArrowLeft" || e.code === "KeyA" || e.code === "ArrowRight" || e.code === "KeyD") S.sellSel = S.sellSel < nOre ? nOre : 0;
-      else if (e.code === "ArrowUp" || e.code === "KeyW") S.sellSel = Math.max(0, S.sellSel - 1);
-      else if (e.code === "ArrowDown" || e.code === "KeyS") S.sellSel = Math.min(len - 1, S.sellSel + 1);
+      const len = SELL_KEYS.length, cat = sellCat(), lo = SELL_CAT_START[cat], hi = cat < 2 ? SELL_CAT_START[cat + 1] - 1 : len + ORDER_N - 1;
+      if (e.code === "ArrowLeft" || e.code === "KeyA") S.sellSel = SELL_CAT_START[(cat + 2) % 3];
+      else if (e.code === "ArrowRight" || e.code === "KeyD") S.sellSel = SELL_CAT_START[(cat + 1) % 3];
+      else if (e.code === "ArrowUp" || e.code === "KeyW") S.sellSel = Math.max(lo, S.sellSel - 1);
+      else if (e.code === "ArrowDown" || e.code === "KeyS") S.sellSel = Math.min(hi, S.sellSel + 1);
+      else if (cat === 2) {                                 // 의뢰: Enter/Space 납품 · R 새 의뢰
+        if (e.code === "Enter" || e.code === "Space") deliverOrder(S.sellSel - len);
+        else if (e.code === "KeyR") rerollOrders();
+      }
       else if (e.code === "Enter") sellItem(SELL_KEYS[S.sellSel], Infinity);
       else if (e.code === "Space") sellItem(SELL_KEYS[S.sellSel], 1);
       else if (e.code === "KeyF") sellStash();
@@ -154,7 +159,7 @@ stage.addEventListener("pointerdown", (e) => {
   if (S.state === "shop" || S.state === "craft" || S.state === "furnace") {   // 버튼 소리 (사기·팔기 등은 결과에 따라 따로 소리남)
     const b = shopBtn.find(hit);
     if (b) S.pressBtn = { x: b.x, y: b.y, t: performance.now() };     // 누른 버튼을 잠깐 눌린 모양으로 (uiBtn)
-    if (b && !/^(buy|sell|sellall|craft|smelt|fup|fclear)$/.test(b.act)) sfx(b.act === "sel" || b.act === "node" || b.act === "fsel" || b.act === "sellsel" ? "tick" : "click");
+    if (b && !/^(buy|sell|sellall|craft|smelt|fup|fclear|order|oreroll)$/.test(b.act)) sfx(b.act === "sel" || b.act === "node" || b.act === "fsel" || b.act === "sellsel" ? "tick" : "click");
   }
   if (S.state === "craft") {                           // 제작소 메뉴: 탭 처리
     for (const b of shopBtn) {
@@ -163,7 +168,9 @@ stage.addEventListener("pointerdown", (e) => {
       else if (b.act === "tab") { S.craftTab = b.arg; S.craftSel = 0; }
       else if (b.act === "node") S.craftSel = b.i;
       else if (b.act === "sellsel") S.sellSel = b.i;
-      else if (b.act === "scat") S.sellSel = b.arg ? SELL_ORES : 0;
+      else if (b.act === "scat") S.sellSel = SELL_CAT_START[b.arg] || 0;
+      else if (b.act === "order") { S.sellSel = SELL_KEYS.length + b.arg; deliverOrder(b.arg); }
+      else if (b.act === "oreroll") rerollOrders();
       else if (b.act === "spage") {                                  // 판매 목록 쪽 넘기기
         const base = S.sellSel >= SELL_ORES ? SELL_ORES : 0, end = base ? SELL_KEYS.length : SELL_ORES, per = S.sellPer || 5;
         S.sellSel = Math.max(base, Math.min(end - 1, base + (Math.floor((S.sellSel - base) / per) + b.arg) * per));
@@ -199,8 +206,8 @@ stage.addEventListener("pointerdown", (e) => {
       else if (b.act === "sel") S.shopSel = b.i;              // 줄을 누르면 고르기, 아래 [구매] 버튼으로 사기
       else if (b.act === "buy") { const k = CATS[S.shopTab].ids.indexOf(b.arg); if (k >= 0) S.shopSel = k; buyItem(b.arg); }
       else if (b.act === "page") {
-        const np = Math.max(0, Math.min(Math.ceil(CATS[S.shopTab].ids.length / SHOP_PER) - 1, Math.floor(S.shopSel / SHOP_PER) + b.arg));
-        S.shopSel = np * SHOP_PER;
+        const np = Math.max(0, Math.min(Math.ceil(CATS[S.shopTab].ids.length / (S.shopPer || SHOP_PER)) - 1, Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) + b.arg));
+        S.shopSel = np * (S.shopPer || SHOP_PER);
       }
       else if (b.act === "close") closeShop();
       return;

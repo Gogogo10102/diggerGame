@@ -2,15 +2,15 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
-import { ensureRect, hardOf, isAir, seen, tiles } from "../core/world.ts";
+import { baseTiles, ensureRect, hardOf, isAir, natAir, seen, tiles } from "../core/world.ts";
 import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
-import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
+import { COMBO_T, MAX_LV, levelOf, titleName } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { FONT_M, GLYPH, SY, blit, btnPx, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt, well } from "./util.ts";
 import { DEBRIS_T, debrisT, dust } from "../systems/collapseFx.ts";
@@ -19,7 +19,7 @@ import { chunks, floatT, solidTile } from "../systems/floating.ts";
 import { BARS, furnaceImg, matHave, matIcon, matName } from "../systems/furnace.ts";
 import { STICK_R, U_, shopBtn, touch } from "../systems/input.ts";
 import { drawCraftModal, drawFurnaceModal, drawShopModal, fitText } from "./townUI.ts";
-import { TUT_STEPS } from "../systems/update.ts";
+import { TUT_STEPS, gasR, gases } from "../systems/update.ts";
 import { drawMapModal, drawMinimap } from "./minimap.ts";
 import { SELL_KEYS, stashValue, unitPrice } from "../systems/town.ts";
 import { ov } from "../ui/overlay.ts";
@@ -93,14 +93,20 @@ function edgePaths(c, r, bits, dig, digSide) {
     }
   }
   const isCut = (x, y) => x >= 0 && x < G && y >= 0 && y < G && cut[y * G + x] === 1;
-  if (aT) for (let x = 0; x < G; x++) if (!cut[x]) { line.rect(x * u, 0, u, 2); lit.rect(x * u, 2, u, 2); }   // 깎지 않은 바닥에도 윤곽 + 빛
+  // 윤곽선 굵기 4px (맵 스타일 A: 아이콘 같은 굵은 외곽선), 바닥 면엔 위에서 오는 빛
+  const LW = 4;
+  if (aT) for (let x = 0; x < G; x++) if (!cut[x]) { line.rect(x * u, 0, u, LW); lit.rect(x * u, LW, u, 2); }   // 깎지 않은 바닥에도 윤곽 + 빛
   for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
     if (cut[y * G + x]) continue;
     const px = x * u, py = y * u;
-    if (isCut(x, y - 1)) { line.rect(px, py, u, 2); lit.rect(px, py + 2, u, 2); }      // 바닥 면: 윤곽 + 위에서 오는 빛
-    if (isCut(x, y + 1)) { line.rect(px, py + u - 2, u, 2); shade.rect(px, py - 4, u, 4); }   // 천장 면: 윤곽 + 그늘
-    if (isCut(x - 1, y)) line.rect(px, py, 2, u);
-    if (isCut(x + 1, y)) { line.rect(px + u - 2, py, 2, u); shade.rect(px - 4, py, 4, u); }
+    if (isCut(x, y - 1)) { line.rect(px, py, u, LW); lit.rect(px, py + LW, u, 2); }      // 바닥 면
+    if (isCut(x, y + 1)) { line.rect(px, py + u - LW, u, LW); shade.rect(px, py - 4, u, 4); }   // 천장 면: 윤곽 + 그늘
+    if (isCut(x - 1, y)) line.rect(px, py, LW, u);
+    if (isCut(x + 1, y)) { line.rect(px + u - LW, py, LW, u); shade.rect(px - 4, py, 4, u); }
+    if (isCut(x - 1, y - 1) && !isCut(x - 1, y) && !isCut(x, y - 1)) line.rect(px, py, LW, LW);   // 대각선 틈 메우기
+    if (isCut(x + 1, y - 1) && !isCut(x + 1, y) && !isCut(x, y - 1)) line.rect(px + u - LW, py, LW, LW);
+    if (isCut(x - 1, y + 1) && !isCut(x - 1, y) && !isCut(x, y + 1)) line.rect(px, py + u - LW, LW, LW);
+    if (isCut(x + 1, y + 1) && !isCut(x + 1, y) && !isCut(x, y + 1)) line.rect(px + u - LW, py + u - LW, LW, LW);
   }
   e = { cut: cutP, line, lit, shade, any: cut.some((v) => v) };
   if (EDGE_CACHE.size > 6000) EDGE_CACHE.clear();
@@ -132,12 +138,13 @@ function softEdge(c, r, px, py, id) {
   ctx.save();
   ctx.translate(px, py);
   ctx.save(); ctx.clip(e.cut);
-  ctx.drawImage(backTiles[layerOf(r - SURF)][(c * 5 + r * 3) & 3], 0, 0, T, T);
+  const natN = ((bits & 1) && natAir((r - 1) * W + c)) || ((bits & 2) && natAir((r + 1) * W + c)) || ((bits & 4) && natAir(r * W + c - 1)) || ((bits & 8) && natAir(r * W + c + 1));
+  ctx.drawImage((natN ? caveBack : backTiles)[layerOf(r - SURF)][(c * 5 + r * 3) & 3], 0, 0, T, T);   // 자연 동굴 쪽은 동굴 뒷벽
   ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(0, 0, T, T);   // 깎인 자리는 굴 안쪽이라 살짝 어둡게
   ctx.restore();
   ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.fill(e.shade);
   ctx.fillStyle = "rgba(255,230,190,0.16)"; ctx.fill(e.lit);
-  ctx.fillStyle = "#0f0905"; ctx.fill(e.line);
+  ctx.fillStyle = "#1a0f0a"; ctx.fill(e.line);
   ctx.restore();
 }
 
@@ -192,12 +199,12 @@ export function draw() {
   const sunY = 70 + Math.round(-camY * 0.1);
   if (sunY + 64 < surfY) ctx.drawImage(sunImg, vw - 160, sunY, 64, 64);
   if (surfY > 0) {                                               // 먼 산과 언덕(시차 스크롤)
-    for (const m of [{ k: 0.08, col: "#a9cfe9", h: 78, f: 0.011, a: 1 }, { k: 0.18, col: "#86b9a4", h: 46, f: 0.018, a: 2.3 }]) {
-      ctx.fillStyle = m.col;
+    for (const m of [{ k: 0.08, col: "#a9cfe9", top: "#7aa8d0", h: 78, f: 0.011, a: 1 }, { k: 0.18, col: "#86b9a4", top: "#5a8a74", h: 46, f: 0.018, a: 2.3 }]) {
       for (let x = 0; x < vw; x += 4) {
         const wx = x + camX * m.k;
-        const h = Math.round(m.h * (0.55 + 0.25 * Math.sin(wx * m.f + m.a) + 0.2 * Math.sin(wx * m.f * 2.7 + m.a * 1.9)) / 2) * 2;
-        ctx.fillRect(x, surfY - h, 4, h);
+        const h = Math.round(m.h * (0.55 + 0.25 * Math.sin(wx * m.f + m.a) + 0.2 * Math.sin(wx * m.f * 2.7 + m.a * 1.9)) / 4) * 4;
+        ctx.fillStyle = m.col; ctx.fillRect(x, surfY - h, 4, h);
+        ctx.fillStyle = m.top; ctx.fillRect(x, surfY - h, 4, 4);                    // 능선 윤곽 (맵 스타일: 굵은 테)
       }
     }
   }
@@ -220,11 +227,19 @@ export function draw() {
     else if (id === 16) ctx.drawImage(hardTiles[(c * 7 + r * 13) & 1], px, py, T, T);
     else if (id === 13 && r === SURF && BUILD_COLS.some((b) => c >= b[0] && c <= b[1])) ctx.drawImage(plinthTop, px, py, T, T);   // 건물 바로 아래 한 줄만 돌 기단 (그 아래는 흙처럼)
     else {                                                         // 건물 사이 마을 땅(13)은 잔디 흙처럼 보이게
-      ctx.drawImage(dirtTiles[layerOf(r - SURF)][hv(c, r) % DIRT_VAR], px, py, T, T);
+      const Ld = layerOf(r - SURF);
+      ctx.drawImage(dirtTiles[Ld][((c & 3) | ((r & 3) << 2)) % DIRT_VAR], px, py, T, T);   // 4x4칸마다 무늬가 이어짐
+      const hd = hv(c, r);
+      if ((hd >>> 4) % 5 < 2) { const ov = dirtOver[Ld][(hd >>> 9) % DIRT_OVER]; if (ov.width > 1) ctx.drawImage(ov, px, py, T, T); }   // 칸마다 자갈 등 (5칸에 2칸)
       if (id === 17) {                                             // 보물 상자: 흙 위에 상자, 금테가 가끔 반짝
         ctx.drawImage(chestTile, px, py, T, T);
         const k = (S.animT * 1.2 + (c * 3 + r * 7) * 0.31) % 2.4;
         if (k < 0.5) { const a = Math.sin(k / 0.5 * Math.PI); ctx.globalAlpha = a; ctx.fillStyle = "#fff6c8"; ctx.fillRect(px + 40, py + 18, 2, 8); ctx.fillRect(px + 37, py + 21, 8, 2); ctx.globalAlpha = 1; }
+      }
+      if (id === 18) {                                             // 가스 주머니: 흙 틈의 초록 거품이 천천히 부풀었다 꺼짐
+        ctx.drawImage(gasTile, px, py, T, T);
+        const k = (S.animT * 0.9 + (c * 7 + r * 3) * 0.23) % 2;
+        if (k < 1) { ctx.globalAlpha = Math.sin(k * Math.PI) * 0.6; ctx.fillStyle = "#b4f07a"; ctx.fillRect(px + 28, py + 10 - Math.round(k * 8), 6, 6); ctx.globalAlpha = 1; }
       }
       if (id > 1 && ORE_SPR[id]) {
         const ov = ORE_SPR[id][hv(c, r) & 3];
@@ -238,6 +253,7 @@ export function draw() {
       if (r === SURF) ctx.drawImage(grassTiles[hv(c, 9) & 1], px, py, T, T);
     }
   };
+  decoGlows.length = 0;
   const c0 = Math.max(0, Math.floor(camX / T)), c1 = Math.min(W - 1, Math.floor((camX + vw) / T));
   const r0 = Math.max(0, Math.floor(camY / T)), r1 = Math.min(H - 1, Math.floor((camY + vh) / T));
   ensureRect(c0 - 1, r0 - 1, c1 + 1, r1 + 1);                         // 화면에 보이는 땅은 꼭 만들어 둠(멀리 축소해서 볼 때)
@@ -247,7 +263,18 @@ export function draw() {
       let px = c * T - camX, py = r * T - camY;
       if (id === 0 || id === 14 || id === 15) {
         if (r >= SURF) {
-          ctx.drawImage(backTiles[layerOf(r - SURF)][(c * 5 + r * 3) & 3], px, py, T, T);
+          const L = layerOf(r - SURF), nat = id === 0 && r > SURF && baseTiles[r * W + c] === 0;   // 처음부터 빈 칸 = 자연 동굴
+          ctx.drawImage((nat ? caveBack : backTiles)[L][(c * 5 + r * 3) & 3], px, py, T, T);
+          if (nat) {                                              // 동굴 장식: 천장 고드름 돌 · 바닥 버섯/수정/돌 (칸마다 정해진 모양)
+            const h = hv(c, r + 7);
+            const ct = caveTop[L][(h >>> 3) % 3];
+            if ((h & 3) < 2 && ct.width > 1 && solidTile(tiles[(r - 1) * W + c])) ctx.drawImage(ct, px, py, T, T);
+            const bi = CAVE_BOT_BY_LAYER[L][(h >> 6) & 3], cb = caveBot[bi];
+            if (((h >> 9) & 3) === 0 && cb.width > 1 && solidTile(tiles[(r + 1) * W + c])) {
+              ctx.drawImage(cb, px, py, T, T);
+              if (CAVE_BOT_GLOW[bi] && seen[r * W + c]) decoGlows.push([px + T / 2 + camX, py + T - 12 + camY, CAVE_BOT_GLOW[bi]]);   // 빛나는 장식은 어둠 속에서도 은은하게
+            }
+          }
           if (r - SURF < 4) { ctx.fillStyle = "rgba(176,132,96," + [0.34, 0.22, 0.12, 0.05][r - SURF] + ")"; ctx.fillRect(px, py, T, T); }
           if (r === SURF) {                                      // 굴 너머 뒤편 잔디(앞쪽 잔디보다 한 톤 어둡게)
             ctx.fillStyle = "#3a6b2e"; ctx.fillRect(px, py, T, 4);
@@ -259,8 +286,9 @@ export function draw() {
           // 천장 쪽은 살짝 어둡게 (굴 벽 모양은 흙 칸 쪽에서 깎아서 그림 → softEdge)
           if (r > SURF && solidTile(tiles[(r - 1) * W + c])) { ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fillRect(px, py, T, 12); }
         } else if (r === SURF - 1 && id === 0 && tiles[SURF * W + c] !== 13 && solidTile(tiles[SURF * W + c])) {
-          const dc = decoFor(c);
-          if (dc) ctx.drawImage(dc, px, py, T, T);
+          const tr = c >= MINE_COL + 3 && hv(c, 101) % 9 === 0 ? treeImgs[hv(c, 103) % 3] : null;   // 광산 터에 드문드문 나무
+          if (tr && tr.width > 1) ctx.drawImage(tr, px + Math.floor((T - tr.width) / 2), py + T - tr.height);
+          else { const dc = decoFor(c); if (dc) ctx.drawImage(dc, px, py, T, T); }
         }
         if (id > 0) ctx.drawImage(id === 14 ? ICON.sup_w : ICON.sup_s, px, py, T, T);
         continue;
@@ -393,6 +421,26 @@ export function draw() {
         ctx.fillStyle = "#c08a5c"; ctx.fillRect(sx + 4, sy - 68, 36, 26);
         txt("▼", sx + 22, sy - 63, "#3a2414", 16, "center");
       }
+      // 광산 입구 문: 광산 터 첫 칸 위에 안전 노랑 기둥 둘 + 경고 줄무늬 상판 (맵 스타일 A, 굵은 외곽선)
+      {
+        const gx = MINE_COL * T - camX, gy = SURF * T - camY, OLc = "#1a0f0a";
+        for (const px of [gx - 8, gx + T - 4]) {
+          ctx.fillStyle = OLc; ctx.fillRect(px - 2, gy - 58, 16, 60);
+          ctx.fillStyle = "#ffbe1a"; ctx.fillRect(px, gy - 56, 12, 58);
+          ctx.fillStyle = "#ffe27a"; ctx.fillRect(px, gy - 56, 4, 58);
+          ctx.fillStyle = "#c47e00"; ctx.fillRect(px + 10, gy - 56, 2, 58);
+        }
+        const bx = gx - 18, bw = T + 36, by = gy - 74;
+        ctx.fillStyle = OLc; ctx.fillRect(bx - 2, by - 2, bw + 4, 22);
+        ctx.fillStyle = "#ffbe1a"; ctx.fillRect(bx, by, bw, 18);
+        ctx.fillStyle = "#22252d";
+        for (let k = -24; k < bw; k += 16) for (let j = 0; j < 3; j++) {               // 경고 줄무늬: 4px 계단으로 비스듬히
+          const x0 = Math.max(0, k + (2 - j) * 4), x1 = Math.min(bw, k + (2 - j) * 4 + 8);
+          if (x1 > x0) ctx.fillRect(bx + x0, by + 4 + j * 4, x1 - x0, 4);
+        }
+        ctx.fillStyle = "#ffe27a"; ctx.fillRect(bx, by, bw, 4);
+        ctx.fillStyle = "#c47e00"; ctx.fillRect(bx, by + 16, bw, 2);
+      }
     }
   }
 
@@ -467,7 +515,7 @@ export function draw() {
     const pdx = P.mode === "side" ? push : 0, pdy = P.mode === "down" ? push : P.mode === "up" ? -push : 0;
     if (push > 0) {                                                  // 모터와 드릴 사이 축(밀려 나간 만큼)
       const L = Math.round(push) + 3;
-      const [sx, sy, sw, sh] = P.mode === "side" ? [21, -33, L, 9] : P.mode === "down" ? [12, 3, 9, L] : [9, -63 - L + 3, 9, L];
+      const [sx, sy, sw, sh] = P.mode === "side" ? [21, -33, L, 9] : P.mode === "down" ? [18, 3, 9, L] : [9, -63 - L + 3, 9, L];
       ctx.fillStyle = "#14151f"; ctx.fillRect(sx, sy, sw, sh);
       ctx.fillStyle = "#9aa3b8"; ctx.fillRect(sx + (sw > sh ? 0 : 3), sy + (sw > sh ? 3 : 0), sw > sh ? sw : 3, sw > sh ? 3 : sh);
       ctx.fillStyle = "#e3e8f2"; ctx.fillRect(sx + (sw > sh ? 0 : 3), sy + (sw > sh ? 3 : 0), sw > sh ? sw : 1, sw > sh ? 1 : sh);
@@ -554,6 +602,9 @@ export function draw() {
       glows.push([gx * 4, gy * 4, id, pulse]);
     }
     S.oreGlows = glows;
+    for (const [wx, wy] of decoGlows) {                           // 동굴 빛 장식(빛버섯·수정·용암)도 어둠을 살짝 밝힘
+      lg.fillStyle = "rgba(0,0,0,0.3)"; lg.beginPath(); lg.arc((wx - camX) / 4, (wy - camY) / 4, 7, 0, 7); lg.fill();
+    }
     for (const b of bombs) {                                // 폭약 불빛
       lg.fillStyle = "rgba(0,0,0,0.7)";
       lg.beginPath(); lg.arc(((b.c + 0.5) * T - camX) / 4, ((b.r + 0.5) * T - camY) / 4, 14, 0, 7); lg.fill();
@@ -572,6 +623,20 @@ export function draw() {
       if (g && g.addColorStop) {
         g.addColorStop(0, hexA(lc, 0.2)); g.addColorStop(0.6, hexA(lc, 0.07)); g.addColorStop(1, hexA(lc, 0));
         ctx.fillStyle = g; ctx.fillRect(px - rr, py - rr, rr * 2, rr * 2);
+      }
+      for (const [wx, wy, col] of decoGlows) {
+        const gx = wx - camX, gy = wy - camY, q = ctx.createRadialGradient(gx, gy, 0, gx, gy, 40);
+        if (!q || !q.addColorStop) break;
+        const pulse = col === "#ff8a1f" ? 0.75 + 0.25 * Math.sin(S.animT * 3 + wx * 0.01) : 1;
+        q.addColorStop(0, hexA(col, 0.3 * pulse)); q.addColorStop(1, hexA(col, 0));
+        ctx.fillStyle = q; ctx.fillRect(gx - 40, gy - 40, 80, 80);
+      }
+      for (const g of gases) {                                      // 가스 구름: 어둠 속에서도 초록빛이 보이게
+        const gx = g.x - camX, gy = g.y - camY, R = gasR(g), q = ctx.createRadialGradient(gx, gy, 0, gx, gy, R);
+        if (!q || !q.addColorStop) break;
+        const a = Math.min(1, g.t / 1.2) * 0.3;
+        q.addColorStop(0, hexA("#7cdc5a", a)); q.addColorStop(1, hexA("#7cdc5a", 0));
+        ctx.fillStyle = q; ctx.fillRect(gx - R, gy - R, R * 2, R * 2);
       }
       for (const [gx, gy, id, pulse] of S.oreGlows || []) {
         const q = ctx.createRadialGradient(gx, gy, 0, gx, gy, 30);
@@ -692,13 +757,40 @@ function hudBar(x, y, img, n, filled, kind, label, labelCol) {
   return x + 22 + w;
 }
 
+// 연속 채굴 콤보 표시: 노란 판에 "콤보 x5" + 남은 시간 칸 막대 (2 이상일 때만). 너비를 돌려줌
+function comboBadge(x, y) {
+  if (!(S.combo >= 2 && S.comboT > 0)) return 0;
+  const label = "콤보 x" + S.combo; setFont(16);
+  const w = Math.ceil(ctx.measureText(label).width) + 20, pop = S.comboT > COMBO_T - 0.12 ? -2 : 0;
+  pxBox(x, y + pop, w, 30, SY.ink);
+  ctx.fillStyle = S.combo >= 10 ? "#ff8ad0" : SY.y; ctx.fillRect(x + 2, y + 2 + pop, w - 4, 26);
+  ctx.fillStyle = S.combo >= 10 ? "#ffd0ee" : SY.yHi; ctx.fillRect(x + 2, y + 2 + pop, w - 4, 2);
+  txt(label, x + 10, y + 6 + pop, "#1a1a1a", 16, "left", "rgba(0,0,0,0)");
+  const left = Math.max(0, S.comboT / COMBO_T);
+  ctx.fillStyle = SY.ink; ctx.fillRect(x + 4, y + 24 + pop, w - 8, 4);
+  ctx.fillStyle = "#c43a4c"; ctx.fillRect(x + 4, y + 24 + pop, Math.round((w - 8) * left), 4);
+  return w;
+}
+
 export function drawHUD(vw, vh, depth) {
   shopBtn.length = 0;
+  if (S.inGas && S.state === "play") {                          // 가스 속: 화면 가장자리가 초록으로 일렁임
+    ctx.fillStyle = hexA("#7cdc5a", 0.16 + 0.08 * Math.sin(S.animT * 8));
+    for (const [x, y, w, h] of [[0, 0, vw, 16], [0, vh - 16, vw, 16], [0, 16, 16, vh - 32], [vw - 16, 16, 16, vh - 32]]) ctx.fillRect(x, y, w, h);
+  }
   const wide = vw >= 760;                     // 넓으면 위 가운데에 광물 칸 + 깊이
   const blink = ((S.animT * 4) | 0) % 2;
   // 왼쪽 위: 연료 · 화물 칸 막대 (아이콘이 막대 왼쪽 끝에 겹침)
   const fr = Math.max(0, P.fuel / maxFuel()), low = fr < 0.25;
   const fSeg = Math.ceil(fr * 12 - 1e-9);
+  {                                                            // 상태 카드: 연료·화물·레벨 묶음 뒤에 숯색 판 (밝은 하늘·흙 위에서도 글자가 또렷하게)
+    setFont(12);
+    const fl = Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), cl = cargoCount() + "/" + cargoCap();
+    const tl = fitText(titleName() || "칭호 없음", Math.max(40, (wide ? 300 : vw - 230) - 6), 12);
+    const w1 = 10 + 22 + 122 + 6 + Math.max(ctx.measureText(fl).width, ctx.measureText(cl).width);
+    const w2 = 66 + 82 + 8 + ctx.measureText(tl).width;
+    plate(2, 2, Math.ceil(Math.max(w1, w2)) + 10, 100);
+  }
   hudBar(10, 12, ICON.fuel, 12, low && blink ? Math.max(0, fSeg - 1) : fSeg, low ? "low" : "fuel", Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), low ? SY.red : "#fff");
   const cc = cargoCount(), cap = cargoCap(), full = cc >= cap;
   hudBar(10, 44, ICON.crate, 12, Math.min(12, Math.ceil(cc / cap * 12 - 1e-9)), full && blink ? "low" : "cargo", cc + "/" + cap, full ? SY.red : "#fff");
@@ -726,6 +818,7 @@ export function drawHUD(vw, vh, depth) {
     setFont(16); const dw = Math.ceil(ctx.measureText(dTxt).width) + 48;
     plate(Math.floor(vw / 2 - dw / 2), ob + 6, dw, 30); blit(ICON.depth, Math.floor(vw / 2 - dw / 2) + 8, ob + 13, 16, 16);
     txt(dTxt, Math.floor(vw / 2 - dw / 2) + 30, ob + 13, "#9fd8ff", 16);
+    comboBadge(Math.floor(vw / 2 + dw / 2) + 8, ob + 6);
     const mw = Math.ceil(ctx.measureText(mTxt).width) + 50, mx0 = bx0 - 10 - mw;
     plate(mx0, by0, mw, bs); blit(ICON.coin, mx0 + 8, by0 + 6 + coinBob, 32, 32);
     txt(mTxt, mx0 + mw - 10, by0 + 14, mCol, 16, "right");
@@ -733,6 +826,7 @@ export function drawHUD(vw, vh, depth) {
     blit(ICON.coin, 10, 102 + coinBob, 24, 24); txt(mTxt, 38, 106, mCol, 16, "left", SY.ink);
     setFont(16); const mw = Math.ceil(ctx.measureText(mTxt).width);
     blit(ICON.depth, 38 + mw + 14, 106, 16, 16); txt(dTxt, 38 + mw + 34, 106, "#9fd8ff", 16, "left", SY.ink);
+    comboBadge(38 + mw + 34 + Math.ceil(ctx.measureText(dTxt).width) + 12, 100);
     S.hudBottom = drawOreBar(10, 134, vw - 20 - 46, false);      // 좁은 화면: 왼쪽 줄 아래에 광물 칸 (미니맵은 그 아래로)
     S.bannerY = Math.max(S.hudBottom + 12, vh - 270);              // 좁은 화면: 캐릭터(화면 가운데) 아래 빈 곳, 도움말·슬롯 위
   }
@@ -884,6 +978,7 @@ export function drawStick() {
 
 // 어둠 색(지층별): 지층 바탕색을 아주 어둡게 → 깊이마다 공기 색이 다르게 느껴짐
 const DARK_COL = LAYERS.map((L) => { const v = parseInt(L.base.slice(1), 16); return [((v >> 16) & 255) * 0.09 + 2, ((v >> 8) & 255) * 0.09 + 2, (v & 255) * 0.09 + 5].map(Math.round); });
+const decoGlows = [];                                             // [월드 x, 월드 y, 색] 이번 프레임에 보이는 빛나는 동굴 장식
 const GLOW_ORES = { 5: 1, 9: 1, 10: 1, 11: 1 };                 // 어둠 속에서 빛나는 광물: 다이아 · 에메랄드 · 루비 · 미스릴
 const hexA = (hex, a) => { const v = parseInt(hex.slice(1), 16); return "rgba(" + ((v >> 16) & 255) + "," + ((v >> 8) & 255) + "," + (v & 255) + "," + Math.max(0, a).toFixed(3) + ")"; };
 
@@ -996,7 +1091,11 @@ export function drawTitle(vw, vh) {
   // 로봇: 드릴이 돌고 궤도가 굴러감
   const leg = ((now * 8) | 0) % 2, dig = ((now * 12) | 0) % 2;
   const bob = Math.round(Math.sin(now * 3) * 1) * 2;
-  ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 60), y + bob, 120, 120);
+  // 2.5초마다 다른 로봇으로 (로봇 6종 자랑) — 바뀔 때 살짝 튀어오름
+  const ci = Math.floor(now / 2.5) % CHAR_IDS.length, hop = (now % 2.5) < 0.18 ? -6 : 0;
+  const keep = S.charId; S.charId = CHAR_IDS[ci];
+  ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 60), y + bob + hop, 120, 120);
+  S.charId = keep;
   y += 120 + 8;
   ctx.fillStyle = "rgba(10,10,16,0.5)"; ctx.fillRect(0, y - 12, vw, lh + 16 + 44 + 16);   // 로고·부제 뒤 어두운 띠 (뒤 건물에 묻히지 않게)
   ctx.fillStyle = "rgba(255,194,26,0.35)"; ctx.fillRect(0, y - 14, vw, 2); ctx.fillRect(0, y + lh + 16 + 44 + 4, vw, 2);

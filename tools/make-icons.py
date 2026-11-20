@@ -254,6 +254,14 @@ def trophy():
             L(rrect(4.0, 12.2, 12.0, 14.8, 0.6), "wood", "flat", 2),
             L(rect(6.0, 13.0, 10.0, 14.0), "gold", "fix", 3, sep=False)]
 
+def order():
+    """의뢰서: 두루마리 종이 + 글 줄 + 빨간 밀랍 도장"""
+    return [L(rrect(3.0, 2.0, 13.0, 14.6, 0.8), "scroll", "flat", 3),
+            L(rrect(2.2, 1.0, 13.8, 3.4, 1.2), "scroll", "dome", 2.4, rr=1.2),
+            L(rrect(2.2, 13.0, 13.8, 15.4, 1.2), "scroll", "dome", 2.4, rr=1.2),
+            L(U_(rect(5.0, 5.0, 11.0, 5.8), rect(5.0, 7.0, 11.0, 7.8), rect(5.0, 9.0, 8.6, 9.8)), "dwood", "fix", 2, sep=False),
+            L(ell(11.0, 11.2, 2.2, 2.2), "ruby", "dome", 2.6, rr=1.4, spec=[(10.2, 10.4)])]
+
 ICON_N = int(sys.argv[sys.argv.index("--size") + 1]) if "--size" in sys.argv else 32
 def save(layers, path):
     img = Image.fromarray(render(layers, ICON_N, "A", []), "RGBA")
@@ -271,7 +279,7 @@ if __name__ == "__main__":
     ui = {"coin": coin(), "chest": chest(), "bag": bag(), "crate": crate(0), "fuel": jerry(), "fuelcan": jerry(),
           "fuel_s": jerry(s=0.72), "fuel_m": jerry(s=0.86), "fuel_l": jerry("gold"),
           "dyn_s": dyn_s(), "dyn_l": dyn_l(), "dyn_x": dyn_x(), "sup_w": sup_w(), "sup_s": sup_s(),
-          "drill": drill(1), "engine": engine(1), "tracks": tracks(1), "lamp": lamp(1), "special": goggles(2), "trophy": trophy()}
+          "drill": drill(1), "engine": engine(1), "tracks": tracks(1), "lamp": lamp(1), "special": goggles(2), "trophy": trophy(), "order": order()}
     for k, lay in ui.items():
         save(lay, os.path.join(OUT_UI, k + ".png")); n += 1
     print("아이콘", n, "개 저장")

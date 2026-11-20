@@ -889,7 +889,8 @@ async function login(t, name) {
   ok(t50.ev("msg").includes("동굴 발견"), "동굴 발견 안내");
   // 자연 동굴은 떨어지지 않음
   t50.ev("chunks.length = 0; for (let k = 0; k < 10; k++) scanFloating(0.5)");
-  ok(t50.ev("chunks.length") === 0, "판 칸에 안 닿은 자연 지형은 떨어지지 않음");
+  // (월드에 따라 판 칸에 닿은 작은 흙덩이는 떨어질 수 있음 → 판 칸 근처 덩어리만 허용)
+  ok(t50.ev("chunks.every((ch) => ch.cells.some((k) => Math.abs(k.c - (" + target.c + " + 1.5)) <= 2.5 && Math.abs(k.r - " + target.r + ") <= 3))"), "판 칸에 안 닿은 자연 지형은 떨어지지 않음");
   ok(t50.ev("QUESTS.some((q) => q.group === 'cave')"), "동굴 탐험 업적");
 
   console.log("[29] 안전 노랑 UI · 칸 막대 HUD · 효과음");
@@ -910,20 +911,23 @@ async function login(t, name) {
   t60.ev("P.x = 4 * T; P.y = SURF * T - 20; P.vx = P.vy = 0; P.money = 1000"); t60.run(5);
   t60.key("KeyE"); t60.run(1);
   ok(t60.ev("state") === "shop" && t60.ev("shopBtn.filter((b) => b.act === 'tab').length") === t60.ev("CATS.length"), "상점: 왼쪽에 분류 버튼 " + t60.ev("CATS.length") + "개");
-  ok(t60.ev("shopBtn.filter((b) => b.act === 'buy').length") === t60.ev("SHOP_PER"), "목록 줄마다 구매 버튼");
+  ok(t60.ev("shopBtn.filter((b) => b.act === 'buy').length") === t60.ev("Math.min(S.shopPer, CATS[shopTab].ids.length)") && t60.ev("S.shopPer") >= 3, "목록 줄마다 구매 버튼 (창 높이에 맞춘 줄 수)");
   t60.tapAct("buy", "steel_drill"); t60.run(1);
   ok(t60.ev("!!P.items.steel_drill") && t60.ev("P.money") === 920, "줄의 구매 버튼으로 바로 구매");
   t60.tapAct("tab", 2); t60.run(1);
   ok(t60.ev("shopTab") === 2 && t60.canvasTexts().some((x) => x.includes("확장 화물칸")), "분류를 누르면 오른쪽 목록이 바뀜");
   // 판매: 원석 / 주괴 분류
   t60.ev("P.stash = { 2: 5 }; P.bars = { fe: 2 }; switchTown('sell')"); t60.run(1);
-  ok(t60.ev("shopBtn.filter((b) => b.act === 'scat').length") === 2 && t60.canvasTexts().some((x) => x.includes("구리")), "판매: 원석/주괴 분류 + 원석 목록");
+  ok(t60.ev("shopBtn.filter((b) => b.act === 'scat').length") === 3 && t60.canvasTexts().some((x) => x.includes("구리")), "판매: 원석/주괴/의뢰 분류 + 원석 목록");
   const m60 = t60.ev("P.money");
   t60.tapAct("sell", [2, 1]); t60.run(1);
   ok(t60.ev("P.stash[2]") === 4 && t60.ev("P.money") > m60, "줄의 1개 버튼으로 판매");
   t60.tapAct("scat", 1); t60.run(1);
   ok(t60.ev("sellSel") === t60.ev("SELL_ORES") && t60.canvasTexts().some((x) => x.includes("철 주괴")), "주괴 분류로 바꾸면 주괴 목록");
   t60.key("ArrowLeft"); ok(t60.ev("sellSel") === 0, "← 키로 원석 분류");
+  t60.tapAct("scat", 2); t60.run(1);
+  ok(t60.ev("sellSel") === t60.ev("SELL_KEYS.length") && t60.canvasTexts().some((x) => x.includes("새 의뢰 받기")) && t60.ev("shopBtn.filter((b) => b.act === 'order').length") === 3, "의뢰 분류: 의뢰 3줄 + 새 의뢰 받기");
+  t60.key("ArrowRight"); ok(t60.ev("sellSel") === 0, "→ 키로 의뢰 다음은 원석 분류");
   t60.key("Escape"); t60.run(1);
   // 설정: 효과음 크기 (− 칸 막대 +)
   t60.ev("openMenu()"); await t60.click("설정");
@@ -935,7 +939,7 @@ async function login(t, name) {
   // ---- 고해상도 그림 ----
   const man = JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "../public/assets/manifest.json"), "utf8"));
   const minerKeys = t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('miner/'))");
-  ok(minerKeys.length === 21 && minerKeys.every((k) => man.files[k]), "캐릭터 고해상도 부품 21개가 그림 목록에 있음");
+  ok(minerKeys.length === 21 + 5 * 12 && minerKeys.every((k) => man.files[k]), "캐릭터 고해상도 부품(기본 21 + 다른 로봇 5종 x 12)이 그림 목록에 있음");
   ok(["tiles/dirt/7_7.png", "tiles/back/7_3.png", "ores/world/11_3.png", "bars/mi.png"].every((k) => man.files[k]), "지층·광물·주괴 고해상도 그림 목록");
   ok(t60.ev("getMiner('side', 0, 0).width") === 40, "부품 그림이 없으면 코드로 그린 40x40 캐릭터");
   ok(t60.ev("(() => { for (const k in MINER_HI) MINER_HI[k].width = MINER_HI[k].height = 120; minerCache.clear(); const w = getMiner('down', 1, 1, 'drill').width; for (const k in MINER_HI) MINER_HI[k].width = MINER_HI[k].height = 1; minerCache.clear(); return w; })()") === 120,
@@ -958,7 +962,7 @@ async function login(t, name) {
   t60.ev("onMined(10)");
   ok(bq().split("새 광물 발견! 루비").length === 2, "두 번째부터는 알림 없음");
   t60.ev("for (let k = 0; k < 9; k++) pushBanner('x' + k)");
-  ok(t60.ev("bannerQ.length") <= 4, "알림이 너무 쌓이면 오래된 것부터 버림");
+  ok(t60.ev("bannerQ.length") <= 6, "알림이 너무 쌓이면 오래된 것부터 버림");
   t60.ev("bannerQ.length = 0; P.y = (SURF - 1) * T"); t60.run(1);
   // ---- 파편·먼지 ----
   t60.ev("parts.length = 0; dust.length = 0; P.x = 30.5 * T; P.y = (SURF + 20.5) * T; P.vx = P.vy = 0; for (let c = 28; c <= 33; c++) { tiles[(SURF + 20) * W + c] = 0; tiles[(SURF + 19) * W + c] = 0; tiles[(SURF + 21) * W + c] = 1; }");
@@ -1038,7 +1042,7 @@ async function login(t, name) {
   ok(t60.ev("S.moneyShown") === 1100, "잠시 뒤 실제 돈과 같아짐");
   // ---- 지하 조명 ----
   ok(t60.ev("DARK_COL.length === LAYERS.length && DARK_COL[4][0] > DARK_COL[4][2] && DARK_COL[5][2] > DARK_COL[5][0]"), "어둠 색이 지층마다 다름 (용암 붉게 · 수정 푸르게)");
-  t60.ev("P.x = 30.5 * T; P.y = (SURF + 40.5) * T; ensureAround(30, SURF + 40); tiles[(SURF + 40) * W + 31] = 5; seen[(SURF + 40) * W + 31] = 1; tiles[(SURF + 40) * W + 29] = 9; seen[(SURF + 40) * W + 29] = 0"); t60.run(2);
+  t60.ev("P.x = 30.5 * T; P.y = (SURF + 40.5) * T; ensureAround(30, SURF + 40); for (let r = SURF + 25; r < SURF + 56; r++) for (let c = 5; c < 60; c++) if (GLOW_ORES[tiles[r * W + c]]) tiles[r * W + c] = 1; tiles[(SURF + 40) * W + 31] = 5; seen[(SURF + 40) * W + 31] = 1; tiles[(SURF + 40) * W + 29] = 9; seen[(SURF + 40) * W + 29] = 0"); t60.run(2);
   ok(t60.ev("(S.oreGlows || []).some((g) => g[2] === 5) && !(S.oreGlows || []).some((g) => g[2] === 9)"), "본 적 있는 희귀 광물만 어둠 속에서 빛남");
   t60.ev("P.y = (SURF - 1) * T"); t60.run(1);
   // ---- 보물 상자 ----
@@ -1061,7 +1065,84 @@ async function login(t, name) {
   ok(t60.ev("animMiner(0.2); S.minerBlink") === false, "잠깐 뒤 다시 뜸");
   ok(t60.ev("S.antA = 0; S.antV = 0; P.facing = 1; P.vx = 0; S.lastVx = 0; P.vx = 300 * PX; for (let k = 0; k < 12; k++) animMiner(1 / 120); S.minerAnt") === 0, "앞으로 갑자기 달리면 안테나가 뒤로 기욺");
   ok(t60.ev("P.vx = 0; for (let k = 0; k < 240; k++) animMiner(1 / 120); S.minerAnt") === 1, "시간이 지나면 안테나가 가운데로 돌아옴");
-  ok(t60.ev("Object.keys(MINER_HI).length") === 21 && t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('miner/')).length") === 21, "캐릭터 부품 21개(안테나 3 · 불빛 3 · 눈 감은 덮개 3 포함)");
+  ok(t60.ev("Object.keys(MINER_HI).length") === 21 && t60.ev("Object.keys(assetTable()).filter((k) => /^miner\\/[^/]+\\.png$/.test(k)).length") === 21, "캐릭터 부품 21개(안테나 3 · 불빛 3 · 눈 감은 덮개 3 포함)");
+  // ---- 가스 주머니 ----
+  ok(t60.ev("JSON.stringify(chunkGas(2, 8)) === JSON.stringify(chunkGas(2, 8))") && t60.ev("chunkGas(0, 0).length") === 0, "가스 주머니 자리는 시드로 정해지고 지표 근처엔 없음");
+  ok(t60.ev("(() => { let n = 0; for (let cy = 5; cy < 20; cy++) for (let cx = 0; cx < CW; cx++) n += chunkGas(cx, cy).length; return n; })()") > 10, "암석층부터 구역마다 가스 주머니");
+  ok(t60.ev("chunkGas(3, 9).every(([x, y]) => y >= GAS_TOP)"), "가스 주머니는 140m 아래만");
+  t60.ev("gases.length = 0; acct.stats.gas = 0; bannerQ.length = 0; P.x = 30.5 * T; P.y = (SURF + 200.5) * T; P.dead = 0; P.fuel = 50; releaseGas(30, SURF + 200)");
+  ok(t60.ev("gases.length") === 1 && t60.ev("acct.stats.gas") === 1 && t60.ev("bannerQ.some((b) => b.title.includes('가스'))"), "가스가 새어 나오고 처음엔 알림");
+  t60.ev("updateGas(1)");
+  ok(t60.ev("S.inGas") === true && t60.ev("P.fuel") < 50 - 3, "가스 속에선 연료가 빨리 닳음");
+  t60.ev("P.x = 40.5 * T; updateGas(0.1)");
+  ok(t60.ev("S.inGas") === false, "가스 밖으로 나가면 괜찮음");
+  t60.ev("updateGas(GAS_T)");
+  ok(t60.ev("gases.length") === 0, "가스는 시간이 지나면 사라짐");
+  t60.ev("ensureAround(30, SURF + 200); tiles[(SURF + 200) * W + 30] = 18; explode({ c: 30, r: SURF + 200, rad: 1 })");
+  ok(t60.ev("gases.length") === 0 && t60.ev("tiles[(SURF + 200) * W + 30]") === 0, "다이너마이트로 터뜨리면 가스가 타서 안 퍼짐");
+  ok(t60.ev("TILE[18].name") === "가스 주머니" && Object.keys(man.files).includes("tiles/gas.png"), "가스 주머니 타일 · 그림");
+  t60.ev("P.fuel = maxFuel(); P.y = (SURF - 1) * T"); t60.run(1);
+  // ---- 연속 채굴 콤보 ----
+  t60.ev("S.combo = 0; S.comboT = 0; acct.stats.combo = 0; floaters.length = 0");
+  ok(t60.ev("bumpCombo(2)") === 0 && t60.ev("bumpCombo(2)") === 0 && t60.ev("S.combo") === 2, "광물을 이어서 캐면 콤보가 쌓임 (2까지는 보너스 없음)");
+  ok(t60.ev("bumpCombo(4)") > 0 && t60.ev("floaters.some((f) => f.text.includes('콤보 x3'))"), "콤보 3부터 보너스 경험치 + 떠오르는 글자");
+  t60.ev("S.state = 'play'; update(COMBO_T + 0.1)");
+  ok(t60.ev("S.combo") === 0 && t60.ev("acct.stats.combo") === 3, "시간이 지나면 콤보가 끊기고 최고 기록은 남음");
+  ok(t60.ev("bumpCombo(2); S.combo") === 1, "끊긴 뒤엔 1부터");
+  ok(t60.ev("(() => { const d = snapshot(); applyAccount(d); return acct.stats.combo; })()") === 3, "최고 콤보가 저장됨");
+  ok(t60.ev("QUESTS.some((q) => q.group === 'combo')"), "콤보 업적");
+  // ---- 의뢰 ----
+  t60.ev("acct.orders = []; acct.stats.mined = { 2: 5, 6: 3 }; acct.stats.smelted = 0; acct.stats.maxDepth = 50; ensureOrders()");
+  ok(t60.ev("acct.orders.length") === 3 && t60.ev("acct.orders.every((o) => (o.k === 2 || o.k === 6) && o.n >= 2 && o.pay > 0 && o.xp > 0)"), "의뢰 3개: 캐 본 광물만 (주괴는 제련해 본 뒤)");
+  ok(t60.ev("acct.orders.every((o) => o.pay >= Math.round(o.n * TILE[o.k].value * 1.5))"), "의뢰 보상은 판매가보다 큼");
+  {
+    t60.ev("P.stash = {}; P.money = 0; acct.stats.orders = 0; acct.orders[0] = { k: 2, n: 4, pay: 200, xp: 12 }");
+    t60.ev("deliverOrder(0)");
+    ok(t60.ev("P.money") === 0 && t60.ev("acct.stats.orders") === 0, "재료가 모자라면 납품 안 됨");
+    const xp0 = t60.ev("acct.xp");
+    t60.ev("P.stash = { 2: 6 }; deliverOrder(0)");
+    ok(t60.ev("P.money") >= 200 && t60.ev("P.stash[2]") === 2 && t60.ev("acct.stats.orders") === 1 && t60.ev("acct.xp") > xp0, "납품하면 재료가 빠지고 돈·경험치·기록");
+    ok(t60.ev("acct.orders.length === 3 && !(acct.orders[0].k === 2 && acct.orders[0].n === 4 && acct.orders[0].pay === 200)"), "끝낸 자리에 새 의뢰");
+    ok(t60.ev("QUESTS.some((q) => q.group === 'order') && questLabel(QUESTS.find((q) => q.group === 'order')).includes('의뢰')"), "의뢰 업적");
+    t60.ev("P.money = 0; rerollOrders()");
+    ok(t60.ev("P.money") === 0, "돈이 없으면 새 의뢰 못 받음");
+    t60.ev("P.money = 99999; rerollOrders()");
+    ok(t60.ev("P.money") === 99999 - t60.ev("orderRerollCost()") && t60.ev("acct.orders.length") === 3, "새 의뢰 받기 = 돈 내고 셋 다 바꿈");
+    ok(t60.ev("(() => { const o = JSON.stringify(acct.orders); const d = snapshot(); applyAccount(d); return JSON.stringify(acct.orders) === o && acct.stats.orders === 1; })()"), "의뢰 · 끝낸 수가 저장됨");
+    ok(t60.ev("(() => { const d = snapshot(); delete d.orders; d.stats.orders = undefined; applyAccount(d); return acct.orders.length === 0 && acct.stats.orders === 0; })()"), "옛 세이브(의뢰 없음)는 빈 목록 → 열 때 새로 만듦");
+    t60.ev("S.sellSel = SELL_KEYS.length; sellCat()");
+    ok(t60.ev("sellCat()") === 2 && t60.ev("SELL_CAT_START[2]") === t60.ev("SELL_KEYS.length"), "판매 탭 세 번째 분류 = 의뢰");
+    t60.ev("S.sellSel = 0");
+  }
+  // ---- 자연 동굴 그림 ----
+  ok(t60.ev("caveBack.length === LAYERS.length && caveBack[0].length === 4 && caveTop[0].length === 3 && caveBot.length === 7 && CAVE_BOT_BY_LAYER.length === LAYERS.length && CAVE_BOT_BY_LAYER.every((a) => a.length === 4 && a.every((i) => i < caveBot.length))"), "자연 동굴 뒷벽 · 고드름 돌 · 바닥 장식 7종(지층마다 고름) 그림 자리");
+  ok(t60.ev("Object.keys(assetTable()).filter((k) => k.startsWith('tiles/cave/')).length") === 8 * 4 + 8 * 3 + 7, "자연 동굴 그림 63장");
+  ok(Object.keys(man.files).filter((k) => k.startsWith("tiles/cave/")).length === 63, "자연 동굴 그림이 그림 목록(manifest)에 있음");
+  ok(t60.ev("dirtOver.length === LAYERS.length && dirtOver[0].length === DIRT_OVER && treeImgs.length === 3"), "흙 위 자갈 덮개 · 지상 나무 그림 자리");
+  ok(Object.keys(man.files).filter((k) => /^tiles\/dirt\/over_/.test(k)).length === 8 * 6 && Object.keys(man.files).filter((k) => /^tiles\/tree_/.test(k)).length === 3, "자갈 덮개 48장 · 나무 3장이 그림 목록에 있음");
+  // ---- 로봇(캐릭터) 종류 ----
+  ok(t60.ev("CHAR_INFO.length === CHAR_IDS.length && CHAR_INFO.every((c, i) => c.id === CHAR_IDS[i])"), "캐릭터 목록이 그림 목록과 같은 순서");
+  ok(t60.ev("Object.keys(assetTable()).filter((k) => /^miner\\/\\w+\\//.test(k)).length") === (6 - 1) * 12, "다른 캐릭터마다 부품 12개 그림 자리");
+  t60.ev("acct.xp = 0; acct.stats.maxDepth = 0; acct.stats.chests = 0; acct.chars = []; S.charId = 'yellow'; bannerQ.length = 0; checkQuests()");
+  ok(t60.ev("CHAR_INFO.filter(charOpen).length") === 1, "처음엔 기본 로봇만 열림");
+  t60.ev("acct.stats.maxDepth = 120; checkQuests()");
+  ok(t60.ev("charOpen(CHAR_INFO[2]) && acct.chars.includes('mint') && bannerQ.some((b) => b.title.includes('새싹이'))"), "100m 도달하면 새싹이 열림 + 알림");
+  t60.ev("bannerQ.length = 0; checkQuests()");
+  ok(t60.ev("!bannerQ.some((b) => b.title.includes('새 로봇'))"), "한 번 알린 로봇은 다시 알리지 않음");
+  ok(t60.ev("typeof minerPreview('mint').width") === "number", "로봇 미리보기 그림");
+  t60.ev("S.charId = 'mint'"); t60.run(2);
+  ok(t60.ev("(() => { const d = snapshot(); S.charId = 'yellow'; applyAccount(d); return S.charId; })()") === "mint", "고른 로봇이 저장됨");
+  ok(t60.ev("(() => { const d = snapshot(); d.char = 'night'; applyAccount(d); return S.charId; })()") === "yellow", "안 열린 로봇을 불러오면 기본 로봇으로");
+  ok(t60.ev("(() => { const d = snapshot(); delete d.char; delete d.chars; applyAccount(d); return S.charId === 'yellow' && Array.isArray(acct.chars); })()"), "옛 세이브(로봇 기록 없음)는 기본 로봇");
+  t60.ev("acct.stats.maxDepth = 120; S.charId = 'yellow'; openInventory(); renderRobots()");
+  {
+    const nms = t60.all().filter((n) => n.className === "nm").map((n) => n.textContent);
+    ok(nms.includes("새싹이") && nms.includes("밤하늘") && t60.ev("S.state") === "menu", "로봇 고르기 창: 로봇 6종");
+    ok(t60.all().filter((n) => n.tag === "button" && n.textContent === "잠김").length === 4, "안 열린 로봇은 잠김 버튼");
+    t60.all().find((n) => n.tag === "button" && n.textContent === "고르기").click();
+    ok(t60.ev("S.charId") === "mint", "고르기 누르면 그 로봇으로 바뀜");
+  }
+  t60.ev("closeMenu(); S.charId = 'yellow'");
 
   t60.ev("P.y = (SURF - 1) * T"); t60.run(1);
 

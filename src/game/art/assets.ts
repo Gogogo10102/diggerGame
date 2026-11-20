@@ -6,7 +6,7 @@
 //  - 그림을 바꾸려면: PNG를 수정해서 같은 경로에 덮어쓰기 → 새로고침. 크기는 원래와 달라도 됩니다.
 //  - 새 PNG를 추가했다면 manifest.json 에도 경로를 넣어 주세요 (npm run assets:manifest).
 // =====================================================================
-import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg, MINER_HI, chestTile } from "./sprites.ts";
+import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg, MINER_HI, MINER_CH, minerCache, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, gasTile } from "./sprites.ts";
 import { ITEM_ICON } from "./itemIcons.ts";
 import { SIGN_IMG, TAB_IMG, plinthTop, plinthLow } from "./buildings.ts";
 import { barIcon, furnaceImg } from "../systems/furnace.ts";
@@ -24,6 +24,11 @@ export function assetTable() {
   for (const k in barIcon) t["bars/" + k + ".png"] = () => barIcon[k];
   dirtTiles.forEach((arr, L) => arr.forEach((_, v) => { t["tiles/dirt/" + L + "_" + v + ".png"] = () => dirtTiles[L][v]; }));
   backTiles.forEach((arr, L) => arr.forEach((_, v) => { t["tiles/back/" + L + "_" + v + ".png"] = () => backTiles[L][v]; }));
+  caveBack.forEach((arr, L) => arr.forEach((_, v) => { t["tiles/cave/back_" + L + "_" + v + ".png"] = () => caveBack[L][v]; }));
+  caveTop.forEach((arr, L) => arr.forEach((_, v) => { t["tiles/cave/top_" + L + "_" + v + ".png"] = () => caveTop[L][v]; }));
+  caveBot.forEach((_, i) => { t["tiles/cave/bot_" + i + ".png"] = () => caveBot[i]; });
+  treeImgs.forEach((_, i) => { t["tiles/tree_" + i + ".png"] = () => treeImgs[i]; });
+  dirtOver.forEach((arr, L) => arr.forEach((_, v) => { t["tiles/dirt/over_" + L + "_" + v + ".png"] = () => dirtOver[L][v]; }));
   grassTiles.forEach((_, i) => { t["tiles/grass_" + i + ".png"] = () => grassTiles[i]; });
   decoTiles.forEach((_, i) => { t["tiles/deco_" + i + ".png"] = () => decoTiles[i]; });
   hardTiles.forEach((_, i) => { t["tiles/hard_" + i + ".png"] = () => hardTiles[i]; });
@@ -40,7 +45,9 @@ export function assetTable() {
   t["sky/sun.png"] = () => sunImg;
   t["sky/cloud.png"] = () => cloudImg;
   t["tiles/chest.png"] = () => chestTile;
+  t["tiles/gas.png"] = () => gasTile;
   for (const k in MINER_HI) t["miner/" + k + ".png"] = () => MINER_HI[k];
+  for (const id in MINER_CH) for (const k in MINER_CH[id]) t["miner/" + id + "/" + k + ".png"] = () => MINER_CH[id][k];   // 다른 캐릭터 부품
   return t;
 }
 
@@ -74,5 +81,6 @@ export async function loadAssets() {
     try { const img = await loadImage("assets/" + path + (ver ? "?v=" + ver : "")); const cv = get(); if (cv) { applyImage(cv, img); n++; } }
     catch (e) { console.warn("그림 파일을 못 읽었어요:", path); }
   }));
+  minerCache.clear();                                                   // 그림이 바뀌었으니 조립해 둔 캐릭터 그림을 다시 만듦
   return n;
 }

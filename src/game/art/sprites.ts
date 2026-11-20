@@ -25,8 +25,8 @@ export function sprite(w, h, fn) {
 export const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 export const mixC = (a, b, t) => { const A = hexRgb(a), B = hexRgb(b); return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
 export const hv = (c, r) => (Math.imul(c + 11, 73856093) ^ Math.imul(r + 7, 19349663)) >>> 0;
-// 흙 타일 (지층별 8종 변형, 이음매가 보이지 않게 가장자리를 감싸서 그림)
-export const DIRT_VAR = 8;
+// 흙 타일 (지층별 16조각: 4x4칸이 이어지는 무늬. 고해상도는 tools/mapart.py)
+export const DIRT_VAR = 16;                       // 흙 무늬는 4x4칸이 이어지는 한 장 (번호 = (c&3) + (r&3)*4)
 // 깊은 지층(5번째부터)은 따로 쓰는 난수로 그림 → 기존 지층·광물 그림의 모양(난수 순서)이 바뀌지 않음
 export const artDeep = mulberry32(4242);
 export const dirtTiles = LAYERS.map((L, li) => Array.from({ length: DIRT_VAR }, () => sprite(16, 16, (p) => {
@@ -64,6 +64,27 @@ export const backTiles = LAYERS.map((L, li) => Array.from({ length: 4 }, () => s
   for (let i = 0; i < 22; i++) w(rn(16), rn(16), 1, 1, art() < 0.5 ? a : b);
   for (let i = 0; i < 3; i++) { const x = rn(16), y = rn(16); w(x, y, 3, 2, a); w(x, y + 2, 3, 1, b); }
 })));
+// 자연 동굴: 뒷벽(판 굴보다 어둡고 푸르스름) · 천장 고드름 돌(지층마다 3) · 바닥 장식 4종(빛버섯·버섯·수정·돌무더기)
+//  고해상도 그림 tiles/cave/*.png (tools/mapart.py). 파일이 없으면 뒷벽은 판 굴 뒷벽을 어둡게, 장식은 안 그림(1x1)
+export const caveBack = LAYERS.map((L, li) => [0, 1, 2, 3].map((v) => sprite(16, 16, (p, g) => { g.drawImage(backTiles[li][v], 0, 0); p(0, 0, 16, 16, "rgba(12,20,44,0.35)"); })));
+export const caveTop = LAYERS.map(() => [0, 1, 2].map(() => sprite(1, 1, () => {})));
+export const caveBot = [0, 1, 2, 3, 4, 5, 6].map(() => sprite(1, 1, () => {}));
+// 지층마다 나오는 바닥 장식 (0 빛버섯 · 1 빨간 버섯 · 2 수정 · 3 돌무더기 · 4 용암 웅덩이 · 5 뼈 무더기 · 6 보라 수정)
+export const CAVE_BOT_BY_LAYER = [[0, 1, 3, 1], [1, 3, 0, 3], [3, 0, 2, 3], [6, 0, 3, 6], [4, 4, 3, 4], [2, 2, 6, 0], [5, 3, 5, 0], [0, 6, 2, 6]];
+//  어둠 속에서 빛나는 장식과 그 색
+export const CAVE_BOT_GLOW = { 0: "#5aa8ff", 2: "#7fe8ff", 4: "#ff8a1f", 6: "#c486ff" };
+// 흙 위에 칸마다 골라 얹는 자갈·반짝이·뼈·뿌리 (지층마다 6종, 고해상도 tiles/dirt/over_<지층>_<v>.png 만)
+//  4x4 이어지는 흙 무늬가 되풀이돼 보이지 않게 칸마다 다르게 얹음
+export const DIRT_OVER = 6;
+export const dirtOver = LAYERS.map(() => Array.from({ length: DIRT_OVER }, () => sprite(1, 1, () => {})));
+// 가스 주머니 (흙 위에 겹침): 흙 틈의 초록 거품. 고해상도 tiles/gas.png
+export const gasTile = sprite(16, 16, (p) => {
+  for (const [x, y, r] of [[5, 6, 2], [10, 9, 3], [6, 11, 1], [11, 4, 1]]) {
+    p(x - r, y - r + 1, r * 2 + 1, r * 2 - 1, "#1a3a10"); p(x - r + 1, y - r + 1, r * 2 - 1, r * 2 - 1, "#7cdc5a"); p(x - r + 1, y - r + 1, 1, 1, "#e0ffc0");
+  }
+});
+// 지상 나무 3종 (광산 터 땅 위, 64x128 · 아래 끝 = 땅). 고해상도 tiles/tree_<v>.png 만 (없으면 안 그림)
+export const treeImgs = [0, 1, 2].map(() => sprite(1, 1, () => {}));
 
 // 광물 가장자리에 어두운 테두리를 둘러 흙 위에서 또렷하게
 export function rimmed(src) {
@@ -286,9 +307,11 @@ export const oreTiles = {};                                   // (호환) 월드
 for (const id in ORE_SPR) oreTiles[id] = ORE_SPR[id][0].img;
 export const SPARK_ORES = { 4: 1, 5: 1, 8: 1, 9: 1, 10: 1, 11: 1 };
 // 고해상도 광물 그림(64px, tools/make-hires.py)의 반짝임 자리 (16칸 좌표, 변형마다 덩이 왼쪽 위 밝은 곳)
-//  make-hires.py 의 ORE_HI_SLOTS 와 같은 자리
-export const ORE_HI_SPARK = [[[3.6, 3.6], [10.9, 5.4], [5.3, 10.8], [11.5, 12]], [[4.4, 4.9], [10.3, 3.3], [9.5, 10.5], [3.1, 11.1]],
-  [[10.8, 3.8], [4, 5.5], [9.1, 10.6], [3.4, 11.9]], [[10.5, 5], [4.1, 3.1], [5.4, 10.4], [11.3, 11.3]]];
+//  tools/mapart.py 의 ORE_PILES 덩이마다 빛 받는 자리 (ore_spark 로 계산)
+export const ORE_HI_SPARK = [[[3.2, 4.2], [9.9, 3.4], [7.0, 9.5]],
+  [[3.7, 9.2], [9.0, 8.5], [5.9, 3.4]],
+  [[8.7, 4.7], [3.9, 5.9], [6.2, 10.2]],
+  [[4.9, 3.9], [9.7, 7.2], [3.9, 9.9]]];
 // 단단한 암석(경암): 희귀 광물을 감싸고 있음. 드릴로 팔 수 있지만 오래 걸림
 export const hardTiles = [0, 1].map(() => sprite(16, 16, (p) => {
   p(0, 0, 16, 16, "#33384a");
@@ -354,7 +377,7 @@ export const sunImg = sprite(16, 16, (p) => {
   p(5, 3, 6, 10, "#ffe066"); p(3, 5, 10, 6, "#ffe066"); p(4, 4, 8, 8, "#ffe066");
 });
 export const CLOUDS = [{x:60,y:50,s:3},{x:340,y:110,s:4},{x:620,y:40,s:3},{x:880,y:130,s:5},{x:1150,y:70,s:3},{x:1400,y:100,s:4}];
-export const SKY = ["#5fb8ff", "#74c3ff", "#8ccfff", "#a3dbff", "#bde6ff", "#d3f0ff"];
+export const SKY = ["#4aafff", "#5cbaff", "#6ec4ff", "#82cdff", "#98d8ff", "#b2e3ff"];   // 맵 스타일 A: 또렷한 하늘 띠
 
 // 상점 건물 (112x48 아트 = 7x3 타일). 지붕 색만 바꿔서 두 건물을 만듦
 export function makeShop(roofA, roofB, roofC) {
@@ -422,6 +445,12 @@ ICON.special = sprite(16, 16, (p) => {
   p(7, 7, 2, 2, "#8b93a6");
 });
 
+// 의뢰서 (판매 탭 '의뢰' 분류). 고해상도: ui/icon/order.png (make-icons.py)
+ICON.order = sprite(16, 16, (p) => {
+  p(3, 1, 10, 14, "#5a4020"); p(4, 2, 8, 12, "#f6e6bc"); p(2, 1, 12, 2, "#a07a40"); p(2, 13, 12, 2, "#a07a40");
+  p(5, 5, 6, 1, "#381a0e"); p(5, 7, 6, 1, "#381a0e"); p(5, 9, 3, 1, "#381a0e");
+  p(9, 10, 3, 3, "#e23448"); p(9, 10, 1, 1, "#ff7c8c");
+});
 ICON.chest = sprite(16, 16, (p) => {
   p(2, 5, 12, 9, "#4a2e1b"); p(3, 6, 10, 7, "#8a5a3c"); p(3, 6, 10, 3, "#a8704a");
   p(2, 8, 12, 1, "#4a2e1b"); p(7, 5, 2, 9, "#ffd34d"); p(7, 9, 2, 2, "#14151f");
@@ -448,6 +477,15 @@ for (const k of ["body_side", "body_down", "body_up", "trk_0", "trk_1", "cw", "l
 //  ant_0~2 · lamp_0/lamp/lamp_2: 안테나가 뒤로 · 가운데 · 앞으로 기운 모습 (S.minerAnt) / blink_<자세>: 눈 감은 덮개 (S.minerBlink)
 S.minerAnt = 1; S.minerBlink = false;
 const minerHiReady = () => Object.values(MINER_HI).every((c) => c.width === MINER_SZ * 3);
+// ---- 캐릭터 종류 (tools/chars.py 와 같은 id 순서). 첫 번째 = 기본(노랑이, MINER_HI 그대로) ----
+//  다른 캐릭터는 몸·눈 덮개·안테나·안테나 끝 12개만 따로(miner/<id>/*.png), 궤도·등 탱크·드릴은 같이 씀
+export const CHAR_IDS = ["yellow", "ruby", "mint", "cobalt", "mole", "night"];
+export const CHAR_PARTS = ["body_side", "body_down", "body_up", "blink_side", "blink_down", "blink_up", "ant_0", "ant_1", "ant_2", "lamp_0", "lamp", "lamp_2"];
+export const MINER_CH = {};
+for (const id of CHAR_IDS.slice(1)) { MINER_CH[id] = {}; for (const k of CHAR_PARTS) MINER_CH[id][k] = sprite(1, 1, () => {}); }
+S.charId = "yellow";
+//  그 캐릭터 그림이 아직 없으면(파일 못 읽음) 기본 부품으로
+const chPart = (k, id) => { const c = MINER_CH[id] && MINER_CH[id][k]; return c && c.width === MINER_SZ * 3 ? c : MINER_HI[k]; };
 // 회색 밝기 → 색 단계 (외곽선 · 어둠 · l · m · h · 반짝)
 function tintGray(src, ramp) {
   return sprite(src.width, src.height, (p, g) => {
@@ -465,7 +503,7 @@ function tintGray(src, ramp) {
   });
 }
 const rampOf = (c) => ["#14151f", mixC(c.l, "#000000", 0.35), c.l, c.m, c.h, mixC(c.h, "#ffffff", 0.45)];
-function getMinerHi(mode, leg, dig, part, ant, blink) {
+function getMinerHi(mode, leg, dig, part, ant, blink, id = S.charId) {
   const TR = LOOK.tracks > 0 ? PAL[LOOK.tracks - 1] : { h: "#c6cedc", m: "#8b93a6", l: "#3a3f52" };
   const DR = LOOK.drill > 0 ? PAL[LOOK.drill - 1] : { h: "#e3e8f2", m: "#9aa3b8", l: "#5b6379" };
   const CP = LOOK.crate > 0 ? PAL[LOOK.crate - 1] : { h: "#4a5262", m: "#2a2e37", l: "#1c1f26" };
@@ -476,18 +514,26 @@ function getMinerHi(mode, leg, dig, part, ant, blink) {
     if (part !== "drill") {
       g.drawImage(tintGray(MINER_HI["trk_" + (leg & 1)], rampOf(TR)), 0, 0);
       g.drawImage(tintGray(MINER_HI.cw, rampOf(CP)), 0, 0);
-      g.drawImage(MINER_HI["body_" + mode], 0, 0);
-      if (blink) g.drawImage(MINER_HI["blink_" + mode], 0, 0);
-      g.drawImage(MINER_HI["ant_" + ant], 0, 0);
-      g.drawImage(tintGray(MINER_HI[ant === 1 ? "lamp" : "lamp_" + ant], rampOf(LP)), 0, 0);
+      g.drawImage(chPart("body_" + mode, id), 0, 0);
+      if (blink) g.drawImage(chPart("blink_" + mode, id), 0, 0);
+      g.drawImage(chPart("ant_" + ant, id), 0, 0);
+      g.drawImage(tintGray(chPart(ant === 1 ? "lamp" : "lamp_" + ant, id), rampOf(LP)), 0, 0);
     }
     if (part !== "body") g.drawImage(tintGray(MINER_HI["bit_" + mode + "_" + (ds & 1)], rampOf(DR)), 0, 0);
   });
 }
+// 캐릭터 고르기 창 그림: 옆모습, 지금 장비 색 (120x120)
+export function minerPreview(id) {
+  const key = "pv|" + id + "|" + LOOK.key + (minerHiReady() ? "hi" : "");
+  if (minerCache.has(key)) return minerCache.get(key);
+  const im = minerHiReady() ? getMinerHi("side", 0, 0, "all", 1, false, id) : getMiner("side", 0, 0);
+  minerCache.set(key, im);
+  return im;
+}
 export function getMiner(mode, leg, dig, part = "all") {
   const hi = minerHiReady();
   const ant = part === "drill" ? 1 : S.minerAnt | 0, blink = part !== "drill" && !!S.minerBlink;   // 드릴 그림은 안테나·눈과 상관없음
-  const key = mode + leg + dig + part + "|" + LOOK.key + (hi ? "|hi" + ant + (blink ? "b" : "") : "");
+  const key = mode + leg + dig + part + "|" + LOOK.key + (hi ? "|hi" + ant + (blink ? "b" : "") + S.charId : "");
   if (minerCache.has(key)) return minerCache.get(key);
   if (hi) { const im = getMinerHi(mode, leg, dig, part, ant, blink); minerCache.set(key, im); return im; }
   const img = sprite(MINER_SZ, MINER_SZ, (p0) => {

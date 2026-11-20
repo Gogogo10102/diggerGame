@@ -2,7 +2,7 @@
 import "../save/config.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { sfx } from "../core/sound.ts";
 import { ORE_COL, TILE } from "../core/config.ts";
-import { ICON, oreIcon } from "../art/sprites.ts";
+import { CHAR_IDS, ICON, minerPreview, oreIcon } from "../art/sprites.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { floaters, pushBanner, recalcStats, say, spawn } from "../core/stats.ts";
@@ -69,6 +69,8 @@ addQuests("chest", "보물 사냥", [1, 10, 30, 100], ["보물 사냥꾼", "상�
 const questStat = (k) => () => (S.acct ? S.acct.stats[k] || 0 : 0);
 addQuests("trip", "귀환", [5, 25, 100, 300], ["첫 출근", "성실한 광부", "베테랑 운반꾼", "지하 철도왕"], questStat("trips"), "광물 싣고 귀환", [100, 600, 3000, 12000]);
 addQuests("bomb", "폭파", [5, 30, 100, 300], ["불꽃놀이 입문", "폭파 기술자", "발파 전문가", "폭약의 달인"], questStat("bombs"), "다이너마이트 사용", [150, 800, 3000, 10000]);
+addQuests("combo", "콤보", [5, 10, 20], ["손이 빠른 광부", "콤보 장인", "광맥 사냥꾼"], questStat("combo"), "연속 채굴", [200, 1500, 8000]);
+addQuests("order", "의뢰", [1, 10, 40, 120], ["심부름꾼", "믿음직한 광부", "마을의 해결사", "전설의 납품왕"], questStat("orders"), "의뢰 완료", [150, 1200, 6000, 25000]);
 addQuests("close", "아슬아슬", [1, 5, 20], ["간 큰 광부", "벼랑 끝 귀환자", "연료 0의 마술사"], questStat("close"), "연료 10% 미만으로 귀환", [200, 1500, 6000]);
 addQuests("level", "광부 레벨", [5, 10, 20, 30], ["새내기 광부", "든든한 광부", "노련한 광부", "광부 명장"], () => (S.acct ? levelOf(S.acct.xp).lv : 0), "레벨 달성", [300, 1500, 8000, 30000]);
 QUESTS.forEach((q) => { q.xp = Math.max(10, Math.round(q.money * 0.15)); });
@@ -76,13 +78,41 @@ const QLABEL = {
   depth: (n) => "깊이 " + n + "m 도달", craft: (n) => "장비 " + n + "개 제작", earn: (n) => "누적 수익 $" + n, types: (n) => "광물 " + n + "종 채굴",
   cave: (n) => "동굴 " + n + "개 발견", chest: (n) => "보물 상자 " + n + "개 열기", smelt: (n) => "주괴 " + n + "개 제련", dirt: (n) => "흙 " + n + "개 파기",
   all: (n) => "광물 " + n + "개 채굴", trip: (n) => "광물 싣고 " + n + "번 귀환", bomb: (n) => "다이너마이트 " + n + "번 사용",
-  close: (n) => "연료 10% 미만으로 " + n + "번 귀환", level: (n) => "광부 레벨 " + n + " 달성",
+  close: (n) => "연료 10% 미만으로 " + n + "번 귀환", level: (n) => "광부 레벨 " + n + " 달성", order: (n) => "마을 의뢰 " + n + "개 완료", combo: (n) => "광물 연속 채굴 콤보 x" + n,
 };
 export function questLabel(q) { const n = q.need.toLocaleString(); return QLABEL[q.group] ? QLABEL[q.group](n) : q.unit + " " + n + "개"; }
 export const QUEST_BY = {}; QUESTS.forEach((q) => { QUEST_BY[q.id] = q; });
 S.questT = 0;
+// ---- 캐릭터(로봇) 종류: 해금 조건 (그림은 sprites.ts 의 CHAR_IDS · tools/chars.py) ----
+//  need: [기록 종류, 목표] — lv 레벨 · depth 최고 깊이(m) · chests 연 보물 상자 · ores 캔 광물 수
+export const CHAR_INFO = [
+  { id: "yellow", name: "노랑이", desc: "기본 드릴 로봇. 안전 노랑이 자랑", need: null },
+  { id: "ruby", name: "불꽃이", desc: "새빨간 몸 · 안테나 하나 · 호박색 눈", need: ["lv", 3] },
+  { id: "mint", name: "새싹이", desc: "둥근 머리 민트 로봇 · 분홍 눈", need: ["depth", 100] },
+  { id: "cobalt", name: "파랑이", desc: "고글 눈 심해 탐사 로봇 · 안테나 없음", need: ["chests", 5] },
+  { id: "mole", name: "두더지", desc: "광부 안전모 + 이마 램프 (조명 색)", need: ["depth", 300] },
+  { id: "night", name: "밤하늘", desc: "남색 몸 · 금빛 머리 · 긴 안테나", need: ["lv", 15] },
+];
+const CHAR_NEED_TXT = { lv: (n) => "레벨 " + n, depth: (n) => n + "m 도달", chests: (n) => "보물 상자 " + n + "개", ores: (n) => "광물 " + n + "개 캐기" };
+export function charHave(ch) {
+  if (!ch.need || !S.acct) return 0;
+  const k = ch.need[0];
+  return k === "lv" ? levelOf(S.acct.xp).lv : k === "depth" ? Math.floor(S.acct.stats.maxDepth) : k === "chests" ? S.acct.stats.chests || 0 : k === "ores" ? totalOres() : 0;
+}
+export const charOpen = (ch) => !ch.need || charHave(ch) >= ch.need[1];
+export const charNeedText = (ch) => (ch.need ? CHAR_NEED_TXT[ch.need[0]](ch.need[1]) : "처음부터");
+// 새로 열린 캐릭터 알림 (acct.chars = 이미 알린 것). 불러올 때(quiet)는 알림 없이 표시만
+function checkChars(quiet) {
+  if (!S.acct.chars) S.acct.chars = [];
+  for (const ch of CHAR_INFO) {
+    if (!ch.need || S.acct.chars.includes(ch.id) || !charOpen(ch)) continue;
+    S.acct.chars.push(ch.id);
+    if (!quiet) { pushBanner("새 로봇: " + ch.name, "메뉴 › 캐릭터 정보 › 로봇 탭에서 바꿀 수 있어요", minerPreview(ch.id), "#7cff6b"); sfx("levelup"); }
+  }
+}
 export function checkQuests(quiet) {
   if (!S.acct) return;
+  checkChars(quiet);
   const got = [];
   for (const q of QUESTS) {
     if (S.acct.quest[q.id] || q.get() < q.need) continue;
@@ -102,9 +132,22 @@ export function checkQuests(quiet) {
   addXP(xp);
   saveNow(false, true);
 }
+// ---- 연속 채굴 콤보: 광물을 COMBO_T 초 안에 이어서 캐면 x2, x3 … · 3부터 보너스 경험치 ----
+export const COMBO_T = 3;
+S.combo = 0; S.comboT = 0;
+export function bumpCombo(id) {
+  S.combo = S.comboT > 0 ? S.combo + 1 : 1; S.comboT = COMBO_T;
+  if (S.combo > (S.acct.stats.combo || 0)) S.acct.stats.combo = S.combo;
+  if (S.combo < 3) return 0;
+  const bonus = Math.max(1, Math.round((XP_ORE[id] || 1) * Math.min(5, S.combo - 2) * 0.5));
+  floaters.push({ x: P.x, y: P.y - 76, text: "콤보 x" + S.combo + "  +" + bonus + " 경험치", color: S.combo >= 10 ? "#ff8ad0" : "#ffd34d", life: 1.1 });
+  if (S.combo % 5 === 0) sfx("ore", { pitch: 1.8 });
+  return bonus;
+}
 export function onMined(id) {                                   // 광물/흙을 하나 캤을 때
   if (!S.acct) return;
   S.acct.stats.mined[id] = (S.acct.stats.mined[id] || 0) + 1;
+  if (ORE_COL[id]) addXP(bumpCombo(id));
   if (S.acct.stats.mined[id] === 1 && ORE_COL[id] && oreIcon[id]) {          // 처음 캔 광물: 도감에 새로 올라감
     pushBanner("새 광물 발견! " + TILE[id].name, "판매가 $" + TILE[id].value + " · 가방 도감에 기록됐어요", oreIcon[id], ORE_COL[id][0]);
     sfx("ore", { pitch: 1.5 });
@@ -126,5 +169,12 @@ export function initProgress(d) {                               // 저장 데이
   if (d.quest && typeof d.quest === "object") for (const k in d.quest) if (QUEST_BY[k] && d.quest[k]) S.acct.quest[k] = 1;
   S.acct.title = typeof d.title === "string" && S.acct.quest[d.title] ? d.title : "";
   S.MINER_LV = levelOf(S.acct.xp).lv;
+  // 캐릭터: 고른 것(열린 것만, 아니면 기본) · 이미 알린 것 목록 (옛 세이브는 없음 → 기본)
+  S.acct.chars = Array.isArray(d.chars) ? d.chars.filter((x) => CHAR_IDS.includes(x)) : [];
+  const pick = CHAR_INFO.find((c) => c.id === d.char);
+  S.charId = pick && charOpen(pick) ? pick.id : "yellow";
+  // 의뢰: 저장된 것 중 올바른 것만 (옛 세이브는 빈 목록 → 판매 탭을 열 때 새로 만듦)
+  S.acct.orders = Array.isArray(d.orders) ? d.orders.filter((o) => o && (TILE[o.k] || BARS[o.k]) && o.n > 0 && o.pay > 0).slice(0, 3)
+    .map((o) => ({ k: TILE[o.k] ? Number(o.k) : o.k, n: o.n | 0, pay: o.pay | 0, xp: o.xp | 0 })) : [];
 }
 
