@@ -153,7 +153,8 @@ stage.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "touch" || e.pointerType === "pen") S.usedTouch = true;
   if (S.state === "title") { openAccountScreen(); return; }
   if (S.state === "account" || S.state === "menu") return;
-  const x = e.clientX, y = e.clientY;
+  const townU = S.state === "shop" || S.state === "craft" || S.state === "furnace" ? S.townU || 1 : 1;   // 마을 창은 UI 배율로 키워 그리므로 같은 배율로 나눠 맞춤
+  const x = e.clientX / townU, y = e.clientY / townU;
   const hit = (b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
   if (S.state === "map") { mapPointerDown(x, y, e.pointerId); return; }
   if (S.state === "shop" || S.state === "craft" || S.state === "furnace") {   // 버튼 소리 (사기·팔기 등은 결과에 따라 따로 소리남)

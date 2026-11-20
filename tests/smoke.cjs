@@ -1043,7 +1043,8 @@ async function login(t, name) {
   // ---- 지하 조명 ----
   ok(t60.ev("DARK_COL.length === LAYERS.length && DARK_COL[4][0] > DARK_COL[4][2] && DARK_COL[5][2] > DARK_COL[5][0]"), "어둠 색이 지층마다 다름 (용암 붉게 · 수정 푸르게)");
   t60.ev("P.x = 30.5 * T; P.y = (SURF + 40.5) * T; ensureAround(30, SURF + 40); for (let r = SURF + 25; r < SURF + 56; r++) for (let c = 5; c < 60; c++) if (GLOW_ORES[tiles[r * W + c]]) tiles[r * W + c] = 1; tiles[(SURF + 40) * W + 31] = 5; seen[(SURF + 40) * W + 31] = 1; tiles[(SURF + 40) * W + 29] = 9; seen[(SURF + 40) * W + 29] = 0"); t60.run(2);
-  ok(t60.ev("(S.oreGlows || []).some((g) => g[2] === 5) && !(S.oreGlows || []).some((g) => g[2] === 9)"), "본 적 있는 희귀 광물만 어둠 속에서 빛남");
+  // 다이아(31열·본 칸)는 빛나고, 같은 줄 두 칸 왼쪽 에메랄드(29열·안 본 칸)는 안 빛남 (월드의 다른 광물과 헷갈리지 않게 자리로 확인)
+  ok(t60.ev("(() => { const gs = S.oreGlows || [], d = gs.find((g) => g[2] === 5); return !!d && !gs.some((g) => g[2] === 9 && Math.abs(g[0] - (d[0] - 2 * T)) < 2 && Math.abs(g[1] - d[1]) < 2); })()"), "본 적 있는 희귀 광물만 어둠 속에서 빛남");
   t60.ev("P.y = (SURF - 1) * T"); t60.run(1);
   // ---- 보물 상자 ----
   ok(t60.ev("JSON.stringify(chunkChests(1, 3)) === JSON.stringify(chunkChests(1, 3))"), "보물 상자 자리는 시드·구역으로 정해짐");
