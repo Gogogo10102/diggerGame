@@ -12,7 +12,7 @@ import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { COMBO_T, MAX_LV, levelOf, titleName } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
-import { FONT_M, GLYPH, SY, blit, btnPx, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt, well } from "./util.ts";
+import { FONT_M, GLYPH, SY, blit, btnPx, btnTxt, titleTxt, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt, well } from "./util.ts";
 import { DEBRIS_T, debrisT, dust } from "../systems/collapseFx.ts";
 import { drawDrops } from "../systems/drops.ts";
 import { chunks, floatT, solidTile } from "../systems/floating.ts";
@@ -916,7 +916,7 @@ export function drawHUD(vw, vh, depth) {
   // 오른쪽 위: 가방(초록) · 업적(파랑) · 메뉴(주황) 사각 버튼 + 그 아래 미니맵 · 깊이 미터
   S.menuBtn = null; S.bagBtn = null; S.questBtn = null;
   if (S.state === "play") {
-    [["green", GLYPH.bag, "bag", "#1f5418"], ["blue", GLYPH.trophy, "quest", "#0b3f6c"], ["orange", GLYPH.menu, "menu", "#7a3006"]].forEach(([col, g, kind, tc], i) => {
+    [["green", GLYPH.bag, "bag", "#2a8a1e"], ["blue", GLYPH.trophy, "quest", "#1668b8"], ["orange", GLYPH.menu, "menu", "#d0600a"]].forEach(([col, g, kind, tc], i) => {
       const x = bx0 + i * (bs + bg);
       const cy = btnPx(x, by0, bs, bs, col);
       glyph(g, x + Math.floor((bs - 21) / 2), Math.round(cy - 10.5), tc, 3);
@@ -999,8 +999,8 @@ export function drawHUD(vw, vh, depth) {
     const pw = Math.ceil(ctx.measureText(label).width) + 56, ph = 48;
     const px = Math.floor((vw - pw) / 2), py = vh - 124 - helpLift;
     S.promptBtn = { x: px, y: py, w: pw, h: ph };
-    const cy = btnPx(px, py, pw, ph, "green");
-    txt(label, vw / 2, cy - 8, "#1f5418", 16, "center", "rgba(0,0,0,0)");
+    const cy = btnPx(px, py, pw, ph, garageHere && !P.mech && !P.items.robot ? "steel" : "green");
+    btnTxt(label, vw / 2 + 4, cy - 8, 16);
   }
 
   // 토스트
@@ -1178,8 +1178,14 @@ export function drawTitle(vw, vh) {
   // 2.5초마다 다른 로봇으로 (로봇 6종 자랑) — 바뀔 때 살짝 튀어오름
   const ci = Math.floor(now / 2.5) % CHAR_IDS.length, hop = (now % 2.5) < 0.18 ? -6 : 0;
   const keep = S.charId; S.charId = CHAR_IDS[ci];
-  ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 60), y + bob + hop, 120, 120);
+  ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 20), y + bob + hop, 120, 120);
   S.charId = keep;
+  // 사람 광부: 로봇 옆에서 곡괭이질 (그림 2배, 발을 로봇 궤도 바닥(y 84)에 맞춤)
+  const hb = playerFrame("body", "mine_side", Math.floor(now * 8)), hp = playerFrame("pick", "mine_side", Math.floor(now * 8));
+  if (hb.width >= PSZ) {
+    const hx = Math.floor(vw / 2 - 20 - 128 + 16), hy = y + 84 - PFT * 2;
+    ctx.drawImage(hb, hx, hy, 128, 128); if (hp) ctx.drawImage(hp, hx, hy, 128, 128);
+  }
   y += 120 + 8;
   ctx.fillStyle = "rgba(10,10,16,0.5)"; ctx.fillRect(0, y - 12, vw, lh + 16 + 44 + 16);   // 로고·부제 뒤 어두운 띠 (뒤 건물에 묻히지 않게)
   ctx.fillStyle = "rgba(255,194,26,0.35)"; ctx.fillRect(0, y - 14, vw, 2); ctx.fillRect(0, y + lh + 16 + 44 + 4, vw, 2);
@@ -1195,12 +1201,12 @@ export function drawTitle(vw, vh) {
   setFont(16); const bw = Math.ceil(ctx.measureText(label).width) + 72, bh = 52;
   const bx = Math.floor((vw - bw) / 2), pressed = ((now * 1.6) | 0) % 2 === 1;
   const cy = btnPx(bx, y, bw, bh, "green", pressed);
-  txt(label, vw / 2, cy - 8, "#1f5418", 16, "center", "rgba(0,0,0,0)");
+  btnTxt(label, vw / 2, cy - 8, 16);
   // 아래: 광물 줄 (천천히 출렁) + 조작 안내
   const ids = ORE_BAR_IDS, gap = vw < 420 ? 36 : 44, rowW = ids.length * gap;
   const oy = vh - 92;
   ids.forEach((id, i) => blit(oreIcon[id], Math.floor((vw - rowW) / 2 + i * gap + (gap - 32) / 2), oy + Math.round(Math.sin(now * 2 + i * 0.7) * 2) * 2, 32, 32));
-  const help = S.usedTouch ? "화면 어디서나 드래그해서 조작" : "←→ 이동 · ↑ 추진 · ↓ 파기 · E 건물 · I 가방 · M 지도";
+  const help = S.usedTouch ? "화면 어디서나 드래그해서 조작" : "←→ 이동 · ↑ 점프 · ↓ 곡괭이 · 7 사다리 · E 건물 · I 가방 · M 지도";
   txt(help, vw / 2, vh - 40, "#9aa3c8", 12, "center");
 }
 

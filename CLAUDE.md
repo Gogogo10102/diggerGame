@@ -12,7 +12,7 @@
 |---|---|
 | `npm install` | 처음 한 번 (vite, typescript 설치) |
 | `npm run dev` | 개발 서버 → http://localhost:5173 (저장하면 바로 반영) |
-| `npm test` | 스모크 테스트 약 430개 (브라우저 없이 node로 게임 로직 검사) |
+| `npm test` | 스모크 테스트 약 490개 (브라우저 없이 node로 게임 로직 검사) |
 | `npm run typecheck` | 타입 검사 |
 | `npm run build` | `dist/` 에 배포용 파일 생성 (Cloudflare Pages가 이걸 올림) |
 | `npm run assets:manifest` | `public/assets` 의 PNG 목록(manifest.json) 다시 만들기 |
@@ -34,7 +34,7 @@ src/
     ui/     dom inventory overlay menu
 public/assets/         게임 그림 PNG + manifest.json
 tests/                 harness.cjs(가짜 DOM/캔버스) smoke.cjs(테스트)
-tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-icons.py(+pixicon.py)  make-drill-icons.py(+drillart/)  make-buildings.py  make-signs.py
+tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-player.py  make-icons.py(+pixicon.py)  make-drill-icons.py(+drillart/)  make-buildings.py  make-signs.py
 docs/                  plan.md decisions.md
 ```
 
@@ -83,9 +83,10 @@ docs/                  plan.md decisions.md
   캔버스는 `txt(글, x, y, 색, 크기)` 를 쓰면 자동으로 가까운 단계에 맞춰집니다. 글자 폭을 잴 때는 `setFont(크기)` 후 `measureText`.
 - 도트 그림은 `drawPx(그림, x, y, 칸크기)` 로 정수 배율로만 키웁니다(1.5배 금지).
 - **굴 가장자리**는 `draw.ts` 의 `softEdge` 가 흙 칸의 옆벽·천장 쪽을 화면 4~12px 깎아 그립니다(충돌은 그대로 칸 단위). 바닥은 캐릭터가 딛는 곳이라 평평하게 두되 윤곽선·빛 테는 그립니다.
-- **UI 스타일 = 안전 노랑**: 숯색 판(`SY.body`) + 검은 테두리 + 노란 머리띠·경고 줄무늬, 고른 것은 노랑. 색은 `render/util.ts` 의 `SY`.
-- **버튼 색 = 뜻**: 초록 진행·구매 / 파랑 저장·정보 / 주황 설정·메뉴 / 빨강 닫기·뒤로·삭제 / 회색 못 누름.
-  캔버스는 `uiBtn`(kind: go·plain·gold·danger·steel) 또는 `btnPx`, HTML 창은 `mkBtn(글, 함수, "pri"|"info"|"back"|"del"|"off")` (없으면 주황).
+- **UI 스타일 = 철판**(레퍼런스 MENU 판): 숯색 판(`SY.body`) + 검은 테두리 + 회색 철판 머리띠·버튼(모서리 리벳) + 노란 경고 줄무늬. 색은 `render/util.ts` 의 `SY`·`MT`.
+  제목 글씨는 주황 그러데이션 + 굵은 검은 테두리: 캔버스 `titleTxt`, HTML 창 `h2`(el 이 안쪽 `span.tt` 로 감쌈).
+- **버튼 = 회색 철판, 뜻은 왼쪽 작은 색 띠 + 글자**: 초록 진행·구매 / 파랑 저장·정보 / 주황 설정·메뉴 / 빨강 닫기·뒤로·삭제 / 띠 없음 = 못 누름.
+  캔버스는 `uiBtn`(kind: go·plain·gold·danger·steel) 또는 `btnPx` + `btnTxt`(진한 파인 글씨), HTML 창은 `mkBtn(글, 함수, "pri"|"info"|"back"|"del"|"off")` (없으면 주황).
 - **양 표시는 칸 막대**(`segBar`): 연료·화물·경험치·단계·소리 크기. 아이콘은 막대 왼쪽 끝에 겹침.
 - **큰 화면 UI 배율**: 마을 창은 `townScale`(draw.ts)로 2배/1.5배 키워 그리고 누른 자리도 나눠 맞춤(`S.townU`). 창 함수는 나눈 화면 크기를 받으니 배치는 그대로 짜면 됨. HTML 창은 style.css 의 zoom.
 - 마을 창(상점·제작·용광로·판매)은 `render/townUI.ts` 의 공용 틀 `townFrame(…, 분류목록, 고른분류, 분류동작)` 을 씁니다.
@@ -117,11 +118,14 @@ docs/                  plan.md decisions.md
 - 광물 id: 2 구리, 3 철, 4 금, 5 다이아, 6 석탄, 8 은, 9 에메랄드, 10 루비, 11 미스릴.
 - **드릴 아이콘**(`items/<드릴 id>.png` 15개 + `ui/icon/drill.png`)은 `python3 tools/make-drill-icons.py` (확정 도안 v2, 등급 4 × 진화 4 중 고른 표는 파일 안 MAP).
 - 현재 원석·주괴 그림은 **임시 확정(v1)** 입니다. 나중에 다시 작업 예정.
-- 아이템·소모품·화면 아이콘(`items/`, `ui/icon/`)은 `python3 tools/make-icons.py` 로 다시 만들 수 있습니다(밝은 플랫 스타일, 기본 32px · `--size 16` 이면 예전 크기). 고친 뒤 `npm run assets:manifest`.
+- 아이템·소모품·화면 아이콘(`items/`, `ui/icon/`)은 `python3 tools/make-icons.py` 로 다시 만들 수 있습니다(밝은 플랫 스타일, 기본 32px · `--size 16` 이면 예전 크기. 드릴 아이콘은 건드리지 않음). 고친 뒤 `npm run assets:manifest`.
 - 흙·뒷벽·돌·풀·장식·균열·광물(땅속/아이콘/떨어진 것)·주괴·해·구름·캐릭터 부품은 `python3 tools/make-hires.py` 가 만듭니다.
   **맵 스타일 A(굵은 외곽선 덩어리, 2026-11-20 확정)**: 흙·뒷벽·땅속 광물·풀·풀잎·해·구름은 `tools/mapart.py`(칸당 32px 도트 ×2). 흙은 4x4칸이 이어지는 돌바닥 무늬라 변형 번호 = `(c&3) + (r&3)*4` (draw.ts). 굴 윤곽선은 4px.
   지층 색·광물 색은 `config.ts`, 주괴 색은 `furnace.ts` 에서 읽어 오므로 색을 바꾸면 다시 돌리면 됩니다. 그 뒤 PNG 를 직접 고쳐도 됩니다.
-- 캐릭터(**드릴 로봇**, `sprites.ts` 의 `getMiner`): 옆에서 살짝 비껴 본 3D(3/4 각도), 노란 몸 + 회색 머리·파란 외눈 + 안테나 두 개 + 관절 없는 통짜 팔 끝 드릴, 궤도 위.
+- **사람 광부**(기본 캐릭터): `tools/make-player.py` → `player/body.png · pick.png · pack.png`(64x64 칸, 줄 = 애니메이션, 오른쪽을 봄) + `tiles/ladder.png`.
+  줄 순서는 `sprites.ts` 의 `PLAYER_ANIM` 과 같아야 하고, 몸 가운데 x 28 · 발바닥 y 61 (`draw.ts` 의 `PCX`·`PFT`). 곡괭이 날은 회색으로 그려 두면 곡괭이 단계 색(`PICK_TIER`)으로 칠함.
+  상태 → 애니메이션 고르기는 `draw.ts` 의 `humanAnim()`. 로봇은 사서 마을 차고(`GARAGE` 7~8칸)에서 타는 탈것: `P.mech` 가 참일 때만 로봇 그림·드릴·추진.
+- 캐릭터(**드릴 로봇**, 탈것, `sprites.ts` 의 `getMiner`): 옆에서 살짝 비껴 본 3D(3/4 각도), 노란 몸 + 회색 머리·파란 외눈 + 안테나 두 개 + 관절 없는 통짜 팔 끝 드릴, 궤도 위.
   `tools/robot3d.py` 가 상자·원기둥·공으로 세운 작은 3D 장면을 눈높이에서 비스듬히 비춰 4단 명암으로 끊어 그립니다(돈 각도 `TH`, 내려다본 각도 `PH`=0 이라 궤도 두 줄이 같은 땅에 붙음, 크기 `K`, 발밑 자리 `ORG`).
   부품 PNG `miner/*.png` 21개(`tools/make-hires.py` 가 robot3d 로 만듦. 안테나 3자세 `ant_0~2`·`lamp_0/lamp/lamp_2`, 눈 감은 덮개 `blink_<자세>` 포함)를 읽으면 그것으로 조립하고, 없으면 예전 미니 굴착기 코드 도트(40x40 × 3)로 그립니다.
   `body_<side|down|up>` 은 색 그대로, `trk_<0|1>`·`cw`(등 탱크)·`lamp`(안테나 끝 불빛)·`bit_<자세>_<0|1>` 은 **회색**으로 그려 두면 장비 단계 색(`PAL`·`GLOW`)으로 바꿔 칠합니다

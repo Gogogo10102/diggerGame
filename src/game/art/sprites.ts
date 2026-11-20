@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../core/world.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { B, GLOW, PAL } from "./itemIcons.ts";
+import { B, GLOW, PAL, PICK_TIER } from "./itemIcons.ts";
 import { LAYERS, ORE_COL } from "../core/config.ts";
 import { S } from "../core/state.ts";
 import { mulberry32 } from "../core/world.ts";
@@ -618,9 +618,9 @@ export function getMiner(mode, leg, dig, part = "all") {
 
 // =====================================================================
 //  광부(사람) 캐릭터: tools/make-player.py 가 만든 시트 3장 (칸 64x64, 줄 = 애니메이션, 오른쪽을 봄)
-//   body 사람 · pick 곡괭이(회색 날 → 곡괭이 단계 색) · pack 백팩 로켓(몸 뒤에 그림). 발 = 칸 안 y 57
+//   body 사람 · pick 곡괭이(회색 날 → 곡괭이 단계 색) · pack 백팩 로켓(몸 뒤에 그림). 몸 가운데 x 28 · 발바닥 y 61 (draw.ts 의 PCX·PFT)
 // =====================================================================
-export const PSZ = 64, PFOOT = 57;
+export const PSZ = 64;
 //  [줄, 프레임 수, 초당 프레임] — make-player.py 의 anims() 순서와 같아야 함
 export const PLAYER_ANIM = { idle: [0, 4, 4], run: [1, 8, 14], jump: [2, 3, 0], climb: [3, 4, 8], mine_side: [4, 4, 10], mine_down: [5, 4, 10], mine_up: [6, 4, 10], fly: [7, 2, 10] };
 export const PLAYER_IMG = { body: sprite(1, 1, () => {}), pick: sprite(1, 1, () => {}), pack: sprite(1, 1, () => {}) };
@@ -657,7 +657,7 @@ export function playerFrame(layer, anim, i, tier = 0) {
   if (im) return im;
   im = sprite(PSZ, PSZ, (p, g) => g.drawImage(src, f * PSZ, row * PSZ, PSZ, PSZ, 0, 0, PSZ, PSZ));
   if (layer === "pick") {
-    const c = tier > 0 ? PAL[Math.min(PAL.length - 1, tier - 1)] : { h: "#c6cedc", m: "#8b93a6", l: "#4a5062" };
+    const c = tier > 0 ? PAL[PICK_TIER[Math.min(PICK_TIER.length, tier) - 1]] : { h: "#a89c90", m: "#6e6458", l: "#3e3630" };   // 0 = 기본 곡괭이(녹슨 쇠)
     im = tintGrayOnly(im, rampOf(c));
   }
   PLAYER_CACHE.set(key, im);

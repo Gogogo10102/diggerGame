@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # 광부(사람) 캐릭터 그림: 뼈대(관절 각도)로 자세를 잡아 프레임마다 그림 → 시트 PNG
-#   python3 tools/make-player.py   → public/assets/player/body.png · pick.png · pack.png (+ 미리보기는 --preview <폴더>)
+#   python3 tools/make-player.py   → public/assets/player/body.png · pick.png · pack.png + tiles/ladder.png (사다리 칸)
 #   그 다음 npm run assets:manifest
 #
 # 칸 하나 = 64x64 (화면 1:1), 오른쪽을 봄(왼쪽은 게임이 뒤집어 그림). 발 = y 60, 몸 가운데 = x 32
@@ -230,8 +230,22 @@ def sheet(layer):
             out[r * N:(r + 1) * N, i * N:(i + 1) * N] = draw(Pz, layer)
     return out
 
+# ---- 사다리 칸 (tiles/ladder.png): 맵 스타일 A 처럼 32px 도트 ×2, 굵은 외곽선 · 나무 3단 ----
+def ladder_tile():
+    n = 32; img = np.zeros((n, n, 4), np.uint8)
+    OL, W0, W1, W2, W3 = (hx("#1a0f0a"), hx("#5e3418"), hx("#8a5428"), hx("#b07a44"), hx("#d8a868"))
+    def box(x0, y0, x1, y1, col):
+        img[y0:y1, x0:x1, :3] = col; img[y0:y1, x0:x1, 3] = 255
+    for y in (3, 11, 19, 27):                                       # 가로 발판 (레일 사이)
+        box(8, y - 1, 24, y + 3, OL); box(8, y, 24, y + 2, W2); box(8, y, 24, y + 1, W3); box(8, y + 1, 24, y + 2, W1)
+    for x in (5, 23):                                               # 세로 레일 (위아래 칸과 이어지게 끝까지)
+        box(x - 1, 0, x + 5, n, OL); box(x, 0, x + 4, n, W1); box(x, 0, x + 1, n, W2); box(x + 1, 0, x + 2, n, W3); box(x + 3, 0, x + 4, n, W0)
+        for y in (3, 11, 19, 27): box(x + 1, y, x + 3, y + 2, hx("#2a1a10")); img[y, x + 1, :3] = hx("#9aa3b8")   # 못
+    return np.kron(img, np.ones((2, 2, 1), np.uint8))
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
+    Image.fromarray(ladder_tile(), "RGBA").save(os.path.join(ROOT, "public/assets/tiles/ladder.png"))
     for layer in ("body", "pick", "pack"):
         Image.fromarray(sheet(layer), "RGBA").save(os.path.join(OUT, layer + ".png"))
     print("광부 시트 저장:", [(n, len(f)) for n, f in anims()])
