@@ -21,7 +21,7 @@ export const REGEN_MIN = 60, REGEN_MAX = 180;   // 쌓인 흙에 광물이 생�
 export const REGEN_ORE_CHANCE = 0.4;            // 그때 광물이 될 확률
 S.unstable = [];                       // 예전 붕괴 경고 구간 (이제 늘 비어 있음 · 옛 코드 호환용)
 S.scanT = 0; S.graceT = 0; S.cavWarn = 0; S.warnMsgT = 0;
-export const isSup = (v) => v === 14 || v === 15;
+export const isSup = (v) => v === 14 || v === 15 || v === 19;   // 지나갈 수 있는 설치물 (지지대 · 사다리)
 
 // 쌓인 흙 칸의 광물 재생 타이머 (0.5초마다)
 export function scanCave(dt) {

@@ -14,7 +14,9 @@ document.body.appendChild(ov);
 export function el(tag, cls, text) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text;
+  if (tag === "h2" && text !== undefined) {                       // 창 제목: 주황 그러데이션 글씨는 안쪽 span 에 (style.css 의 h2 .tt)
+    const t = document.createElement("span"); t.className = "tt"; t.textContent = text; e.appendChild(t);
+  } else if (text !== undefined) e.textContent = text;
   return e;
 }
 export function mkBtn(text, fn, cls) {

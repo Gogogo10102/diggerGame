@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../core/world.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { B, GLOW, PAL } from "./itemIcons.ts";
+import { B, GLOW, PAL, PICK_TIER } from "./itemIcons.ts";
 import { LAYERS, ORE_COL } from "../core/config.ts";
 import { S } from "../core/state.ts";
 import { mulberry32 } from "../core/world.ts";
@@ -82,6 +82,11 @@ export const gasTile = sprite(16, 16, (p) => {
   for (const [x, y, r] of [[5, 6, 2], [10, 9, 3], [6, 11, 1], [11, 4, 1]]) {
     p(x - r, y - r + 1, r * 2 + 1, r * 2 - 1, "#1a3a10"); p(x - r + 1, y - r + 1, r * 2 - 1, r * 2 - 1, "#7cdc5a"); p(x - r + 1, y - r + 1, 1, 1, "#e0ffc0");
   }
+});
+// 사다리 (빈칸 위에 겹침): 나무 기둥 둘 + 가로대. 고해상도 tiles/ladder.png
+export const ladderTile = sprite(16, 16, (p) => {
+  p(3, 0, 2, 16, "#14151f"); p(11, 0, 2, 16, "#14151f"); p(3, 0, 1, 16, "#b07a44"); p(11, 0, 1, 16, "#b07a44");
+  for (let y = 1; y < 16; y += 4) { p(5, y, 6, 2, "#14151f"); p(5, y, 6, 1, "#d8a868"); }
 });
 // 지상 나무 3종 (광산 터 땅 위, 64x128 · 아래 끝 = 땅). 고해상도 tiles/tree_<v>.png 만 (없으면 안 그림)
 export const treeImgs = [0, 1, 2].map(() => sprite(1, 1, () => {}));
@@ -610,3 +615,52 @@ export function getMiner(mode, leg, dig, part = "all") {
   minerCache.set(key, img);
   return img;
 }
+
+// =====================================================================
+//  광부(사람) 캐릭터: tools/make-player.py 가 만든 시트 3장 (칸 64x64, 줄 = 애니메이션, 오른쪽을 봄)
+//   body 사람 · pick 곡괭이(회색 날 → 곡괭이 단계 색) · pack 백팩 로켓(몸 뒤에 그림). 몸 가운데 x 28 · 발바닥 y 61 (draw.ts 의 PCX·PFT)
+// =====================================================================
+export const PSZ = 64;
+//  [줄, 프레임 수, 초당 프레임] — make-player.py 의 anims() 순서와 같아야 함
+export const PLAYER_ANIM = { idle: [0, 4, 4], run: [1, 8, 14], jump: [2, 3, 0], climb: [3, 4, 8], mine_side: [4, 4, 10], mine_down: [5, 4, 10], mine_up: [6, 4, 10], fly: [7, 2, 10] };
+export const PLAYER_IMG = { body: sprite(1, 1, () => {}), pick: sprite(1, 1, () => {}), pack: sprite(1, 1, () => {}) };
+const PLAYER_CACHE = new Map();
+// 회색 칸만 단계 색으로 (곡괭이 자루 나무색은 그대로)
+function tintGrayOnly(src, ramp) {
+  return sprite(src.width, src.height, (p, g) => {
+    g.drawImage(src, 0, 0);
+    const d = g.getImageData(0, 0, src.width, src.height);
+    if (!d || !d.data) return;
+    const a = d.data, rgb = ramp.map(hexRgb);
+    for (let i = 0; i < a.length; i += 4) {
+      if (!a[i + 3] || a[i] !== a[i + 1] || a[i + 1] !== a[i + 2]) continue;
+      const v = a[i], t = v < 24 ? 0 : v < 56 ? 1 : v < 104 ? 2 : v < 160 ? 3 : v < 224 ? 4 : 5;
+      a[i] = rgb[t][0]; a[i + 1] = rgb[t][1]; a[i + 2] = rgb[t][2];
+    }
+    g.putImageData(d, 0, 0);
+  });
+}
+// 코드로 그린 대체 광부 (시트 파일이 없을 때): 안전모 쓴 작은 사람
+const PLAYER_FALLBACK = sprite(32, 32, (p) => {
+  p(12, 4, 9, 4, "#14151f"); p(13, 5, 7, 3, "#ffbe1a"); p(20, 6, 2, 2, "#fff07a");
+  p(12, 8, 9, 7, "#14151f"); p(13, 8, 7, 6, "#f0b088"); p(18, 10, 1, 2, "#14151f");
+  p(12, 15, 9, 8, "#14151f"); p(13, 15, 7, 7, "#22849a"); p(13, 19, 7, 1, "#ffe84a");
+  p(13, 23, 3, 5, "#24202e"); p(17, 23, 3, 5, "#24202e"); p(12, 28, 4, 2, "#6a3e1e"); p(17, 28, 4, 2, "#6a3e1e");
+});
+//  layer: body | pick | pack, tier: 곡괭이 단계(0 = 기본 곡괭이)
+export function playerFrame(layer, anim, i, tier = 0) {
+  const src = PLAYER_IMG[layer];
+  if (src.width < PSZ) return layer === "body" ? PLAYER_FALLBACK : null;
+  const [row, n] = PLAYER_ANIM[anim] || PLAYER_ANIM.idle, f = ((i % n) + n) % n;
+  const key = layer + anim + f + "|" + (layer === "pick" ? tier : "");
+  let im = PLAYER_CACHE.get(key);
+  if (im) return im;
+  im = sprite(PSZ, PSZ, (p, g) => g.drawImage(src, f * PSZ, row * PSZ, PSZ, PSZ, 0, 0, PSZ, PSZ));
+  if (layer === "pick") {
+    const c = tier > 0 ? PAL[PICK_TIER[Math.min(PICK_TIER.length, tier) - 1]] : { h: "#a89c90", m: "#6e6458", l: "#3e3630" };   // 0 = 기본 곡괭이(녹슨 쇠)
+    im = tintGrayOnly(im, rampOf(c));
+  }
+  PLAYER_CACHE.set(key, im);
+  return im;
+}
+export const clearPlayerCache = () => PLAYER_CACHE.clear();

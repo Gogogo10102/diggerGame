@@ -18,7 +18,7 @@ export const floatT = new Float32Array(W * H);        // 칸별 '떠 있음' 누
 export const chunks = [];                             // 떨어지는 덩어리 [{cells:[{c,r,id,rub}], off, frac, vy, hit}]
 S.floatScanT = 0;
 export const anchorTile = (v) => v === 7 || v === 13;
-export const solidTile = (v) => v !== 0 && v !== 14 && v !== 15;
+export const solidTile = (v) => v !== 0 && v !== 14 && v !== 15 && v !== 19;
 // 맵이 커서 플레이어 주변 창(가로 ±64, 세로 ±48칸)만 계산. 창 가장자리에 닿은 땅은 바깥과 이어진 것으로 봄
 export const FLOAT_WIN = { c: 64, r: 48 };
 export const _stack = new Int32Array((FLOAT_WIN.c * 2 + 1) * (FLOAT_WIN.r * 2 + 1)), _vis = new Uint8Array((FLOAT_WIN.c * 2 + 1) * (FLOAT_WIN.r * 2 + 1));

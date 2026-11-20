@@ -14,6 +14,8 @@ export const PAL = [
   { h: "#ecd4ff", m: "#a45cff", l: "#5a2aa8" },   // 6 자수정
   { h: "#ffffff", m: "#6ef2d4", l: "#2a9d92" },   // 7 미스릴
 ];
+// 사람 장비 단계 → PAL 색 (이름에 맞춰: 철·강철·금·다이아·미스릴 / 로켓 1~4)
+export const PICK_TIER = [0, 1, 4, 2, 7], ROCKET_TIER = [0, 1, 4, 6];
 export const GLOW = ["#ffcd3c", "#fff3a8", "#e8ffff", "#b8ffcf", "#ffe9a0", "#ffc0c0", "#e6c8ff", "#ffffff"];
 export const FLAME = [["#ff8a1f", "#ffe066"], ["#ff8a1f", "#ffe066"], ["#ffb040", "#fff3a8"], ["#5ef2ff", "#e8ffff"],
   ["#3ddc84", "#c8ffd8"], ["#ff4d5e", "#ffc8c8"], ["#a45cff", "#ecd4ff"], ["#6ef2d4", "#ffffff"], ["#ffffff", "#6ef2d4"]];
@@ -126,6 +128,32 @@ B.clover = (p, t, c) => {
   sparkle(p, t, c);
 };
 
+// 사람 장비 (고해상도는 tools/make-player.py): 곡괭이 · 백팩 로켓 · 로봇 · 사다리
+B.pick = (p, t, c) => {
+  for (let i = 0; i < 9; i++) { p(4 + i, 12 - i, 2, 2, "#14151f"); p(4 + i, 12 - i, 1, 1, "#8a5428"); }   // 자루 (비스듬히)
+  p(5, 2, 9, 3, "#14151f"); p(6, 3, 7, 1, c.h); p(4, 4, 2, 2, "#14151f"); p(13, 4, 2, 2, "#14151f"); p(4, 4, 1, 1, c.l); p(14, 4, 1, 1, c.l);
+  sparkle(p, t, c);
+};
+B.rocket = (p, t, c) => {
+  p(4, 2, 8, 11, "#14151f"); p(5, 3, 6, 9, "#d9453a"); p(5, 3, 2, 9, "#ff7a6b"); p(5, 6, 6, 1, c.m);
+  p(5, 13, 2, 2, "#5a6272"); p(9, 13, 2, 2, "#5a6272"); p(5, 15, 2, 1, "#ff8a1f"); p(9, 15, 2, 1, "#ff8a1f");
+  sparkle(p, t, c);
+};
+B.robot = (p) => {
+  p(2, 11, 12, 4, "#14151f"); p(3, 12, 10, 2, "#3a3f52");                                                     // 궤도
+  p(3, 6, 8, 6, "#14151f"); p(4, 7, 6, 4, "#ffbe1a"); p(4, 7, 6, 1, "#ffe27a");                                // 몸
+  p(4, 1, 6, 6, "#14151f"); p(5, 2, 4, 4, "#b4bcca"); p(7, 3, 2, 2, "#3a9cff");                                 // 머리 · 눈
+  p(10, 7, 5, 3, "#14151f"); p(11, 8, 3, 1, "#9aa3b8");                                                       // 드릴
+};
+B.ladder = (p) => {
+  p(3, 0, 3, 16, "#14151f"); p(10, 0, 3, 16, "#14151f"); p(4, 0, 1, 16, "#b07a44"); p(11, 0, 1, 16, "#b07a44");
+  for (let y = 2; y < 16; y += 4) { p(5, y, 6, 2, "#14151f"); p(5, y, 6, 1, "#d8a868"); }
+};
+ICON.pick = sprite(16, 16, (p) => B.pick(p, 0, PAL[0]));
+ICON.rocket = sprite(16, 16, (p) => B.rocket(p, 0, PAL[0]));
+ICON.robot = sprite(16, 16, (p) => B.robot(p));
+ICON.ladder = sprite(16, 16, (p) => B.ladder(p));
+
 // 제작 장비 아이콘: id -> [도안, 단계]
 export const CRAFT_ICON = {
   laser_drill: ["drill", 3], dia_bit: ["drill", 5], mithril_drill: ["drill", 7],
@@ -141,7 +169,8 @@ export const CRAFT_ICON = {
 export const ITEM_ICON = {};
 for (const cat of CATS) {
   const b = B[cat.icon === "fuel" ? "tank" : cat.icon === "special" ? "goggles" : cat.icon];
-  cat.ids.forEach((id, i) => { ITEM_ICON[id] = sprite(16, 16, (p) => b(p, i, PAL[i])); });
+  const tierOf = (i) => cat.icon === "pick" ? PICK_TIER[i] : cat.icon === "rocket" ? ROCKET_TIER[i] : i;
+  cat.ids.forEach((id, i) => { const t = tierOf(i); ITEM_ICON[id] = sprite(16, 16, (p) => b(p, t, PAL[t])); });
 }
 for (const id in CRAFT_ICON) {
   const bn = CRAFT_ICON[id][0], t = CRAFT_ICON[id][1];

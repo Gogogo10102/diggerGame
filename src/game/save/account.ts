@@ -15,7 +15,7 @@ import { debrisList, debrisT, dust } from "../systems/collapseFx.ts";
 import { drops } from "../systems/drops.ts";
 import { chunks, floatT, withChunksSettled } from "../systems/floating.ts";
 import { BARS } from "../systems/furnace.ts";
-import { TUT_STEPS, collide, gases, revealAround } from "../systems/update.ts";
+import { TUT_STEPS, collide, gases, ladderQ, revealAround } from "../systems/update.ts";
 import { SaveStore, lsSet } from "../ui/inventory.ts";
 import { hideOv, openAccountScreen } from "../ui/overlay.ts";
 
@@ -29,7 +29,7 @@ export function snapshot() {
   return withChunksSettled(() => ({
     ver: SAVE_VER, id: S.acct.id, name: S.acct.name, created: S.acct.created, updated: Date.now(),
     seed: S.acct.seed, playTime: Math.floor(S.acct.playTime), stats: S.acct.stats,
-    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, layerMax: P.layerMax, facing: P.facing },
+    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
     settings: { showHelp: S.showHelp },
     world: encodeWorld(),
     stones: 1, worldV: 2,
@@ -75,6 +75,10 @@ export function applyAccount(d) {
   warn.fill(0); floatT.fill(0); chunks.length = 0; drops.length = 0; debrisT.fill(0); debrisList.length = 0; dust.length = 0; S.floatScanT = 0; S.unstable = []; S.graceT = 6; S.cavWarn = 0; S.scanT = 0;     // 불러온 직후 잠깐은 붕괴 유예
   P.items = {};
   for (const id in (pl.items || {})) if (ITEMS[id] && pl.items[id]) P.items[id] = true;   // 모르는 아이템은 무시
+  // 사람 광부 이전 세이브(mech 기록 없음)는 원래 로봇으로 놀던 것 → 로봇을 가진 채 타고 있는 상태로
+  if (pl.mech === undefined) { P.items.robot = true; P.mech = true; }
+  else P.mech = !!pl.mech && !!P.items.robot;
+  P.climbing = false; S.rocketOn = false; S.thrustOn = false; ladderQ.length = 0;
   recalcStats();
   P.money = Math.max(0, Math.floor(Number(pl.money) || 0));
   P.cargo = {};
@@ -129,6 +133,7 @@ export function applyAccount(d) {
   if (regenWorld) say("맵이 넓어져서 광산을 새로 만들었어요 (돈·장비·업적은 그대로)");
 }
 
+export const START_LADDERS = 5;                                   // 새 광부는 사다리 5개를 들고 시작
 export function newAccountData(name) {
   const seed = ((Math.random() * 2147483647) | 0) || 1;
   genWorld(seed);
@@ -136,7 +141,7 @@ export function newAccountData(name) {
   return {
     ver: SAVE_VER, id: newId(), name, created: now, updated: now, seed, mineNo: 1, xp: 0, quest: {}, title: "", playTime: 0, tut: 0,
     stats: { maxDepth: 0, earned: 0, deaths: 0, crafted: 0, collapses: 0, caves: 0, mined: {} },
-    player: { ts: T, x: 6 * T + T / 2, y: SURF * T - HH - 1, fuel: FUEL_BASE, money: 0, cargo: {}, stash: {}, bars: {}, inv: {}, items: {}, layerMax: 0, facing: 1 },
+    player: { ts: T, x: 6 * T + T / 2, y: SURF * T - HH - 1, fuel: FUEL_BASE, money: 0, cargo: {}, stash: {}, bars: {}, inv: { ladder: START_LADDERS }, items: {}, layerMax: 0, facing: 1, mech: false },
     settings: { showHelp: true },
     world: encodeWorld(),
     stones: 1, worldV: 2,

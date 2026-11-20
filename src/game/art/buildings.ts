@@ -118,8 +118,10 @@ export const plinthTop = sprite(16, 16, (p) => {
 export const plinthLow = sprite(16, 16, (p) => { brickFill(p, 0, 0, 16, 16, "#4a4e5c", "#5e6374", "#2b2e38"); });
 
 export function fxText(fx) {
-  const NAMES = { drill: "채굴 속도", thrust: "추진력", speed: "이동 속도", light: "시야", sell: "판매가", lucky: "행운" };
+  const NAMES = { drill: "로봇 드릴 속도", thrust: "로봇 추진력", speed: "로봇 이동 속도", light: "시야", sell: "판매가", lucky: "행운", pick: "곡괭이 채굴 속도" };
+  if (fx.robot) return "마을 차고에서 타요 · 강한 드릴 · 날 수 있음";
   return Object.keys(fx).map((k) => {
+    if (k === "rocket") return "백팩 로켓 추진력 " + Math.round(fx[k] * 100) + (fx[k] >= 0.8 ? "% · 날 수 있음" : "%↑");
     const v = fx[k];
     if (k === "fuel") return "최대 연료 +" + v;
     if (k === "cargo") return "화물 용량 +" + v;

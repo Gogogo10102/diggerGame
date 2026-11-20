@@ -49,14 +49,15 @@ export const SY = {
 export function pxBox(x: number, y: number, w: number, h: number, col: string) {
   ctx.fillStyle = col; ctx.fillRect(x + 2, y, w - 4, h); ctx.fillRect(x, y + 2, w, h - 4);
 }
-// 창 · 카드: 검은 테두리 + 숯색 판 + 위 밝은 줄 + 아래 어두운 줄
+// 창 · 카드: 검은 테두리 + 짙은 철판(빛 받는 위·왼쪽 테, 그늘진 아래·오른쪽 테) + 큰 판은 모서리 리벳
 export function panel(x: number, y: number, w: number, h: number, fill?: string) {
   x |= 0; y |= 0; w |= 0; h |= 0;
   ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(x + 4, y + h, w - 4, 4);
   pxBox(x, y, w, h, SY.ink);
   ctx.fillStyle = fill || SY.body; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
-  ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.fillRect(x + 2, y + 2, w - 4, 2);
-  ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(x + 2, y + h - 6, w - 4, 4);
+  ctx.fillStyle = "rgba(255,255,255,0.14)"; ctx.fillRect(x + 2, y + 2, w - 4, 2); ctx.fillRect(x + 2, y + 4, 2, h - 8);
+  ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.fillRect(x + 2, y + h - 6, w - 4, 4); ctx.fillRect(x + w - 4, y + 4, 2, h - 10);
+  if (w >= 160 && h >= 120 && !fill) { rivet(x + 6, y + h - 16); rivet(x + w - 12, y + h - 16); }   // 아래 모서리 리벳 (위는 머리띠가 덮음)
 }
 // 안쪽으로 파인 칸 (목록 판, 아이콘 칸)
 export function well(x: number, y: number, w: number, h: number, fill?: string) {
@@ -136,16 +137,61 @@ export const BTN_PAL = {
   orange: ["#94400a", "#e0780e", "#ffa82a", "#ffd684", "#7a3006"], red: ["#84182a", "#c43a4c", "#f2606e", "#ffb0b8", "#6e1222"],
   steel: ["#3e4552", "#788294", "#a6aebc", "#d6dce6", "#3e4552"],
 };
+// ---- 철판 버튼 (레퍼런스 MENU 판): 모든 버튼은 회색 철판 + 모서리 리벳, 뜻은 왼쪽 작은 색 띠와 글자로 ----
+//   철판 색 5단: 반짝 · 밝음 · 몸 · 어둠(아래 턱) · 그늘
+export const MT = { hi: "#f2f4f8", l: "#cdd2da", m: "#a9b0bc", d: "#7a8292", lo: "#545b68", txt: "#1b1d23", off: "#6a707c", eng: "#e4e8ee" };
+// 리벳 하나 (6x6: 검은 테 · 밝은 머리 · 반짝 1칸)
+export function rivet(x: number, y: number) {
+  ctx.fillStyle = SY.ink; ctx.fillRect(x + 2, y, 2, 6); ctx.fillRect(x, y + 2, 6, 2);
+  ctx.fillStyle = "#8a92a2"; ctx.fillRect(x + 2, y + 2, 2, 2);
+  ctx.fillStyle = MT.hi; ctx.fillRect(x + 2, y + 2, 1, 1);
+}
 // 버튼 하나 그리기 (글자 위치 계산까지). 돌려주는 값: 글자를 놓을 가운데 y
-export function btnPx(x: number, y: number, w: number, h: number, col: string, pressed?: boolean) {
-  const c = BTN_PAL[col] || BTN_PAL.steel;
+//  col: green 진행·구매 / blue 저장·정보 / orange 설정·메뉴 / red 닫기·뒤로 / steel 못 누름(띠 없음)
+export function btnPx(x: number, y: number, w: number, h: number, col: string, pressed?: boolean, noRivet?: boolean) {
+  const c = BTN_PAL[col];
   let lip = h >= 34 ? 6 : 4;
   if (pressed) { y += lip - 2; h -= lip - 2; lip = 2; }
-  pxBox(x, y, w, h, c[0]);
-  ctx.fillStyle = c[2]; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
-  ctx.fillStyle = c[1]; ctx.fillRect(x + 2, y + h - 2 - lip, w - 4, lip);
-  ctx.fillStyle = c[3]; ctx.fillRect(x + 4, y + 2, w - 8, 2);
+  pxBox(x, y, w, h, SY.ink);
+  const ih = h - 4 - lip;
+  ctx.fillStyle = MT.m; ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+  ctx.fillStyle = MT.l; ctx.fillRect(x + 2, y + 2, w - 4, Math.floor(ih / 2) & ~1);       // 위 절반은 밝게 (각진 그러데이션)
+  ctx.fillStyle = MT.hi; ctx.fillRect(x + 4, y + 2, w - 8, 2); ctx.fillRect(x + 2, y + 4, 2, ih - 2);   // 빛 (위 · 왼쪽)
+  ctx.fillStyle = MT.d; ctx.fillRect(x + w - 4, y + 4, 2, ih - 2);                          // 그늘 (오른쪽)
+  ctx.fillStyle = MT.lo; ctx.fillRect(x + 2, y + h - 2 - lip, w - 4, lip);                  // 아래 턱
+  ctx.fillStyle = MT.d; ctx.fillRect(x + 2, y + h - 2 - lip, w - 4, 2);
+  if (c && col !== "steel" && w >= 64) {                                                    // 뜻을 알려 주는 왼쪽 띠
+    ctx.fillStyle = SY.ink; ctx.fillRect(x + 4, y + 4, 8, ih - 4);
+    ctx.fillStyle = c[2]; ctx.fillRect(x + 6, y + 6, 4, ih - 8);
+    ctx.fillStyle = c[3]; ctx.fillRect(x + 6, y + 6, 4, 2);
+  }
+  if (h >= 34 && w >= 72 && !noRivet) {                                                     // 모서리 리벳 (아이콘이 들어가는 버튼은 끔)
+    const rx0 = x + (c && col !== "steel" && w >= 64 ? 14 : 6), rx1 = x + w - 12, ry0 = y + 6, ry1 = y + h - lip - 12;
+    rivet(rx0, ry0); rivet(rx1, ry0); rivet(rx0, ry1); rivet(rx1, ry1);
+  }
   return y + (h - lip) / 2;
+}
+// 철판 버튼 위 글자: 진한 글자 + 아래 밝은 줄(파인 글씨처럼). on 이 아니면 흐린 회색
+export function btnTxt(s: string, x: number, y: number, size?: number, on?: boolean, align?: CanvasTextAlign) {
+  const sz = setFont(size || 16);
+  ctx.textAlign = align || "center"; ctx.textBaseline = "top";
+  ctx.fillStyle = MT.eng; ctx.fillText(s, Math.round(x), Math.round(y) + 1);
+  ctx.fillStyle = on === false ? MT.off : MT.txt; ctx.fillText(s, Math.round(x), Math.round(y));
+  return sz;
+}
+// 제목 글자 (레퍼런스 MENU 글씨): 굵은 검은 테두리 + 위 노랑 → 아래 주황 그러데이션 + 아래 그림자
+export function titleTxt(s: string, x: number, y: number, size?: number, align?: CanvasTextAlign) {
+  const sz = setFont(size || 16), o = sz >= 32 ? 3 : 2;
+  ctx.textAlign = align || "left"; ctx.textBaseline = "top";
+  x = Math.round(x); y = Math.round(y);
+  ctx.fillStyle = SY.ink;
+  ctx.fillText(s, x + 1, y + o + 2);                                                        // 아래 그림자
+  for (let dy = -o; dy <= o; dy += o) for (let dx = -o; dx <= o; dx += o) if (dx || dy) ctx.fillText(s, x + dx, y + dy);
+  const g = ctx.createLinearGradient ? ctx.createLinearGradient(0, y, 0, y + sz) : null;
+  if (g) { g.addColorStop(0, "#fff19a"); g.addColorStop(0.45, "#ffb52a"); g.addColorStop(0.55, "#ff9a1a"); g.addColorStop(1, "#e0520a"); }
+  ctx.fillStyle = g || "#ffa82a";
+  ctx.fillText(s, x, y);
+  return sz;
 }
 // 작은 정보 판 (HUD 의 돈 · 깊이)
 export function plate(x: number, y: number, w: number, h: number) {

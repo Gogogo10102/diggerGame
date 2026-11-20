@@ -4,8 +4,8 @@ import { icon } from "../render/util.ts";
 
 // ---- 아이템 카탈로그 ----
 // 항목: [id, 이름, 효과, 가격, (선택) 선행 아이템 id]
-// 효과 키: drill 채굴 속도, fuel 최대 연료, cargo 화물 용량, thrust 추진력,
-//          speed 이동 속도, light 시야, eff 연료 소모 감소, sell 판매가
+// 효과 키: drill 로봇 드릴 속도, fuel 최대 연료, cargo 화물 용량, thrust 로봇 추진력,
+//          speed 로봇 이동 속도, light 시야, eff 연료 소모 감소, sell 판매가, pick 곡괭이, rocket 백팩 로켓, robot 로봇 본체
 // chain=true 인 분류는 위에서부터 순서대로 사야 합니다. 분류마다 3개씩 넣으세요.
 export const ITEMS = {};
 export const CATS = [];
@@ -18,8 +18,26 @@ export function addCat(name, icon, list, chain) {
   });
   CATS.push(cat);
 }
+// 사람 장비: 곡괭이(처음엔 기본 곡괭이 · 무료) · 백팩 로켓(있어야 날 수 있음, 연료 씀) / 로봇(마을 차고에서 타는 탈것)
+addCat("곡괭이", "pick", [
+  ["pick_iron", "철 곡괭이", { pick: 0.25 }, 60],
+  ["pick_steel", "강철 곡괭이", { pick: 0.35 }, 250],
+  ["pick_gold", "금 곡괭이", { pick: 0.5 }, 900],
+  ["pick_dia", "다이아 곡괭이", { pick: 0.7 }, 3000],
+  ["pick_mith", "미스릴 곡괭이", { pick: 1.0 }, 9000],
+], true);
+addCat("백팩 로켓", "rocket", [
+  ["rocket1", "백팩 로켓", { rocket: 0.8 }, 350],
+  ["rocket2", "터보 백팩 로켓", { rocket: 0.25 }, 1400],
+  ["rocket3", "제트 백팩", { rocket: 0.3 }, 4200],
+  ["rocket4", "플라즈마 백팩", { rocket: 0.4 }, 12000],
+], true);
+addCat("로봇", "robot", [
+  ["robot", "드릴 로봇", { robot: 1 }, 1500],
+], true);
+// 아래 드릴 · 엔진 · 궤도는 로봇 장비 (로봇을 사야 살 수 있음). 탱크(연료) · 화물 · 조명 · 특수는 사람·로봇 공용
 addCat("드릴", "drill", [
-  ["steel_drill", "강철 드릴", { drill: 0.4 }, 80],
+  ["steel_drill", "강철 드릴", { drill: 0.4 }, 80, "robot"],
   ["ti_drill", "티타늄 드릴", { drill: 0.6 }, 320],
   ["dia_drill", "다이아 드릴", { drill: 1.0 }, 1200],
   ["plasma_drill", "플라즈마 드릴", { drill: 0.8 }, 3200],
@@ -49,7 +67,7 @@ addCat("화물", "crate", [
   ["cargo8", "블랙홀 화물칸", { cargo: 200 }, 115000],
 ], true);
 addCat("엔진", "engine", [
-  ["engine1", "강화 엔진", { thrust: 0.2 }, 150],
+  ["engine1", "강화 엔진", { thrust: 0.2 }, 150, "robot"],
   ["engine2", "터보 엔진", { thrust: 0.3 }, 600],
   ["engine3", "제트 엔진", { thrust: 0.5 }, 2000],
   ["engine4", "플라즈마 엔진", { thrust: 0.4 }, 5200],
@@ -59,7 +77,7 @@ addCat("엔진", "engine", [
   ["engine8", "초광속 엔진", { thrust: 1.0 }, 200000],
 ], true);
 addCat("궤도", "tracks", [
-  ["track1", "고속 궤도", { speed: 0.15 }, 120],
+  ["track1", "고속 궤도", { speed: 0.15 }, 120, "robot"],
   ["track2", "강화 궤도", { speed: 0.2 }, 500],
   ["track3", "터보 궤도", { speed: 0.25 }, 1500],
   ["track4", "합금 궤도", { speed: 0.2 }, 4000],

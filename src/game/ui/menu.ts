@@ -12,6 +12,7 @@ import { ORE_IDS } from "../save/config.ts";
 import { exportCode } from "../save/transfer.ts";
 import { chunks } from "../systems/floating.ts";
 import { SENS_NAME } from "../systems/input.ts";
+import { respawn } from "../systems/update.ts";
 import { charFooter, charTabs } from "./dom.ts";
 import { sfx } from "../core/sound.ts";
 import { lsGet, lsSet, renderInventory } from "./inventory.ts";
@@ -40,6 +41,7 @@ export function renderMenu(note) {
   bs.appendChild(mkBtn("계속하기", closeMenu, "pri"));
   bs.appendChild(mkBtn("지금 저장", async () => { const ok = await saveNow(true); renderMenu(ok ? "저장했어요" : "저장에 실패했어요"); }, "info"));
   bs.appendChild(mkBtn("캐릭터 정보 (장비·업적·통계)", () => renderInventory()));
+  if (Math.floor(P.y / T) >= SURF && P.dead <= 0) bs.appendChild(mkBtn("구조 요청 (지상으로)", renderRescue, "del"));
   bs.appendChild(mkBtn("새 광산 찾기", renderNewMine));
   bs.appendChild(mkBtn("설정", () => renderSettings()));
   bs.appendChild(mkBtn("저장 코드 내보내기", renderExport, "info"));
@@ -82,6 +84,25 @@ export function renderSettings(note) {
   bs.appendChild(mkBtn("뒤로", () => renderMenu(), "back"));
   root.appendChild(bs);
   showOv(root);
+}
+// 굴에 갇혔을 때(사다리·로켓 없음): 지상으로 끌어올려 줌. 대신 화물칸의 광물은 두고 감
+export function renderRescue() {
+  const root = el("div");
+  root.appendChild(el("h2", null, "구조 요청"));
+  root.appendChild(el("p", "dim", "구멍에 갇혔나요? 구조대가 지상 마을로 끌어올려 줘요."));
+  const n = Object.values(P.cargo || {}).reduce((a, b) => a + (b | 0), 0);
+  root.appendChild(el("p", "msg", n > 0 ? "화물칸의 광물 " + n + "개는 두고 가요 (되돌릴 수 없어요)" : "화물칸이 비어 있어 잃는 것이 없어요"));
+  const bs = el("div", "btns");
+  bs.appendChild(mkBtn("구조 받기", () => { rescuePlayer(); closeMenu(); }, "pri"));
+  bs.appendChild(mkBtn("취소", () => renderMenu(), "back"));
+  root.appendChild(bs);
+  showOv(root);
+}
+export function rescuePlayer() {
+  respawn(); P.climbing = false; S.rocketOn = false;
+  sfx("ignite");
+  say("구조됐어요! 다음엔 사다리(7)를 챙겨 가세요");
+  saveNow(true, true);
 }
 export function renderNewMine() {
   const root = el("div");

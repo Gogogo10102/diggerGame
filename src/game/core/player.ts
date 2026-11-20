@@ -15,6 +15,8 @@ export const P = {
   bars: {},             // 용광로에서 만든 주괴 { cu/fe/ag/au/mi: 개수 }
   inv: {},              // 소모품 { 아이템id: 개수 }
   dead: 0, facing: 1, digging: false, mode: "side", grounded: false,
+  mech: false,          // 로봇에 타 있는지 (false = 사람 광부). 로봇은 마을 차고에서만 타고 내림
+  climbing: false,      // 사다리를 오르내리는 중
   layerMax: 0,
 };
 

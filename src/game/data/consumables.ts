@@ -33,11 +33,12 @@ export const CONS = {
   dyn_s: { name: "다이너마이트", kind: "bomb", rad: 1, cost: 60, desc: "설치 2.5초 후 폭발 · 3x3" },
   dyn_l: { name: "강력 다이너마이트", kind: "bomb", rad: 2, cost: 200, desc: "설치 2.5초 후 폭발 · 5x5" },
   dyn_x: { name: "초강력 폭약", kind: "bomb", rad: 3, cost: 600, desc: "설치 2.5초 후 폭발 · 7x7" },
+  ladder: { name: "사다리", kind: "ladder", len: 10, cost: 25, desc: "떨어뜨리면 아래로 10칸 펼쳐짐 · 타고 오르내림" },
   sup_w: { name: "나무 지지대", kind: "support", steel: false, cost: 15, desc: "(더 이상 팔지 않음)" },
   sup_s: { name: "강철 지지대", kind: "support", steel: true, cost: 60, desc: "(더 이상 팔지 않음)" },
 };
-// 단축 슬롯(1~6) = 상점 소모품. 지지대(sup_w/sup_s)는 지반 붕괴를 없애면서 뺐음 (옛 세이브 호환용으로 CONS 에만 남김)
-export const HOT = ["fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x"];
+// 단축 슬롯(1~7) = 상점 소모품 (7 = 사다리). 지지대(sup_w/sup_s)는 지반 붕괴를 없애면서 뺐음 (옛 세이브 호환용으로 CONS 에만 남김)
+export const HOT = ["fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x", "ladder"];
 {
   const ids = [];
   for (const id of HOT) {
@@ -50,5 +51,5 @@ export const HOT = ["fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x"];
 }
 export const VIS_BASE = 2.5;                                     // 기본 시야 반경(타일)
 export const visR = () => VIS_BASE * STAT.light;
-export const LOOK = { drill: 0, tracks: 0, lamp: 0, crate: 0, engine: 0, key: "" };   // 로봇 외형(장비 단계)
+export const LOOK = { drill: 0, tracks: 0, lamp: 0, crate: 0, engine: 0, pick: 0, rocket: 0, key: "" };   // 로봇 외형(장비 단계) · 사람 곡괭이/로켓 단계
 

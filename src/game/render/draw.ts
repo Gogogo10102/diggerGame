@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, playerFrame, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -12,14 +12,14 @@ import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { COMBO_T, MAX_LV, levelOf, titleName } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
-import { FONT_M, GLYPH, SY, blit, btnPx, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt, well } from "./util.ts";
+import { FONT_M, GLYPH, SY, blit, btnPx, btnTxt, titleTxt, ctx, cv, gg, glyph, gridCv, hazard, icon, keycap, lg, lightCv, panel, pbar, plate, pxBox, segBar, setFont, txt, well } from "./util.ts";
 import { DEBRIS_T, debrisT, dust } from "../systems/collapseFx.ts";
 import { drawDrops } from "../systems/drops.ts";
 import { chunks, floatT, solidTile } from "../systems/floating.ts";
 import { BARS, furnaceImg, matHave, matIcon, matName } from "../systems/furnace.ts";
 import { STICK_R, U_, shopBtn, touch } from "../systems/input.ts";
 import { drawCraftModal, drawFurnaceModal, drawShopModal, fitText } from "./townUI.ts";
-import { TUT_STEPS, gasR, gases } from "../systems/update.ts";
+import { GARAGE, TUT_STEPS, atGarage, gasR, gases, onLadder } from "../systems/update.ts";
 import { drawMapModal, drawMinimap } from "./minimap.ts";
 import { SELL_KEYS, stashValue, unitPrice } from "../systems/town.ts";
 import { ov } from "../ui/overlay.ts";
@@ -148,18 +148,77 @@ function softEdge(c, r, px, py, id) {
 }
 
 // 추진 불꽃: 움직이는 반대쪽으로 기울어짐 (Chipmatic 처럼). 4px 도트 덩어리를 방향을 따라 이어 그림
-function drawThrustFlame(x, y) {
+//  k: 크기 (로봇 1, 사람 백팩 로켓은 작게)
+function drawThrustFlame(x, y, k = 1) {
   const lean = Math.max(-1, Math.min(1, -P.vx / (220 * PX)));        // 오른쪽으로 가면 불꽃은 왼쪽 아래로
   const ang = lean * 0.75, dx = Math.sin(ang), dy = Math.cos(ang);
-  const fl = (((S.animT * 30) | 0) % 3), len = 7 + fl * 2 + (P.vy < 0 ? 2 : 0);
-  const [outer, inner] = FLAME[LOOK.engine];
+  const fl = (((S.animT * 30) | 0) % 3), len = Math.round((7 + fl * 2 + (P.vy < 0 ? 2 : 0)) * k);
+  const [outer, inner] = FLAME[P.mech ? LOOK.engine : Math.max(0, (LOOK.rocket || 1) - 1)];
   for (let i = 0; i < len; i++) {
-    const w = Math.max(1, Math.round(3.2 * (1 - i / len) + (i < 2 ? 0.8 : 0)));   // 덩어리 반폭(4px 단위)
+    const w = Math.max(1, Math.round(3.2 * k * (1 - i / len) + (i < 2 ? 0.8 : 0)));   // 덩어리 반폭(4px 단위)
     const cx = Math.round((x + dx * i * 4) / 2) * 2, cy = Math.round((y + dy * i * 4) / 2) * 2;
     ctx.fillStyle = i > len - 3 ? "rgba(255,140,40,0.55)" : outer; ctx.fillRect(cx - w * 4, cy, w * 8, 4);
     if (w > 1 && i < len - 2) { ctx.fillStyle = inner; ctx.fillRect(cx - (w - 1) * 4, cy, (w - 1) * 8, 4); }
     if (i < 2) { ctx.fillStyle = "#ffffff"; ctx.fillRect(cx - 4, cy, 8, 4); }
   }
+}
+
+// ---- 사람 광부 그리기: 시트(make-player.py)의 칸을 상태에 맞춰 고름. 순서 = 백팩 → 몸 → 곡괭이 ----
+export function humanAnim() {
+  if (P.climbing) return ["climb", Math.floor(P.y / 14)];           // 오르내린 거리만큼 손발이 움직임 (멈추면 그대로)
+  if (P.digging) return ["mine_" + P.mode, Math.floor(S.animT * 10)];
+  if (!P.grounded) {
+    if (S.thrustOn) return ["fly", Math.floor(S.animT * 10)];
+    return ["jump", P.vy < -120 * PX ? 0 : P.vy < 60 * PX ? 1 : 2];
+  }
+  if (Math.abs(P.vx) > 20) return ["run", Math.floor(S.animT * 14)];
+  return ["idle", Math.floor(S.animT * 4)];
+}
+export const PCX = 28, PFT = 61;                                     // 칸 안의 몸 가운데 x · 발바닥 y (make-player.py 의 SHIFT 와 짝)
+function drawHuman(px, py) {
+  const [an, fi] = humanAnim();
+  const hasPack = STAT.rocket > 0;
+  const body = playerFrame("body", an, fi);
+  ctx.save();
+  ctx.translate(px, py + HH);
+  if (P.facing < 0) ctx.scale(-1, 1);
+  if (body.width < PSZ) {                                          // 시트 파일이 없을 때: 32px 대체 그림을 2배로
+    ctx.drawImage(body, -32, -60, 64, 64);
+  } else {
+    const pack = hasPack ? playerFrame("pack", an, fi) : null;
+    const pick = playerFrame("pick", an, fi, LOOK.pick || 0);
+    if (pack) ctx.drawImage(pack, -PCX, -PFT);
+    ctx.drawImage(body, -PCX, -PFT);
+    if (pick && an !== "climb") ctx.drawImage(pick, -PCX, -PFT);
+  }
+  ctx.restore();
+  if (S.thrustOn) drawThrustFlame(px - P.facing * 7, py + HH - 12, 0.55);
+}
+// ---- 마을 차고 ----
+function drawGarage(camX, camY, vw) {
+  const gx = GARAGE[0] * T - camX, gy = SURF * T - camY, gw = (GARAGE[1] - GARAGE[0] + 1) * T;
+  if (gx > vw || gx + gw < 0 || gy < -T * 3 || gy > cv.height + T) return;
+  // 바닥 판: 노랑·검정 경고 줄무늬 띠가 있는 철판
+  ctx.fillStyle = "#14151f"; ctx.fillRect(gx + 4, gy - 10, gw - 8, 10);
+  ctx.fillStyle = "#6a7186"; ctx.fillRect(gx + 8, gy - 8, gw - 16, 4);
+  ctx.fillStyle = "#9aa3b8"; ctx.fillRect(gx + 8, gy - 8, gw - 16, 2);
+  for (let x = gx + 8, k = 0; x < gx + gw - 8; x += 8, k++) { ctx.fillStyle = k % 2 ? "#14151f" : "#ffc21a"; ctx.fillRect(x, gy - 4, Math.min(8, gx + gw - 8 - x), 4); }
+  // 세워 둔 로봇 (샀고, 지금 안 타고 있으면)
+  if (P.items.robot && !P.mech) {
+    const ms = MINER_SZ * 3, mb = MINER_BOX * 3, cx = gx + gw / 2, by = gy - 10;
+    ctx.save(); ctx.translate(Math.round(cx), by);
+    const bob = Math.round(Math.sin(S.animT * 2) * 1);
+    ctx.drawImage(getMiner("side", 0, -1, "body"), -24 - mb, -48 - mb + bob, ms, ms);
+    ctx.drawImage(getMiner("side", 0, -1, "drill"), -24 - mb, -48 - mb + bob, ms, ms);
+    ctx.restore();
+  }
+  // 차고 표시: 기둥 두 개 + 로봇 아이콘 배지 (글자 없이)
+  ctx.fillStyle = "#14151f"; ctx.fillRect(gx + 2, gy - 110, 8, 100); ctx.fillRect(gx + gw - 10, gy - 110, 8, 100);
+  ctx.fillStyle = "#6a7186"; ctx.fillRect(gx + 4, gy - 108, 4, 96); ctx.fillRect(gx + gw - 8, gy - 108, 4, 96);
+  ctx.fillStyle = "#14151f"; ctx.fillRect(gx, gy - 118, gw, 12);
+  for (let x = gx + 2, k = 0; x < gx + gw - 2; x += 8, k++) { ctx.fillStyle = k % 2 ? "#14151f" : "#ffc21a"; ctx.fillRect(x, gy - 116, Math.min(8, gx + gw - 2 - x), 8); }
+  const ic = ICON.robot;
+  if (ic) { const s = 32; ctx.fillStyle = "#14151f"; ctx.fillRect(gx + gw / 2 - s / 2 - 4, gy - 152, s + 8, s + 8); ctx.fillStyle = "#3a3f52"; ctx.fillRect(gx + gw / 2 - s / 2 - 2, gy - 150, s + 4, s + 4); blit(ic, gx + gw / 2 - s / 2, gy - 148, s, s); }
 }
 
 export function getCam(vw, vh) {
@@ -260,7 +319,7 @@ export function draw() {
     for (let c = c0; c <= c1; c++) {
       const id = tiles[r * W + c];
       let px = c * T - camX, py = r * T - camY;
-      if (id === 0 || id === 14 || id === 15) {
+      if (id === 0 || id === 14 || id === 15 || id === 19) {
         if (r >= SURF) {
           const L = layerOf(r - SURF), nat = id === 0 && r > SURF && baseTiles[r * W + c] === 0;   // 처음부터 빈 칸 = 자연 동굴
           ctx.drawImage((nat ? caveBack : backTiles)[L][(c * 5 + r * 3) & 3], px, py, T, T);
@@ -289,7 +348,8 @@ export function draw() {
           if (tr && tr.width > 1) ctx.drawImage(tr, px + Math.floor((T - tr.width) / 2), py + T - tr.height);
           else { const dc = decoFor(c); if (dc) ctx.drawImage(dc, px, py, T, T); }
         }
-        if (id > 0) ctx.drawImage(id === 14 ? ICON.sup_w : ICON.sup_s, px, py, T, T);
+        if (id === 19) ctx.drawImage(ladderTile, px, py, T, T);            // 사다리
+        else if (id > 0) ctx.drawImage(id === 14 ? ICON.sup_w : ICON.sup_s, px, py, T, T);
         continue;
       }
       const ft = floatT[r * W + c];
@@ -488,8 +548,12 @@ export function draw() {
   }
   ctx.globalAlpha = 1;
 
+  // 차고: 상점과 제작소 사이 바닥 판 + (로봇을 샀는데 안 타고 있으면) 세워 둔 로봇
+  drawGarage(camX, camY, vw);
+
   // 플레이어 (타이틀 화면에선 로고 위 로봇만 보이게 숨김)
-  if (P.dead <= 0 && S.state !== "title") {
+  if (P.dead <= 0 && S.state !== "title" && !P.mech) drawHuman(Math.round(P.x - camX), Math.round(P.y - camY));
+  if (P.dead <= 0 && S.state !== "title" && P.mech) {
     const px = Math.round(P.x - camX), py = Math.round(P.y - camY);
     const moving = Math.abs(P.vx) > 20 && P.grounded;
     const leg = moving ? ((S.animT * 10) | 0) % 2 : 0;
@@ -521,7 +585,7 @@ export function draw() {
     }
     ctx.drawImage(getMiner(P.mode, leg, dg, "drill"), Math.round(-24 - mb + pdx), Math.round(-48 - mb + pdy), ms, ms);
     ctx.restore();
-    if (U_() && P.fuel > 0) drawThrustFlame(px, py + HH);
+    if (S.thrustOn) drawThrustFlame(px, py + HH);
   }
 
   // 떠오르는 글자
@@ -695,7 +759,7 @@ export function townScale(SW, SH) {
   return 1;
 }
 
-// 소모품 단축 슬롯 (1~6 키 / 터치로 탭)
+// 소모품 단축 슬롯 (1~7 키 / 터치로 탭)
 export function drawHotbar(vw, vh) {
   S.hotBtns = []; S.hotLeft = 1e9;
   if (S.state !== "play") return;
@@ -852,7 +916,7 @@ export function drawHUD(vw, vh, depth) {
   // 오른쪽 위: 가방(초록) · 업적(파랑) · 메뉴(주황) 사각 버튼 + 그 아래 미니맵 · 깊이 미터
   S.menuBtn = null; S.bagBtn = null; S.questBtn = null;
   if (S.state === "play") {
-    [["green", GLYPH.bag, "bag", "#1f5418"], ["blue", GLYPH.trophy, "quest", "#0b3f6c"], ["orange", GLYPH.menu, "menu", "#7a3006"]].forEach(([col, g, kind, tc], i) => {
+    [["green", GLYPH.bag, "bag", "#2a8a1e"], ["blue", GLYPH.trophy, "quest", "#1668b8"], ["orange", GLYPH.menu, "menu", "#d0600a"]].forEach(([col, g, kind, tc], i) => {
       const x = bx0 + i * (bs + bg);
       const cy = btnPx(x, by0, bs, bs, col);
       glyph(g, x + Math.floor((bs - 21) / 2), Math.round(cy - 10.5), tc, 3);
@@ -917,24 +981,26 @@ export function drawHUD(vw, vh, depth) {
   const helpOn = S.showHelp && S.state === "play" && (S.helpPinned || S.playT < 30);
   let helpStr = S.usedTouch
     ? "드래그로 조작 · 아래 슬롯: 소모품 · 오른쪽 위: 가방/업적/메뉴"
-    : "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-6 소모품 · I 가방 · Q 업적 · M 지도 · Z 확대 · H 도움말";
+    : P.mech ? "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-7 소모품 · E 차고 · I 가방 · Q 업적 · M 지도 · H 도움말"
+    : "←→ 이동 · ↑ 점프/사다리 · ↓ 곡괭이 · 7 사다리 · 1-6 소모품 · I 가방 · Q 업적 · M 지도 · H 도움말";
   setFont(12);
   let helpW = Math.ceil(ctx.measureText(helpStr).width) + 32;
   if (helpW > vw - 24) {                                          // 좁은 화면: 짧은 문구로 (예전엔 화면 밖으로 잘렸음)
-    helpStr = S.usedTouch ? "드래그 조작 · 아래 슬롯: 소모품" : "←→ 이동 · ↑ 추진 · ↓ 파기 · H 도움말";
+    helpStr = S.usedTouch ? "드래그 조작 · 아래 슬롯: 소모품" : P.mech ? "←→ 이동 · ↑ 추진 · ↓ 파기 · H 도움말" : "←→ · ↑ 점프 · ↓ 곡괭이 · 7 사다리 · H";
     helpW = Math.min(vw - 24, Math.ceil(ctx.measureText(helpStr).width) + 32);
   }
   const helpUp = helpOn && 12 + helpW > S.hotLeft - 8;      // 슬롯과 겹치면 도움말을 슬롯 위로 올리고, 안내창도 같이 올림
   const helpLift = helpUp ? 44 : 0;
-  if ((S.nearItems || S.nearCraft || S.nearFurnace) && S.state === "play" && P.dead <= 0) {
-    const nm = S.nearItems ? "상점 열기" : S.nearCraft ? "제작소 열기" : "용광로 열기";
+  const garageHere = !S.nearItems && !S.nearCraft && !S.nearFurnace && atGarage();
+  if ((S.nearItems || S.nearCraft || S.nearFurnace || garageHere) && S.state === "play" && P.dead <= 0) {
+    const nm = S.nearItems ? "상점 열기" : S.nearCraft ? "제작소 열기" : S.nearFurnace ? "용광로 열기" : P.mech ? "로봇에서 내리기" : P.items.robot ? "로봇 타기" : "차고 (로봇 없음)";
     const label = S.usedTouch ? nm : "[E] " + nm;
     setFont(16);
     const pw = Math.ceil(ctx.measureText(label).width) + 56, ph = 48;
     const px = Math.floor((vw - pw) / 2), py = vh - 124 - helpLift;
     S.promptBtn = { x: px, y: py, w: pw, h: ph };
-    const cy = btnPx(px, py, pw, ph, "green");
-    txt(label, vw / 2, cy - 8, "#1f5418", 16, "center", "rgba(0,0,0,0)");
+    const cy = btnPx(px, py, pw, ph, garageHere && !P.mech && !P.items.robot ? "steel" : "green");
+    btnTxt(label, vw / 2 + 4, cy - 8, 16);
   }
 
   // 토스트
@@ -1112,8 +1178,14 @@ export function drawTitle(vw, vh) {
   // 2.5초마다 다른 로봇으로 (로봇 6종 자랑) — 바뀔 때 살짝 튀어오름
   const ci = Math.floor(now / 2.5) % CHAR_IDS.length, hop = (now % 2.5) < 0.18 ? -6 : 0;
   const keep = S.charId; S.charId = CHAR_IDS[ci];
-  ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 60), y + bob + hop, 120, 120);
+  ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 20), y + bob + hop, 120, 120);
   S.charId = keep;
+  // 사람 광부: 로봇 옆에서 곡괭이질 (그림 2배, 발을 로봇 궤도 바닥(y 84)에 맞춤)
+  const hb = playerFrame("body", "mine_side", Math.floor(now * 8)), hp = playerFrame("pick", "mine_side", Math.floor(now * 8));
+  if (hb.width >= PSZ) {
+    const hx = Math.floor(vw / 2 - 20 - 128 + 16), hy = y + 84 - PFT * 2;
+    ctx.drawImage(hb, hx, hy, 128, 128); if (hp) ctx.drawImage(hp, hx, hy, 128, 128);
+  }
   y += 120 + 8;
   ctx.fillStyle = "rgba(10,10,16,0.5)"; ctx.fillRect(0, y - 12, vw, lh + 16 + 44 + 16);   // 로고·부제 뒤 어두운 띠 (뒤 건물에 묻히지 않게)
   ctx.fillStyle = "rgba(255,194,26,0.35)"; ctx.fillRect(0, y - 14, vw, 2); ctx.fillRect(0, y + lh + 16 + 44 + 4, vw, 2);
@@ -1129,12 +1201,12 @@ export function drawTitle(vw, vh) {
   setFont(16); const bw = Math.ceil(ctx.measureText(label).width) + 72, bh = 52;
   const bx = Math.floor((vw - bw) / 2), pressed = ((now * 1.6) | 0) % 2 === 1;
   const cy = btnPx(bx, y, bw, bh, "green", pressed);
-  txt(label, vw / 2, cy - 8, "#1f5418", 16, "center", "rgba(0,0,0,0)");
+  btnTxt(label, vw / 2, cy - 8, 16);
   // 아래: 광물 줄 (천천히 출렁) + 조작 안내
   const ids = ORE_BAR_IDS, gap = vw < 420 ? 36 : 44, rowW = ids.length * gap;
   const oy = vh - 92;
   ids.forEach((id, i) => blit(oreIcon[id], Math.floor((vw - rowW) / 2 + i * gap + (gap - 32) / 2), oy + Math.round(Math.sin(now * 2 + i * 0.7) * 2) * 2, 32, 32));
-  const help = S.usedTouch ? "화면 어디서나 드래그해서 조작" : "←→ 이동 · ↑ 추진 · ↓ 파기 · E 건물 · I 가방 · M 지도";
+  const help = S.usedTouch ? "화면 어디서나 드래그해서 조작" : "←→ 이동 · ↑ 점프 · ↓ 곡괭이 · 7 사다리 · E 건물 · I 가방 · M 지도";
   txt(help, vw / 2, vh - 40, "#9aa3c8", 12, "center");
 }
 

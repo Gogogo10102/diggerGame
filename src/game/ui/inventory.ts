@@ -66,7 +66,7 @@ export function renderInventory(note) {
   }
   root.appendChild(grid);
   // 소모품
-  root.appendChild(el("p", "msg", "소모품 (숫자 키 1~6)"));
+  root.appendChild(el("p", "msg", "소모품 (숫자 키 1~7)"));
   const hot = el("div", "slots hot");
   HOT.forEach((id, i) => {
     const n = P.inv[id] || 0;

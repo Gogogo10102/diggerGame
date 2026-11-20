@@ -8,7 +8,7 @@ import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
-import { GLYPH, SY, blit, btnPx, ctx, glyph, hazard, keycap, panel, pxBox, segBar, setFont, txt, well } from "./util.ts";
+import { GLYPH, MT, SY, blit, btnPx, btnTxt, ctx, rivet, titleTxt, glyph, hazard, keycap, panel, pxBox, segBar, setFont, txt, well } from "./util.ts";
 import { BARS, BAR_KEYS, FURNACE_LV, ORE_PER_BAR, barIcon, furnaceCan, matHave, matIcon, matName } from "../systems/furnace.ts";
 import { TOWN, shopBtn, townActive } from "../systems/input.ts";
 import { ORDER_N, SELL_KEYS, SELL_ORES, ensureOrders, orderRerollCost, stashValue, unitPrice } from "../systems/town.ts";
@@ -55,13 +55,13 @@ const money = (n) => "$" + Number(n).toLocaleString("en-US");
 const KIND_COL = { go: "green", gold: "orange", plain: "blue", danger: "red", steel: "steel" };
 export function uiBtn(x: number, y: number, w: number, h: number, label: string, sub: string | null, kind: string, on: boolean, act?: string | null, arg?: any, i?: number) {
   const col = on ? (KIND_COL[kind] || "steel") : "steel";
-  const tc = { green: "#1f5418", blue: "#0b3f6c", orange: "#7a3006", red: "#6e1222", steel: "#3e4552" }[col];
   const pb = S.pressBtn, pressed = !!(pb && pb.x === x && pb.y === y && performance.now() - pb.t < 150);   // 방금 누른 버튼은 눌린 모양
   const cy = btnPx(x, y, w, h, col, pressed || (!on && kind === "steel"));
+  const sx = col !== "steel" && w >= 64 ? 6 : 0, tw = w - 8 - sx * 2;             // 왼쪽 색 띠만큼 글자를 살짝 오른쪽으로
   if (sub && h >= 40) {
-    txt(fitText(label, w - 8, 16), x + w / 2, cy - 17, tc, 16, "center", NO_SH);
-    txt(fitText(sub, w - 8, 12), x + w / 2, cy + 2, tc, 12, "center", NO_SH);
-  } else txt(fitText(label, w - 8, 16), x + w / 2, cy - 8, tc, 16, "center", NO_SH);
+    btnTxt(fitText(label, tw, 16), x + w / 2 + sx, cy - 17, 16, on);
+    btnTxt(fitText(sub, tw, 12), x + w / 2 + sx, cy + 2, 12, on);
+  } else btnTxt(fitText(label, tw, 16), x + w / 2 + sx, cy - 8, 16, on);
   if (act) shopBtn.push({ x, y, w, h, act, arg, i });
 }
 
@@ -75,36 +75,40 @@ export function townFrame(vw, vh, title, cats, sel, catAct, hint) {
   const x = Math.floor((vw - w) / 2), y = Math.floor((vh - h) / 2);
   S.shopRect = { x, y, w, h };
   panel(x, y, w, h);
-  // 머리띠
+  // 머리띠: 회색 철판 띠 (양 끝 리벳) — 레퍼런스 MENU 판
   const TH = short ? 36 : 42;
-  ctx.fillStyle = SY.y; ctx.fillRect(x + 2, y + 2, w - 4, TH);
-  ctx.fillStyle = SY.yHi; ctx.fillRect(x + 2, y + 2, w - 4, 2);
-  ctx.fillStyle = SY.yLo; ctx.fillRect(x + 2, y + TH, w - 4, 2);
-  // 탭: 고른 탭은 판과 이어진 숯색, 나머지는 진한 노랑
+  ctx.fillStyle = MT.m; ctx.fillRect(x + 2, y + 2, w - 4, TH);
+  ctx.fillStyle = MT.l; ctx.fillRect(x + 2, y + 2, w - 4, (TH / 2) & ~1);
+  ctx.fillStyle = MT.hi; ctx.fillRect(x + 2, y + 2, w - 4, 2);
+  ctx.fillStyle = MT.lo; ctx.fillRect(x + 2, y + TH - 2, w - 4, 4);
+  ctx.fillStyle = SY.ink; ctx.fillRect(x + 2, y + TH + 2, w - 4, 2);
+  rivet(x + 4, y + Math.floor(TH / 2) - 2);
+  // 탭: 고른 탭은 판과 이어진 숯색, 나머지는 한 단 낮은 철판
   const act = townActive(), n = TOWN.length, gap = 4, closeW = TH - 8;
   const tabsW = Math.min(n * 112, w - 24 - closeW - 8 - (narrow ? 0 : 60));
   const tw = Math.floor((tabsW - gap * (n - 1)) / n);
   TOWN.forEach(([k, label], i) => {
-    const tx = x + 10 + i * (tw + gap), on = k === act, ty = y + 8;
+    const tx = x + 12 + i * (tw + gap), on = k === act, ty = y + 8;
     if (on) {
-      pxBox(tx, ty, tw, TH - 4, SY.ink);
-      ctx.fillStyle = SY.body; ctx.fillRect(tx + 2, ty + 2, tw - 4, TH - 4);
+      pxBox(tx, ty, tw, TH - 2, SY.ink);
+      ctx.fillStyle = SY.body; ctx.fillRect(tx + 2, ty + 2, tw - 4, TH);
       ctx.fillStyle = SY.hi; ctx.fillRect(tx + 2, ty + 2, tw - 4, 2);
     } else {
-      pxBox(tx, ty + 2, tw, TH - 10, SY.yLo);
-      ctx.fillStyle = SY.yDk; ctx.fillRect(tx + 2, ty + 4, tw - 4, TH - 14);
+      pxBox(tx, ty + 2, tw, TH - 10, SY.ink);
+      ctx.fillStyle = MT.d; ctx.fillRect(tx + 2, ty + 4, tw - 4, TH - 14);
+      ctx.fillStyle = MT.lo; ctx.fillRect(tx + 2, ty + 4, tw - 4, 2);
     }
     const img = TAB_IMG[k + (on ? "_on" : "_off")], inner = TH - 8;
     if (img && img.width > 1 && img.width <= tw - 6) {               // 탭 이름은 그림으로 박아 둔 로고 (글꼴 영향 없음)
       ctx.drawImage(img, tx + Math.floor((tw - img.width) / 2), ty + Math.floor((inner - img.height) / 2) + (on ? 1 : 2));
-    } else txt(fitText(label, tw - 6, 12), tx + tw / 2, ty + Math.floor((inner - 12) / 2) + 1, on ? SY.y : "#3a2a00", 12, "center", NO_SH);
+    } else txt(fitText(label, tw - 6, 12), tx + tw / 2, ty + Math.floor((inner - 12) / 2) + 1, on ? SY.y : "#fff", 12, "center", SY.ink);
     shopBtn.push({ x: tx, y, w: tw, h: TH, act: "town", arg: k });
   });
   // 경고 줄무늬 + 닫기(빨강 X)
-  const cx = x + w - 10 - closeW, hzX = x + 10 + n * (tw + gap) + 6;
+  const cx = x + w - 10 - closeW, hzX = x + 12 + n * (tw + gap) + 6;
   if (cx - 8 - hzX >= 24) hazard(hzX, y + 10, Math.min(96, cx - 8 - hzX) & ~1, TH - 16);
   btnPx(cx, y + 6, closeW, TH - 8, "red");
-  glyph(GLYPH.x, cx + Math.floor((closeW - 14) / 2), y + 6 + Math.floor((TH - 8 - 4 - 14) / 2), "#6e1222");
+  glyph(GLYPH.x, cx + Math.floor((closeW - 14) / 2), y + 6 + Math.floor((TH - 8 - 4 - 14) / 2), "#c42a3a");
   shopBtn.push({ x: cx - 4, y, w: closeW + 8, h: TH + 4, act: "close" });
 
   // 본문
@@ -115,16 +119,16 @@ export function townFrame(vw, vh, title, cats, sel, catAct, hint) {
     const ch = Math.max(30, Math.min(narrow ? 48 : 44, Math.floor((bh + 6) / cats.length) - 6));
     cats.forEach((c, i) => {
       const cy = by + i * (ch + 6), on = i === sel, bx = x + 10;
-      pxBox(bx, cy, lw, ch, SY.ink);
-      ctx.fillStyle = on ? SY.y : "#3a404c"; ctx.fillRect(bx + 2, cy + 2, lw - 4, ch - 4);
-      ctx.fillStyle = on ? SY.yHi : "#4c5362"; ctx.fillRect(bx + 2, cy + 2, lw - 4, 2);
-      ctx.fillStyle = on ? SY.yLo : "#262a32"; ctx.fillRect(bx + 2, cy + ch - 6, lw - 4, 4);
-      if (on) { ctx.fillStyle = SY.y; for (let k = 0; k < 5; k++) ctx.fillRect(bx + lw + k * 2, cy + ch / 2 - 10 + k * 2, 2, 20 - k * 4); }   // 목록 쪽 화살표
+      // 분류 = 철판 버튼. 고른 것은 눌린 철판 + 주황 띠 + 주황 제목 글씨
+      const mid = btnPx(bx, cy, lw, ch, on ? "orange" : "steel", on, true);
+      if (on) { ctx.fillStyle = SY.y; for (let k = 0; k < 5; k++) ctx.fillRect(bx + lw + 2 + k * 2, mid - 10 + k * 2, 2, 20 - k * 4); }   // 목록 쪽 화살표
       const ib = ch - 10 >= 32 && narrow ? 32 : 16;
-      if (narrow) drawPx(c.img || ICON[c.icon], bx + Math.floor((lw - ib) / 2), cy + Math.floor((ch - 4 - ib) / 2), ib);
+      if (narrow) drawPx(c.img || ICON[c.icon], bx + Math.floor((lw - ib) / 2), Math.round(mid - ib / 2), ib);
       else {
-        drawPx(c.img || ICON[c.icon], bx + 8, cy + Math.floor((ch - 4 - 32) / 2), 32);
-        txt(fitText(c.name, lw - 50, 16), bx + 44, cy + Math.floor((ch - 4 - 16) / 2), on ? "#1a1a1a" : "#d6dce6", 16, "left", on ? NO_SH : SY.ink);
+        const ix = bx + (on ? 14 : 8);
+        drawPx(c.img || ICON[c.icon], ix, Math.round(mid - 16), 32);
+        const nm = fitText(c.name, lw - (ix - bx) - 44, 16);
+        if (on) titleTxt(nm, ix + 36, Math.round(mid - 8), 16); else btnTxt(nm, ix + 36, Math.round(mid - 8), 16, true, "left");
       }
       shopBtn.push({ x: bx, y: cy, w: lw, h: ch, act: catAct, arg: i });
     });
@@ -138,7 +142,7 @@ export function townFrame(vw, vh, title, cats, sel, catAct, hint) {
   const ms = money(P.money), mw = Math.ceil(ctx.measureText(ms).width);
   txt(ms, rx + rw - 10, tY, SY.gold, 16, "right");
   drawPx(ICON.coin, rx + rw - 10 - mw - 22, tY, 16);
-  txt(fitText(title, rw - 56 - mw, 16), rx + 10, tY, SY.y, 16);
+  titleTxt(fitText(title, rw - 60 - mw, 16), rx + 12, tY, 16);
   // 안내 한 줄 (판 맨 아래)
   const noteY = ry + rh - 20;
   if (S.msgT > 0) txt(fitText(S.msg, rw - 20, 12), rx + 10, noteY, SY.gold, 12);
@@ -246,7 +250,7 @@ export function drawShopModal(vw, vh) {
   if (pages > 1) pager(f, page, pages, "page");
   if (!(S.msgT > 0)) {
     const it = ITEMS[cat.ids[Math.min(S.shopSel, len - 1)]];
-    const tip = it.cons ? "소모품은 여러 개 살 수 있어요 · 아래 슬롯(1~6)으로 사용" : cat.ids.length && !it.cons ? "위에서부터 차례로 강화돼요 · 산 장비는 바로 장착" : "";
+    const tip = it.cons ? "소모품은 여러 개 살 수 있어요 · 아래 슬롯(1~7)으로 사용" : cat.ids.length && !it.cons ? "위에서부터 차례로 강화돼요 · 산 장비는 바로 장착" : "";
     txt(fitText(tip, f.cw, 12), f.cx, f.noteY, SY.mute, 12);
   }
 }

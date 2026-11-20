@@ -196,6 +196,39 @@ CRAFT = {  # 제작 장비: id -> (모양, 단계)  (src/game/art/itemIcons.ts �
     "scout_goggles": ("goggles", 2), "geo_scanner": ("goggles", 5), "vein_radar": ("goggles", 6), "deep_visor": ("goggles", 7),
 }
 
+# ---------------- 사람 장비: 곡괭이 · 백팩 로켓 · 로봇 · 사다리 ----------------
+PICK_M = ["steel", "blue", "gold", "cyan", "mith"]            # 철·강철·금·다이아·미스릴 (itemIcons.ts 의 PICK_TIER 와 같은 색)
+ROCKET_M = ["steel", "blue", "gold", "amet"]
+def pick(t):
+    m = PICK_M[t]
+    head = U_(poly([(1.6, 5.6), (5.0, 2.4), (9.0, 1.4), (13.2, 2.6), (15.0, 5.8), (12.0, 4.6), (8.6, 4.0), (5.2, 4.8)]))
+    L_ = [L(line(3.0, 14.4, 10.6, 3.0, 1.1), "wood", "dome", 2.4, rr=1.0),
+          L(head, m, "dome", 2.4, rr=1.6, spec=[(8, 2.2)]),
+          L(rrect(8.6, 2.0, 11.0, 5.4, 0.4), "steel", "flat", 2)]
+    if t >= 3: L_.append(L(ell(9.8, 3.6, 0.7, 0.7), "glow", "fix", 4, sep=False))
+    return L_
+def rocket(t):
+    m = ROCKET_M[t]
+    L_ = []
+    for x in (5.0, 11.0):
+        L_.append(L(poly([(x - 1.6, 12.6), (x + 1.6, 12.6), (x + 0.8, 15.4 if t >= 2 else 14.6), (x - 0.8, 15.4 if t >= 2 else 14.6)]), "fire", "flat", 3))
+        L_.append(L(rrect(x - 2.4, 2.6, x + 2.4, 13.0, 2.0), "redcan", "dome", 2.4, rr=2.2, spec=[(x - 1.2, 4.6)]))
+        L_.append(L(rect(x - 1.8, 11.6, x + 1.8, 13.4), "steel", "flat", 2))
+    L_ += [L(rrect(6.4, 4.0, 9.6, 11.0, 0.6), m, "flat", 3), L(rect(2.4, 7.4, 13.6, 8.6), m, "fix", 2, sep=False)]
+    if t >= 3: L_ += [L(poly([(1.0, 9.0), (2.6, 7.0), (2.6, 11.6)]), m, "flat", 3), L(poly([(15.0, 9.0), (13.4, 7.0), (13.4, 11.6)]), m, "flat", 2)]
+    return L_
+def robot():
+    return [L(rrect(1.4, 11.0, 13.0, 15.0, 2.0), "rubber", "flat", 2),
+            L(U_(ell(3.6, 13.0, 1.2, 1.2), ell(7.2, 13.0, 1.2, 1.2), ell(10.8, 13.0, 1.2, 1.2)), "steel", "fix", 3, sep=False),
+            L(poly([(10.4, 6.0), (10.4, 10.4), (15.4, 8.2)]), "steel", "dome", 2.4, rr=1.4),
+            L(rrect(2.4, 5.6, 11.0, 11.6, 1.4), "gold", "dome", 2.4, rr=2.6, spec=[(4, 6.8)]),
+            L(line(5.0, 3.0, 4.2, 0.8, 0.5), "steel", "fix", 2), L(line(8.0, 3.0, 8.8, 0.8, 0.5), "steel", "fix", 2),
+            L(rrect(3.4, 1.6, 10.0, 6.4, 1.4), "steel", "dome", 2.4, rr=2.0),
+            L(ell(7.8, 4.0, 1.4, 1.4), "glass", "dome", 3, rr=1.0, spec=[(7.4, 3.6)])]
+def ladder():
+    return [L(U_(rect(3.0, 0.4, 5.0, 15.6), rect(11.0, 0.4, 13.0, 15.6)), "wood", "flat", 2),
+            L(U_(*[rect(5.0, y, 11.0, y + 1.6) for y in (2.0, 6.0, 10.0, 14.0)]), "wood", "flat", 3)]
+
 # ---------------- 소모품 · 화면 아이콘 ----------------
 def jerry(mat="redcan", s=1.0, gold_x=False):
     o = lambda v: 8 + (v - 8) * s
@@ -269,17 +302,26 @@ def save(layers, path):
 
 if __name__ == "__main__":
     n = 0
+    DRILL_IDS = set(CATS[0][1]) | {k for k, (sh, _) in CRAFT.items() if sh == "drill"}   # 드릴 아이콘은 make-drill-icons.py 가 따로 만듦(v2) → 덮어쓰지 않음
     for shape, ids in CATS:
+        if shape == "drill": continue
         for t, id_ in enumerate(ids):
             save(SHAPES[shape](t), os.path.join(OUT_ITEMS, id_ + ".png")); n += 1
     for id_, fn in SPECIAL.items():
         save(fn(), os.path.join(OUT_ITEMS, id_ + ".png")); n += 1
+    for t, id_ in enumerate(["pick_iron", "pick_steel", "pick_gold", "pick_dia", "pick_mith"]):
+        save(pick(t), os.path.join(OUT_ITEMS, id_ + ".png")); n += 1
+    for t in range(4):
+        save(rocket(t), os.path.join(OUT_ITEMS, "rocket%d.png" % (t + 1))); n += 1
+    save(robot(), os.path.join(OUT_ITEMS, "robot.png")); save(ladder(), os.path.join(OUT_ITEMS, "ladder.png")); n += 2
     for id_, (shape, t) in CRAFT.items():
+        if id_ in DRILL_IDS: continue
         save(SHAPES[shape](t), os.path.join(OUT_ITEMS, id_ + ".png")); n += 1
     ui = {"coin": coin(), "chest": chest(), "bag": bag(), "crate": crate(0), "fuel": jerry(), "fuelcan": jerry(),
           "fuel_s": jerry(s=0.72), "fuel_m": jerry(s=0.86), "fuel_l": jerry("gold"),
           "dyn_s": dyn_s(), "dyn_l": dyn_l(), "dyn_x": dyn_x(), "sup_w": sup_w(), "sup_s": sup_s(),
-          "drill": drill(1), "engine": engine(1), "tracks": tracks(1), "lamp": lamp(1), "special": goggles(2), "trophy": trophy(), "order": order()}
+          "engine": engine(1), "tracks": tracks(1), "lamp": lamp(1), "special": goggles(2), "trophy": trophy(), "order": order(),
+          "pick": pick(0), "rocket": rocket(0), "robot": robot(), "ladder": ladder()}
     for k, lay in ui.items():
         save(lay, os.path.join(OUT_UI, k + ".png")); n += 1
     print("아이콘", n, "개 저장")

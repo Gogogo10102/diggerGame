@@ -90,3 +90,30 @@
   /* 큰 화면(PC): 창을 통째로 키워 글자가 잘 읽히게 (마을 창 townScale 과 같은 기준). zoom 은 vh 도 같이 키우므로 최대 높이는 나눠서 */
   @media (min-width:1280px) and (min-height:880px){#ov .pnl{zoom:2;max-height:45vh}}
   @media (min-width:960px) and (min-height:660px) and (not ((min-width:1280px) and (min-height:880px))){#ov .pnl{zoom:1.5;max-height:60vh}}
+  /* ---- 철판 스타일 (레퍼런스 MENU 판, 2026-11-21): 모든 버튼은 회색 철판(리벳은 제목 띠에만), 뜻은 왼쪽 작은 색 띠(--s)와 글자 ----
+     제목은 주황 그러데이션 + 굵은 검은 테두리. 캔버스 쪽은 render/util.ts 의 btnPx · btnTxt · titleTxt */
+  #ov .btn{--s:#ffa82a;--sh:#ffd684;color:#1b1d23;background:
+      linear-gradient(var(--sh) 0 2px,var(--s) 2px) left 4px top 4px/4px calc(100% - 14px) no-repeat,
+      linear-gradient(#0b0c0f,#0b0c0f) left 2px top 2px/8px calc(100% - 10px) no-repeat,
+      linear-gradient(#cdd2da 0 50%,#a9b0bc 50%);
+    border:2px solid #0b0c0f;padding:6px 16px 10px 22px;text-shadow:0 1px 0 #e4e8ee;
+    box-shadow:inset 2px 2px 0 #f2f4f8,inset -2px 0 0 #7a8292,inset 0 -6px 0 #545b68,inset 0 -8px 0 #7a8292}
+  #ov .btn:active{box-shadow:inset 2px 2px 0 #f2f4f8,inset -2px 0 0 #7a8292,inset 0 -2px 0 #545b68}
+  #ov .btn.pri{--s:#8ee05a;--sh:#c4f690}
+  #ov .btn.info{--s:#40c4f0;--sh:#a8eeff}
+  #ov .btn.del,#ov .btn.back{--s:#f2606e;--sh:#ffb0b8}
+  #ov .btn.off{--s:transparent;--sh:transparent;color:#6a707c}
+  #ov .btn.mini{padding:4px 8px 6px 16px;box-shadow:inset 2px 2px 0 #f2f4f8,inset 0 -4px 0 #545b68;background:
+      linear-gradient(var(--sh) 0 2px,var(--s) 2px) left 4px top 4px/4px calc(100% - 12px) no-repeat,
+      linear-gradient(#0b0c0f,#0b0c0f) left 2px top 2px/8px calc(100% - 8px) no-repeat,
+      linear-gradient(#cdd2da 0 50%,#a9b0bc 50%)}
+  #ov .vol .btn{padding:6px 0 10px 8px}
+  #ov .tabs .btn.tab{color:#fff;text-shadow:0 2px 0 #0b0c0f;background:linear-gradient(#8a92a2 0 50%,#7a8292 50%);box-shadow:inset 0 2px 0 #a9b0bc,inset 0 -4px 0 #545b68;padding:6px 8px 10px}
+  #ov .tabs .btn.tab.on{color:#ffb52a;background:#2a2e37;box-shadow:inset 0 2px 0 #3c424e}
+  #ov .tabs .btn.tab.x{flex:0 0 44px;color:#c42a3a;text-shadow:none;background:linear-gradient(#cdd2da 0 50%,#a9b0bc 50%);box-shadow:inset 2px 2px 0 #f2f4f8,inset 0 -4px 0 #545b68;padding:6px 0 10px}
+  #ov h2{color:#ffa21a;background:linear-gradient(#cdd2da 0 50%,#a9b0bc 50%);box-shadow:inset 0 2px 0 #f2f4f8,inset 0 -4px 0 #545b68,inset 0 -6px 0 #0b0c0f;padding:8px 16px 10px 40px;position:relative}
+  #ov h2::before,#ov h2::after{content:"";position:absolute;top:50%;margin-top:-5px;width:6px;height:6px;background:radial-gradient(circle,#f2f4f8 0 1px,#8a92a2 1px 2px,#0b0c0f 2px 3px,transparent 3px)}
+  #ov h2::before{left:12px}#ov h2::after{right:12px}
+  #ov h2 span.tt,#ov h2{-webkit-text-stroke:0}
+  #ov h2 .tt{background:linear-gradient(#fff19a 0,#ffb52a 45%,#ff9a1a 55%,#e0520a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(2px 0 0 #0b0c0f) drop-shadow(-2px 0 0 #0b0c0f) drop-shadow(0 2px 0 #0b0c0f) drop-shadow(0 -2px 0 #0b0c0f) drop-shadow(1px 3px 0 #0b0c0f)}
