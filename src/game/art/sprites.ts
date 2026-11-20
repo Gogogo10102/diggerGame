@@ -617,12 +617,25 @@ export function getMiner(mode, leg, dig, part = "all") {
 }
 
 // =====================================================================
-//  광부(사람) 캐릭터: tools/make-player.py 가 만든 시트 3장 (칸 64x64, 줄 = 애니메이션, 오른쪽을 봄)
-//   body 사람 · pick 곡괭이(회색 날 → 곡괭이 단계 색) · pack 백팩 로켓(몸 뒤에 그림). 몸 가운데 x 28 · 발바닥 y 61 (draw.ts 의 PCX·PFT)
+//  광부(사람) 캐릭터: tools/make-player.py 가 만든 그림 3장 (오른쪽을 봄)
+//   body 사람 시트 · pick 곡괭이 1장(회색 날 → 곡괭이 단계 색, 코드로 돌려 휘두름) · pack 백팩 로켓 1장(몸 뒤). 몸 가운데 x 40 · 발바닥 y 76 (draw.ts 의 PCX·PFT)
 // =====================================================================
-export const PSZ = 64;
-//  [줄, 프레임 수, 초당 프레임] — make-player.py 의 anims() 순서와 같아야 함
-export const PLAYER_ANIM = { idle: [0, 4, 4], run: [1, 8, 14], jump: [2, 3, 0], climb: [3, 4, 8], mine_side: [4, 4, 10], mine_down: [5, 4, 10], mine_up: [6, 4, 10], fly: [7, 2, 10] };
+export const PSZ = 80;
+//  사람 광부 시트(make-player.py 가 참고 시트를 잘라 만듦): 80x80 칸, 줄 0 서기 · 1 걷기 · 2 달리기 · 3 점프(0 준비 · 1 오름 · 2 팔 듦 · 3 내려옴 · 4 착지)
+//  애니메이션 = [칸, 줄] 목록 + 초당 프레임. 곡괭이질·오르기·날기는 이 칸들을 골라 쓰고 곡괭이는 코드로 돌려 그림
+export const PLAYER_ANIM = {
+  idle: { f: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [3, 0], [2, 0], [1, 0]], fps: 7 },
+  walk: { f: [[0, 1], [1, 1], [2, 1], [3, 1], [4, 1]], fps: 10 },
+  run: { f: [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2]], fps: 13 },
+  jump: { f: [[1, 3], [2, 3], [3, 3]], fps: 0 },
+  land: { f: [[4, 3]], fps: 0 },
+  climb: { f: [[2, 3], [0, 3]], fps: 0 },
+  fly: { f: [[3, 3]], fps: 0 },
+  raise: { f: [[2, 3]], fps: 0 },                                   // 곡괭이 치켜든 자세 (팔 머리 위)
+  crouch: { f: [[4, 3]], fps: 0 },                                  // 곡괭이 내리찍은 자세 (몸 낮춤)
+};
+//  칸 안의 손(곡괭이 손잡이) 자리 — 오른쪽을 볼 때
+export const PGRIP = { raise: [31, 27], crouch: [47, 58], back: [30, 50] };
 export const PLAYER_IMG = { body: sprite(1, 1, () => {}), pick: sprite(1, 1, () => {}), pack: sprite(1, 1, () => {}) };
 const PLAYER_CACHE = new Map();
 // 회색 칸만 단계 색으로 (곡괭이 자루 나무색은 그대로)
@@ -640,27 +653,33 @@ function tintGrayOnly(src, ramp) {
     g.putImageData(d, 0, 0);
   });
 }
-// 코드로 그린 대체 광부 (시트 파일이 없을 때): 안전모 쓴 작은 사람
+// 코드로 그린 대체 광부 (시트 파일이 없을 때): 작은 사람 (32px → 2배로 그림)
 const PLAYER_FALLBACK = sprite(32, 32, (p) => {
-  p(12, 4, 9, 4, "#14151f"); p(13, 5, 7, 3, "#ffbe1a"); p(20, 6, 2, 2, "#fff07a");
-  p(12, 8, 9, 7, "#14151f"); p(13, 8, 7, 6, "#f0b088"); p(18, 10, 1, 2, "#14151f");
-  p(12, 15, 9, 8, "#14151f"); p(13, 15, 7, 7, "#22849a"); p(13, 19, 7, 1, "#ffe84a");
-  p(13, 23, 3, 5, "#24202e"); p(17, 23, 3, 5, "#24202e"); p(12, 28, 4, 2, "#6a3e1e"); p(17, 28, 4, 2, "#6a3e1e");
+  p(12, 4, 9, 5, "#14151f"); p(13, 5, 7, 4, "#232a3a");
+  p(12, 8, 9, 7, "#14151f"); p(13, 9, 7, 5, "#f0c0a0"); p(18, 10, 1, 2, "#14151f");
+  p(12, 15, 9, 8, "#14151f"); p(13, 15, 7, 7, "#1f6f8a"); p(15, 15, 2, 6, "#6a1a2a");
+  p(13, 23, 3, 5, "#24202e"); p(17, 23, 3, 5, "#24202e"); p(12, 28, 4, 2, "#14151f"); p(17, 28, 4, 2, "#14151f");
 });
-//  layer: body | pick | pack, tier: 곡괭이 단계(0 = 기본 곡괭이)
-export function playerFrame(layer, anim, i, tier = 0) {
-  const src = PLAYER_IMG[layer];
-  if (src.width < PSZ) return layer === "body" ? PLAYER_FALLBACK : null;
-  const [row, n] = PLAYER_ANIM[anim] || PLAYER_ANIM.idle, f = ((i % n) + n) % n;
-  const key = layer + anim + f + "|" + (layer === "pick" ? tier : "");
+//  몸 칸 하나 (anim 의 i 번째). 시트가 없으면 대체 그림
+export function playerFrame(anim, i) {
+  const src = PLAYER_IMG.body;
+  if (src.width < PSZ) return PLAYER_FALLBACK;
+  const A = PLAYER_ANIM[anim] || PLAYER_ANIM.idle, n = A.f.length, [c, r] = A.f[((i % n) + n) % n];
+  const key = "b" + c + "," + r;
   let im = PLAYER_CACHE.get(key);
-  if (im) return im;
-  im = sprite(PSZ, PSZ, (p, g) => g.drawImage(src, f * PSZ, row * PSZ, PSZ, PSZ, 0, 0, PSZ, PSZ));
-  if (layer === "pick") {
-    const c = tier > 0 ? PAL[PICK_TIER[Math.min(PICK_TIER.length, tier) - 1]] : { h: "#a89c90", m: "#6e6458", l: "#3e3630" };   // 0 = 기본 곡괭이(녹슨 쇠)
-    im = tintGrayOnly(im, rampOf(c));
+  if (!im) { im = sprite(PSZ, PSZ, (p, g) => g.drawImage(src, c * PSZ, r * PSZ, PSZ, PSZ, 0, 0, PSZ, PSZ)); PLAYER_CACHE.set(key, im); }
+  return im;
+}
+//  곡괭이 (tier 0 = 기본 녹슨 쇠, 1~ = PICK_TIER 색). 시트가 없으면 null
+export function pickImg(tier = 0) {
+  const src = PLAYER_IMG.pick;
+  if (src.width < 8) return null;
+  const key = "p" + tier;
+  let im = PLAYER_CACHE.get(key);
+  if (!im) {
+    const c = tier > 0 ? PAL[PICK_TIER[Math.min(PICK_TIER.length, tier) - 1]] : { h: "#a89c90", m: "#6e6458", l: "#3e3630" };
+    im = tintGrayOnly(src, rampOf(c)); PLAYER_CACHE.set(key, im);
   }
-  PLAYER_CACHE.set(key, im);
   return im;
 }
 export const clearPlayerCache = () => PLAYER_CACHE.clear();

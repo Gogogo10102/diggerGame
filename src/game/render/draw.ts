@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, playerFrame, PSZ } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -19,7 +19,7 @@ import { chunks, floatT, solidTile } from "../systems/floating.ts";
 import { BARS, furnaceImg, matHave, matIcon, matName } from "../systems/furnace.ts";
 import { STICK_R, U_, shopBtn, touch } from "../systems/input.ts";
 import { drawCraftModal, drawFurnaceModal, drawShopModal, fitText } from "./townUI.ts";
-import { GARAGE, TUT_STEPS, atGarage, gasR, gases, onLadder } from "../systems/update.ts";
+import { GARAGE, PICK_SWING, TUT_STEPS, atGarage, gasR, gases, onLadder } from "../systems/update.ts";
 import { drawMapModal, drawMinimap } from "./minimap.ts";
 import { SELL_KEYS, stashValue, unitPrice } from "../systems/town.ts";
 import { ov } from "../ui/overlay.ts";
@@ -163,36 +163,73 @@ function drawThrustFlame(x, y, k = 1) {
   }
 }
 
-// ---- 사람 광부 그리기: 시트(make-player.py)의 칸을 상태에 맞춰 고름. 순서 = 백팩 → 몸 → 곡괭이 ----
-export function humanAnim() {
-  if (P.climbing) return ["climb", Math.floor(P.y / 14)];           // 오르내린 거리만큼 손발이 움직임 (멈추면 그대로)
-  if (P.digging) return ["mine_" + P.mode, Math.floor(S.animT * 10)];
+// ---- 사람 광부 그리기: 시트(make-player.py)의 칸을 상태에 맞춰 고르고, 곡괭이는 손에 붙여 코드로 돌려 휘두름 ----
+//  곡괭이질 자세 (오른쪽을 볼 때): [치켜든 자세, 각도] → [내리찍은 자세, 각도]. 각도 0 = 자루가 위, + 는 앞쪽(시계 방향)
+const SWING_POSE = {
+  side: [["raise", -70], ["crouch", 80]],
+  down: [["raise", -40], ["crouch", 168]],
+  up: [["crouch", 150], ["raise", 12]],
+};
+const smooth = (t) => t * t * (3 - 2 * t);
+//  지금 자세: { anim, i, pick: { g: [x, y], ang, front } | null }
+export function humanPose() {
+  const stow = { g: PGRIP.back, ang: -35, front: false };          // 안 쓸 때 곡괭이는 등에 멤
+  if (P.climbing) return { anim: "climb", i: Math.floor(P.y / 18), pick: stow };   // 오르내린 거리만큼 손을 번갈아 뻗음
+  if (P.digging) {
+    const [W0, W1] = SWING_POSE[P.mode] || SWING_POSE.side;
+    const p = Math.max(0, Math.min(1, 1 - (S.digPT || 0) / PICK_SWING));   // 0 = 막 내리찍음
+    let k, rec = 0;                                                  // k: 0 내리찍은 자세 ~ 1 치켜든 자세
+    if (p < 0.15) { k = 0; rec = Math.sin((p / 0.15) * Math.PI) * 10; }   // 맞은 뒤 살짝 튕김
+    else if (p < 0.8) k = smooth((p - 0.15) / 0.65);                // 천천히 치켜들고
+    else k = 1 - ((p - 0.8) / 0.2) ** 2;                             // 빠르게 내리찍음
+    const ga = PGRIP[W1[0]], gb = PGRIP[W0[0]];
+    const ang = W1[1] + (W0[1] - W1[1]) * k - rec * Math.sign(W1[1] - W0[1]);
+    return { anim: k > 0.5 ? W0[0] : W1[0], i: 0, pick: { g: [ga[0] + (gb[0] - ga[0]) * k, ga[1] + (gb[1] - ga[1]) * k], ang, front: ang >= 0 } };
+  }
   if (!P.grounded) {
-    if (S.thrustOn) return ["fly", Math.floor(S.animT * 10)];
-    return ["jump", P.vy < -120 * PX ? 0 : P.vy < 60 * PX ? 1 : 2];
+    if (S.thrustOn) return { anim: "fly", i: 0, pick: stow };
+    return { anim: "jump", i: P.vy < -120 * PX ? 0 : P.vy < 60 * PX ? 1 : 2, pick: stow };
   }
-  if (Math.abs(P.vx) > 20) return ["run", Math.floor(S.animT * 14)];
-  return ["idle", Math.floor(S.animT * 4)];
+  if (S.landT > 0) return { anim: "land", i: 0, pick: stow };
+  const sp = Math.abs(P.vx);
+  if (sp > 20) return sp > 200 ? { anim: "run", i: Math.floor(S.animT * PLAYER_ANIM.run.fps), pick: stow } : { anim: "walk", i: Math.floor(S.animT * PLAYER_ANIM.walk.fps), pick: stow };
+  return { anim: "idle", i: Math.floor(S.animT * PLAYER_ANIM.idle.fps), pick: stow };
 }
-export const PCX = 28, PFT = 61;                                     // 칸 안의 몸 가운데 x · 발바닥 y (make-player.py 의 SHIFT 와 짝)
-function drawHuman(px, py) {
-  const [an, fi] = humanAnim();
-  const hasPack = STAT.rocket > 0;
-  const body = playerFrame("body", an, fi);
+//  테스트·디버그용: [동작 이름, 칸 번호] (곡괭이질은 mine_<방향>)
+export function humanAnim() {
+  const ps = humanPose();
+  return [P.digging ? "mine_" + P.mode : ps.anim, ps.i];
+}
+export const PCX = 40, PFT = 76;                                     // 칸 안의 몸 가운데 x · 발바닥 y (make-player.py 와 짝)
+//  (fx, fy) = 발밑 가운데 화면 자리, k = 배율(정수)
+function drawHumanAt(fx, fy, facing, ps, k = 1, pack = false) {
+  const body = playerFrame(ps.anim, ps.i);
   ctx.save();
-  ctx.translate(px, py + HH);
-  if (P.facing < 0) ctx.scale(-1, 1);
-  if (body.width < PSZ) {                                          // 시트 파일이 없을 때: 32px 대체 그림을 2배로
-    ctx.drawImage(body, -32, -60, 64, 64);
-  } else {
-    const pack = hasPack ? playerFrame("pack", an, fi) : null;
-    const pick = playerFrame("pick", an, fi, LOOK.pick || 0);
-    if (pack) ctx.drawImage(pack, -PCX, -PFT);
-    ctx.drawImage(body, -PCX, -PFT);
-    if (pick && an !== "climb") ctx.drawImage(pick, -PCX, -PFT);
-  }
+  ctx.translate(fx, fy);
+  if (facing < 0) ctx.scale(-1, 1);
+  if (k !== 1) ctx.scale(k, k);
+  if (body.width < PSZ) { ctx.drawImage(body, -32, -60, 64, 64); ctx.restore(); return; }   // 시트 파일이 없을 때: 32px 대체 그림을 2배로
+  const pk = ps.pick ? pickImg(LOOK.pick || 0) : null;
+  const drawPick = () => {
+    if (!pk) return;
+    ctx.save();
+    ctx.translate(Math.round(ps.pick.g[0] - PCX), Math.round(ps.pick.g[1] - PFT));
+    ctx.rotate((ps.pick.ang * Math.PI) / 180);
+    ctx.drawImage(pk, -16, -29);
+    ctx.restore();
+  };
+  if (pack) ctx.drawImage(PLAYER_IMG.pack, 16 - PCX, 38 - PFT);
+  if (pk && !ps.pick.front) drawPick();
+  ctx.drawImage(body, -PCX, -PFT);
+  if (pk && ps.pick.front) drawPick();
   ctx.restore();
-  if (S.thrustOn) drawThrustFlame(px - P.facing * 7, py + HH - 12, 0.55);
+}
+function drawHuman(px, py) {
+  const ps = humanPose();
+  const pack = STAT.rocket > 0 && PLAYER_IMG.pack.width > 8;
+  if (S.thrustOn) drawThrustFlame(px - P.facing * 14, py + HH - 12, 0.55);
+  const hit = S.pickHitT > 0 ? 1 : 0;                                // 내리찍는 순간 몸이 1px 눌림
+  drawHumanAt(px, py + HH + hit, P.facing, ps, 1, pack);
 }
 // ---- 마을 차고 ----
 function drawGarage(camX, camY, vw) {
@@ -1181,10 +1218,11 @@ export function drawTitle(vw, vh) {
   ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 20), y + bob + hop, 120, 120);
   S.charId = keep;
   // 사람 광부: 로봇 옆에서 곡괭이질 (그림 2배, 발을 로봇 궤도 바닥(y 84)에 맞춤)
-  const hb = playerFrame("body", "mine_side", Math.floor(now * 8)), hp = playerFrame("pick", "mine_side", Math.floor(now * 8));
-  if (hb.width >= PSZ) {
-    const hx = Math.floor(vw / 2 - 20 - 128 + 16), hy = y + 84 - PFT * 2;
-    ctx.drawImage(hb, hx, hy, 128, 128); if (hp) ctx.drawImage(hp, hx, hy, 128, 128);
+  if (PLAYER_IMG.body.width >= PSZ) {
+    const keepD = P.digging, keepM = P.mode, keepT = S.digPT;
+    P.digging = true; P.mode = "side"; S.digPT = PICK_SWING * (1 - ((now / 0.8) % 1));   // 타이틀은 천천히 (0.8초에 한 번)
+    drawHumanAt(Math.floor(vw / 2 - 20 - 60), y + 84, 1, humanPose(), 2);
+    P.digging = keepD; P.mode = keepM; S.digPT = keepT;
   }
   y += 120 + 8;
   ctx.fillStyle = "rgba(10,10,16,0.5)"; ctx.fillRect(0, y - 12, vw, lh + 16 + 44 + 16);   // 로고·부제 뒤 어두운 띠 (뒤 건물에 묻히지 않게)

@@ -1184,6 +1184,19 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t70.ev("keys.ArrowDown = false"); t70.run(30);
   ok(t70.ev("tiles[(SURF+21)*W+30]") === 0 && t70.ev("P.dead") <= 0, "연료 0 이어도 곡괭이로 파고 죽지 않음");
   ok(t70.ev("humanAnim()[0]") !== "", "사람 애니메이션 고르기 동작");
+  // 곡괭이는 내리찍는 박자에만 깎임: 첫 타격 0.22초 뒤, 그다음은 0.4초마다
+  hroom(); t70.ev("P.items = {}; recalcStats()"); t70.run(2);
+  t70.ev("tiles[(SURF+21)*W+30] = 1; keys.ArrowDown = true");
+  let pf = 0; const swingSeen = { raise: false, crouch: false };
+  for (; pf < 200 && t70.ev("tiles[(SURF+21)*W+30]") !== 0; pf++) {
+    t70.run(1);
+    const an = t70.ev("humanPose().anim"); if (an in swingSeen) swingSeen[an] = true;
+  }
+  t70.ev("keys.ArrowDown = false"); t70.run(10);
+  const nHit = t70.ev("Math.ceil(hardOf(1, SURF + 21) / drillMult() / PICK_SWING - 1e-9)"), SW = t70.ev("PICK_SWING"), expF = (SW * 0.55 + (nHit - 1) * SW) * 60;
+  ok(Math.abs(pf - expF) <= 3, "흙은 곡괭이를 내리찍는 박자에만 깎임 (" + nHit + "번에 깨짐, " + pf + "프레임 ≈ " + Math.round(expF) + ")");
+  ok(swingSeen.raise && swingSeen.crouch, "곡괭이질: 치켜들기 → 내리찍기 자세가 번갈아 나옴");
+  ok(t70.ev("(() => { P.digging = true; P.mode = 'side'; S.digPT = 0.0001; const a = humanPose(); S.digPT = PICK_SWING * 0.2; const b = humanPose(); P.digging = false; return a.anim === 'crouch' && a.pick.front && b.anim === 'raise' && !b.pick.front; })()"), "내리찍는 순간은 앞으로, 치켜들 때는 머리 뒤로");
   // 사다리: 구멍 가장자리에서 구멍 쪽을 보고 → 아래로 10칸 촤라락
   t70.ev("(() => { graceT = 99; for (let r = SURF + 14; r <= SURF + 32; r++) for (let c = 24; c <= 40; c++) tiles[r*W+c] = 1; tiles[(SURF+17)*W+29] = 0; tiles[(SURF+17)*W+28] = 0; for (let r = SURF + 17; r <= SURF + 27; r++) tiles[r*W+30] = 0; P.x = 29 * T + T / 2; P.y = (SURF + 18) * T - HH - 1; P.vx = P.vy = 0; P.facing = 1; P.inv.ladder = 1; ladderQ.length = 0; })()");
   t70.run(3);
