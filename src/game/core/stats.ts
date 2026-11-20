@@ -15,9 +15,10 @@ import { lsSet } from "../ui/inventory.ts";
 // 연료 소모(초당). 기본 연료·소모량은 여기서 조절
 export const FUEL_BASE = 60, FUEL_IDLE = 0.12, FUEL_THRUST = 0.7, FUEL_DIG = 0.3;
 S.MINER_LV = 1;                                   // 광부 레벨 (레벨당 채굴 +1.2%, 판매가 +0.4%)
-export const STAT = { drill: 1, fuel: FUEL_BASE, cargo: 10, thrust: 1, speed: 1, light: 1, eff: 1, sell: 1, lucky: 0 };
+export const PICK_BASE = 0.5;                     // 기본 곡괭이 채굴 속도 (로봇 기본 드릴 = 1)
+export const STAT = { drill: 1, fuel: FUEL_BASE, cargo: 10, thrust: 1, speed: 1, light: 1, eff: 1, sell: 1, lucky: 0, pick: PICK_BASE, rocket: 0 };
 export function recalcStats() {
-  const s = { drill: 0, fuel: 0, cargo: 0, thrust: 0, speed: 0, light: 0, eff: 0, sell: 0, lucky: 0 };
+  const s = { drill: 0, fuel: 0, cargo: 0, thrust: 0, speed: 0, light: 0, eff: 0, sell: 0, lucky: 0, pick: 0, rocket: 0, robot: 0 };
   for (const id in P.items) {
     if (!P.items[id]) continue;
     for (const k in ITEMS[id].fx) s[k] += ITEMS[id].fx[k];
@@ -31,8 +32,10 @@ export function recalcStats() {
   STAT.eff = Math.max(0.4, 1 - s.eff);   // 연료 소모 배율
   STAT.sell = 1 + s.sell + (S.MINER_LV - 1) * 0.004;
   STAT.lucky = Math.min(0.9, s.lucky);   // 광물을 하나 더 얻을 확률
+  STAT.pick = PICK_BASE + s.pick + (S.MINER_LV - 1) * 0.006;   // 사람: 곡괭이
+  STAT.rocket = s.rocket;                // 사람: 백팩 로켓 추진력 (0 = 로켓 없음 → 못 낢)
   {                                      // 로봇 외형: 장비 단계에 따라 달라짐
-    const lk = { drill: 0, tracks: 0, lamp: 0, crate: 0, engine: 0 };
+    const lk = { drill: 0, tracks: 0, lamp: 0, crate: 0, engine: 0, pick: 0, rocket: 0 };
     for (const cat of CATS) {
       if (cat.cons || lk[cat.icon] === undefined) continue;
       cat.ids.forEach((id, i) => { if (P.items[id]) lk[cat.icon] = Math.max(lk[cat.icon], i + 1); });
@@ -42,13 +45,15 @@ export function recalcStats() {
       if (P.items[id] && lk[k] !== undefined) lk[k] = Math.max(lk[k], CRAFT_ICON[id][1] + 1);
     }
     Object.assign(LOOK, lk);
-    LOOK.key = [lk.drill, lk.tracks, lk.lamp, lk.crate, lk.engine].join(",");
+    LOOK.key = [lk.drill, lk.tracks, lk.lamp, lk.crate, lk.engine].join(",");   // (로봇 그림 캐시 키. 곡괭이·로켓 단계 LOOK.pick · LOOK.rocket 은 사람 그림용)
   }
 }
 recalcStats();
 export const maxFuel = () => STAT.fuel;
 export const cargoCap = () => STAT.cargo;
-export const drillMult = () => STAT.drill;
+// 지금 파는 힘: 로봇에 타 있으면 드릴, 사람이면 곡괭이
+export const drillMult = () => (P.mech ? STAT.drill : STAT.pick);
+export const canFly = () => P.mech || STAT.rocket > 0;
 export const cargoCount = () => Object.values(P.cargo).reduce((a, b) => a + b, 0);
 S.dig = null;
 export const ZOOMS = [0, 1, 1.5, 2];                          // 0 = 자동. 0.5 단위라야 도트가 깨지지 않음 (타일이 커서 1배가 기본)

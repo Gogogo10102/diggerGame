@@ -27,7 +27,7 @@ export const MAP_LUT = (() => {
   const lut = new Uint32Array(LAYERS.length * 256);
   LAYERS.forEach((L, li) => {
     const rock = MAP_PACK(MAP_RGB(L.base).map((v) => Math.round(v * 0.55)));
-    for (let id = 0; id < 256; id++) lut[li * 256 + id] = id === 0 || id === 14 || id === 15 ? MAP_PATH : rock;
+    for (let id = 0; id < 256; id++) lut[li * 256 + id] = id === 0 || id === 14 || id === 15 || id === 19 ? MAP_PATH : rock;
   });
   return lut;
 })();
@@ -41,7 +41,7 @@ export function mapColor(c: number, r: number, fine = false): number {
   if (v === MAP_PATH) return tiles[i] === 0 && baseTiles[i] === 0 ? MAP_CAVE : MAP_PATH;
   if (!fine) return v;
   // 미니맵(작은 범위)만: 굴 벽 테두리 + 칸마다 두 톤 섞기
-  const li = layerOf(r - SURF), air = (cc: number, rr: number) => rr >= SURF && cc >= 0 && cc < W && rr < H && seen[rr * W + cc] && (tiles[rr * W + cc] === 0 || tiles[rr * W + cc] === 14 || tiles[rr * W + cc] === 15);
+  const li = layerOf(r - SURF), air = (cc: number, rr: number) => rr >= SURF && cc >= 0 && cc < W && rr < H && seen[rr * W + cc] && (tiles[rr * W + cc] === 0 || tiles[rr * W + cc] === 14 || tiles[rr * W + cc] === 15 || tiles[rr * W + cc] === 19);
   if (air(c - 1, r) || air(c + 1, r) || air(c, r - 1) || air(c, r + 1)) return MAP_RIM[li];
   return MAP_ROCK2[li][((c * 7 + r * 13) ^ (c >> 2)) & 1];
 }

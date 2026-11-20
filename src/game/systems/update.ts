@@ -3,7 +3,7 @@ import "./town.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, HW, inB, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bannerQ, bombs, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, pushBanner, say, spawn, updateFx } from "../core/stats.ts";
+import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bannerQ, bombs, canFly, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, pushBanner, say, spawn, updateFx } from "../core/stats.ts";
 import { ICON, dirtTiles, gasTile } from "../art/sprites.ts";
 
 // 보물 상자 열기: 깊을수록 많은 돈 + 25% 확률로 소모품 하나. 처음 열면 알림
@@ -63,9 +63,9 @@ export function updateGas(dt) {
 // 처음 하는 사람 안내: 한 단계씩, 해내면 다음으로. 진행은 계정에 저장(S.acct.tut). 도움말(H)을 끄면 안 보임
 //  key: 키보드 문구 / touch: 터치 문구 / done: 끝났는지
 export const TUT_STEPS = [
-  { key: "↓ 키로 땅을 파고 내려가 보세요", touch: "아래로 드래그해서 땅을 파고 내려가 보세요", done: () => P.y / T - SURF >= 4 },
+  { key: "↓ 키로 곡괭이질! 땅을 파고 내려가 보세요", touch: "아래로 드래그해서 곡괭이로 땅을 파고 내려가 보세요", done: () => P.y / T - SURF >= 4 },
   { key: "광물을 캐 보세요 (반짝이는 돌)", touch: "광물을 캐 보세요 (반짝이는 돌)", done: () => cargoCount() > 0 || (S.acct && S.acct.stats.earned > 0) },
-  { key: "↑ 키로 추진해 지상으로! 연료는 지상에서 충전돼요", touch: "위로 드래그해 추진! 연료는 지상에서 충전돼요", done: () => S.acct && ((S.acct.stats.trips || 0) > 0 || S.acct.stats.earned > 0) },
+  { key: "7 키로 사다리를 내리고 ↑ 로 타고 지상으로! (구멍 가장자리에서 구멍 쪽을 보고)", touch: "사다리 슬롯을 눌러 내리고 위로 드래그해 타고 지상으로!", done: () => S.acct && ((S.acct.stats.trips || 0) > 0 || S.acct.stats.earned > 0) },
   { key: "마을 건물 앞에서 [E] → 판매 탭에서 광물을 팔아요", touch: "마을 건물을 눌러 판매 탭에서 광물을 팔아요", done: () => S.acct && S.acct.stats.earned > 0 },
   { key: "상점에서 장비를 사서 더 깊이 내려가요!", touch: "상점에서 장비를 사서 더 깊이 내려가요!", done: () => Object.keys(P.items).length > 0 },
 ];
@@ -118,6 +118,94 @@ import { sfx, sfxLoop } from "../core/sound.ts";
 // =====================================================================
 //  물리 / 업데이트
 // =====================================================================
+// ---- 사람 움직임 숫자 (타일 32px 시절 값 × PX) ----
+export const HUMAN_SPEED = 150, JUMP_V = 300, CLIMB_SPEED = 110;     // 점프 300 → 약 1.5칸 높이 (한 칸 턱을 뛰어오름)
+
+// ---- 사다리: 떨어뜨리면 아래로 한 칸씩 촤라락 펼쳐짐 (빈칸을 따라 최대 len 칸) ----
+//  놓는 자리 (먼저 맞는 것):
+//   1) 바라보는 쪽 발밑 줄이 비어 있음(구멍) → 구멍 가장자리에서 아래로. 맨 윗칸 윗면 = 내가 선 바닥 높이
+//   2) 발밑에 이미 사다리 → 그 사다리 아래 끝에 이어서
+//   3) 떠 있을 때 지금 칸부터 아래로
+//   4) 아래로 펼칠 데가 없으면(구멍 바닥에 갇힘) 지금 칸부터 위로 세움 — 옆으로 내려설 바닥 높이에 닿으면 멈춤
+//  사다리 맨 윗칸의 윗면은 발판: 그 위에 설 수 있고 ↓ 를 누르면 다시 타고 내려감
+export const ladderQ = [];                                          // 펼쳐지는 중인 사다리 [{ c, r, left, t, dir }]
+export const LADDER_STEP = 0.045;                                   // 한 칸 펼쳐지는 데 걸리는 시간(초)
+const ladderOk = (c, r) => r >= SURF && c > 0 && c < W - 1 && r < H - 2 && tiles[r * W + c] === 0;
+const isLad = (c, r) => tiles[r * W + c] === 19;
+export function ladderSpot() {
+  const col = Math.floor(P.x / T), row = Math.floor(P.y / T), fc = col + P.facing;
+  if (ladderOk(fc, row + 1) && !solid(fc, row)) return { c: fc, r: row + 1, dir: 1 };
+  if (isLad(fc, row + 1) && !solid(fc, row)) { let r = row + 1; while (r < H - 2 && isLad(fc, r)) r++; if (ladderOk(fc, r)) return { c: fc, r, dir: 1 }; }
+  const feet = Math.floor((P.y + HH + 1) / T);
+  if (isLad(col, feet) || isLad(col, row)) {                        // 사다리 위/중간: 아래 끝에 이어 붙임
+    let r = isLad(col, row) ? row : feet; while (r < H - 2 && isLad(col, r)) r++;
+    if (ladderOk(col, r)) return { c: col, r, dir: 1 };
+  }
+  if (!P.grounded && ladderOk(col, row)) return { c: col, r: row, dir: 1 };
+  if (row >= SURF) {                                                // 위로 세우기: 지금 칸(또는 이미 있는 사다리 꼭대기 위)부터
+    let r = row; while (r > SURF && isLad(col, r)) r--;
+    if (ladderOk(col, r)) return { c: col, r, dir: -1 };
+  }
+  return null;
+}
+// 위로 세울 때: 이 칸 윗면 높이에 옆으로 내려설 바닥이 있으면 여기까지 (그 위 굴 칸까지 채우면 머리가 천장에 막혀 못 내려섬)
+const ladderExit = (c, r) => [-1, 1].some((d) => !solid(c + d, r - 1) && solid(c + d, r));
+export function placeLadder(id) {
+  const c = CONS[id];
+  const spot = ladderSpot();
+  if (!spot) return say(Math.floor(P.y / T) < SURF - 1 ? "사다리는 구멍 가장자리에서 구멍 쪽을 보고 써요" : "여기엔 사다리를 걸 빈 굴이 없어요");
+  P.inv[id]--;
+  ladderQ.push({ c: spot.c, r: spot.r, left: c.len, t: 0, dir: spot.dir });
+  sfx("click");
+  say((spot.dir > 0 ? "사다리 내림!" : "사다리 세움!") + " ↑↓ 로 오르내려요 (남은 " + P.inv[id] + "개)");
+  saveNow(true, true);
+}
+export function updateLadders(dt) {
+  for (let i = ladderQ.length - 1; i >= 0; i--) {
+    const q = ladderQ[i];
+    q.t -= dt;
+    while (q.t <= 0 && q.left > 0) {
+      if (!ladderOk(q.c, q.r)) { q.left = 0; break; }
+      tiles[q.r * W + q.c] = 19; seen[q.r * W + q.c] = 1;
+      sfx("tick", { pitch: 0.7 + (q.left % 4) * 0.08, vol: 0.5 });
+      q.left--; q.t += LADDER_STEP;
+      if (q.dir < 0 && ladderExit(q.c, q.r)) q.left = 0;
+      q.r += q.dir || 1;
+    }
+    if (q.left <= 0 || !ladderOk(q.c, q.r)) { ladderQ.splice(i, 1); sfx("land", { vol: 0.35 }); }
+  }
+}
+export const onLadder = () => {
+  const c = Math.floor(P.x / T);
+  return isLad(c, Math.floor(P.y / T)) || isLad(c, Math.floor((P.y + HH - 1) / T));
+};
+// 발밑이 사다리 맨 윗칸의 윗면인가 (몸이 걸친 칸 중 하나라도) → 발판처럼 딛고 섬
+export function ladderTopAt(x, feetY) {
+  const r = Math.floor(feetY / T);
+  if (r < 1) return -1;
+  for (const c of [Math.floor((x - HW + 2) / T), Math.floor((x + HW - 2) / T)])
+    if (isLad(c, r) && !isLad(c, r - 1)) return r * T;
+  return -1;
+}
+
+// ---- 로봇 차고: 마을의 차고 칸에서만 타고 내림 (로봇을 사야 탈 수 있음) ----
+export const GARAGE = [7, 8];                                       // 상점과 제작소 사이 빈 칸
+export const atGarage = () => Math.floor(P.y / T) < SURF && Math.floor(P.x / T) >= GARAGE[0] && Math.floor(P.x / T) <= GARAGE[1];
+export function toggleMech() {
+  if (!atGarage()) return false;
+  if (P.mech) {
+    P.mech = false; P.vy = 0; sfx("land", { vol: 0.5 });
+    say("로봇에서 내렸어요 · 곡괭이로 캐요 (로봇은 차고에서 다시 타요)");
+  } else {
+    if (!P.items.robot) { say("로봇은 아이템 상점 '로봇' 칸에서 살 수 있어요"); sfx("error"); return true; }
+    P.mech = true; P.climbing = false; sfx("ignite");
+    say("로봇에 탔어요! 드릴로 빠르게 캐고 ↑ 로 날아요");
+  }
+  S.dig = null;
+  saveNow(true, true);
+  return true;
+}
+
 // ---- 소모품 사용 / 다이너마이트 ----
 export function useConsumable(id) {
   const c = CONS[id];
@@ -125,6 +213,7 @@ export function useConsumable(id) {
   S.hotPress = { id, t: performance.now() };                       // 단축 슬롯이 잠깐 눌린 모양으로
   if (c.kind === "support") return placeSupport(id);
   if (!((P.inv[id] || 0) > 0)) return say(c.name + "이(가) 없어요! 아이템 상점에서 구매하세요");
+  if (c.kind === "ladder") return placeLadder(id);
   if (c.kind === "fuel") {
     if (P.fuel >= maxFuel() - 0.5) return say("연료가 이미 가득해요");
     P.fuel = Math.min(maxFuel(), P.fuel + maxFuel() * c.frac);
@@ -243,16 +332,44 @@ export function update(dt) {
     return;
   }
 
+  updateLadders(dt);
   const dir = (R_() ? 1 : 0) - (L_() ? 1 : 0);
   if (dir !== 0) P.facing = dir;
-  const target = dir * 170 * PX * STAT.speed;
+  // 사람은 로봇보다 조금 느리고(궤도 강화 없음), 로봇은 궤도 단계만큼 빨라짐
+  const target = dir * (P.mech ? 170 * STAT.speed : HUMAN_SPEED) * PX;
   const acc = 1400 * PX * dt;
   if (P.vx < target) P.vx = Math.min(target, P.vx + acc);
   else if (P.vx > target) P.vx = Math.max(target, P.vx - acc);
 
-  const thrusting = U_() && P.fuel > 0;
-  if (thrusting) P.vy = Math.max(-Math.min(480, 260 * (1 + (STAT.thrust - 1) * 0.5)) * PX, P.vy - 1800 * PX * STAT.thrust * dt);
-  P.vy = Math.min(520 * PX, P.vy + 900 * PX * dt);
+  const wasGrounded = !!P.grounded;
+  const upNow = U_(), upEdge = upNow && !S.upHeld; S.upHeld = upNow;
+  const cIdx = Math.floor(P.x / T), rIdx = Math.floor(P.y / T);
+  const ceilAbove = solid(cIdx, rIdx - 1) && wasGrounded;             // 바로 위 칸이 막힘 → ↑ 는 점프 대신 위로 곡괭이질
+  let thrusting = false;
+  if (P.mech) {
+    thrusting = upNow && P.fuel > 0;
+    P.climbing = false;
+    if (thrusting) P.vy = Math.max(-Math.min(480, 260 * (1 + (STAT.thrust - 1) * 0.5)) * PX, P.vy - 1800 * PX * STAT.thrust * dt);
+    P.vy = Math.min(520 * PX, P.vy + 900 * PX * dt);
+  } else {
+    // 사람: 사다리 · 점프 · (백팩 로켓이 있으면) 비행
+    const lad = onLadder();
+    if (lad && (upNow || D_()) && !(D_() && wasGrounded && !upNow)) P.climbing = true;
+    if (!lad) P.climbing = false;
+    if (P.climbing) {
+      P.vy = upNow ? -CLIMB_SPEED * PX : D_() ? CLIMB_SPEED * PX : 0;
+      if (dir !== 0 && !upNow && !D_()) P.climbing = false;          // 옆으로 걸어 나가면 사다리에서 내림
+    } else {
+      if (upEdge && wasGrounded && !ceilAbove) { P.vy = -JUMP_V * PX; sfx("step", { pitch: 1.3 }); }
+      // 점프한 뒤 계속 누르면 백팩 로켓: 점프 힘이 어느 정도 빠졌을 때 켜지고, 한 번 켜지면 손을 뗄 때까지 유지
+      if (!upNow || wasGrounded || !(STAT.rocket > 0) || P.fuel <= 0) S.rocketOn = false;
+      else if (S.rocketOn || P.vy > -JUMP_V * PX * 0.6) S.rocketOn = true;
+      thrusting = !!S.rocketOn;
+      if (thrusting) P.vy = Math.max(-Math.min(380, 200 * STAT.rocket) * PX, P.vy - 1500 * PX * STAT.rocket * dt);
+      P.vy = Math.min(520 * PX, P.vy + 900 * PX * dt);
+      if (lad && P.vy > 0 && !D_()) { P.vy = 0; P.climbing = true; }  // 떨어지다 사다리를 만나면 붙잡음
+    }
+  }
 
   P.x += P.vx * dt;
   if (collide(P.x, P.y)) {
@@ -260,6 +377,7 @@ export function update(dt) {
                     : (Math.floor((P.x - HW) / T) + 1) * T + HW + 0.001;
     P.vx = 0;
   }
+  const prevFeet = P.y + HH;
   P.y += P.vy * dt;
   const fallV = P.vy;
   if (collide(P.x, P.y)) {
@@ -274,7 +392,23 @@ export function update(dt) {
     P.vy = 0;
   }
 
-  const grounded = collide(P.x, P.y + 1);
+  if (P.climbing) {                                                 // 사다리 맨 윗칸 윗면까지 올라가면 그 위에 섬 (발판)
+    let lt = Math.floor((prevFeet - 1) / T);                          // 이번에 움직이기 전 발이 있던 칸부터 위로 꼭대기를 찾음
+    while (lt > SURF && isLad(cIdx, lt - 1)) lt--;
+    if (isLad(cIdx, lt) && P.y + HH < lt * T) {
+      if (!collide(P.x, lt * T - HH - 0.001)) { P.y = lt * T - HH - 0.001; P.climbing = false; }   // 위가 트였으면 발판 위로
+      else P.y = Math.max(P.y, lt * T + HH);                       // 위가 막혔으면 머리가 그 칸 안에 머묾
+      if (P.vy < 0) P.vy = 0;
+    }
+  }
+  // 사다리 꼭대기 발판: 떨어지는 중(↓ 안 누름)에 발이 윗면을 지나치면 그 위에 세움
+  let onLadTop = false;
+  if (!P.mech && !P.climbing && P.vy >= 0 && !D_()) {
+    const top = ladderTopAt(P.x, P.y + HH);
+    if (top >= 0 && prevFeet <= top + 1) { P.y = top - HH - 0.001; if (fallV > 260 * PX) sfx("land", { vol: 0.5 }); P.vy = 0; onLadTop = true; }
+    else if (ladderTopAt(P.x, P.y + HH + 1) >= 0 && (P.y + HH + 1) % T < 2) onLadTop = true;
+  }
+  const grounded = collide(P.x, P.y + 1) || onLadTop;
   P.grounded = grounded;
   const leftBlk = collide(P.x - 1, P.y);
   const rightBlk = collide(P.x + 1, P.y);
@@ -287,6 +421,8 @@ export function update(dt) {
     tgt = [Math.floor(P.x / T), Math.floor((P.y + HH + 1) / T)]; downDig = true;
   } else if (U_() && headBlk && !L_() && !R_()) {                  // 천장에 머리가 닿은 채 위로 → 위 칸을 팜
     tgt = [Math.floor(P.x / T), Math.floor((P.y - HH - 1) / T)]; upDig = true;
+  } else if (!P.mech && U_() && ceilAbove && !P.climbing && !L_() && !R_()) {   // 사람: 바로 위 칸이 막혔으면 곡괭이를 위로
+    tgt = [cIdx, rIdx - 1]; upDig = true;
   } else if (L_() && leftBlk) {
     const c = Math.floor((P.x - HW - 1) / T);
     for (const r of rows) if (solid(c, r)) { tgt = [c, r]; break; }
@@ -306,13 +442,14 @@ export function update(dt) {
       say(id === 12 ? "단단한 돌이에요! 다이너마이트가 필요해요" : id === 16 ? "희귀 광물을 감싼 경암이에요. 드릴이 좋을수록 빨리 뚫려요" : "건물 아래 기초는 부술 수 없어요. 옆 빈 땅에서 내려가세요");
       S.stoneHintT = 6;
     }
-    if (info.hard !== Infinity && P.fuel > 0) {
+    if (info.hard !== Infinity && (P.fuel > 0 || !P.mech)) {           // 사람은 곡괭이라 연료 없이도 캠
       digging = true;
       if (!S.dig || S.dig.c !== tgt[0] || S.dig.r !== tgt[1]) S.dig = { c: tgt[0], r: tgt[1], t: 0 };
       S.dig.t += dt;
       S.digPT -= dt;
       if (S.digPT <= 0) {
-        S.digPT = 0.06; chips(S.dig.c, S.dig.r, id, 2, 1, digDir); sfx("dig", { hard: info.hard >= 1.2, vol: 0.45 });   // 드릴 소리 위에 흙 부스러지는 소리
+        if (P.mech) { S.digPT = 0.06; chips(S.dig.c, S.dig.r, id, 2, 1, digDir); sfx("dig", { hard: info.hard >= 1.2, vol: 0.45 }); }   // 드릴 소리 위에 흙 부스러지는 소리
+        else { S.digPT = 0.4; chips(S.dig.c, S.dig.r, id, 5, 1.2, digDir); sfx("dig", { hard: info.hard >= 1.2, vol: 0.8, pitch: 1.25 }); }   // 곡괭이: 휘두를 때마다(0.4초) 한 번씩 콱
         if (Math.random() < 0.8) {                                 // 드릴 끝에서 먼지가 피어오름
           const [fx, fy] = digDir === "down" ? [P.x + P.facing * 4, tgt[1] * T] : digDir === "up" ? [P.x, (tgt[1] + 1) * T] : [digDir === "right" ? tgt[0] * T : (tgt[0] + 1) * T, P.y + 6];
           puff(fx, fy, (digDir === "left" ? 1 : digDir === "right" ? -1 : (Math.random() - 0.5)) * (20 + Math.random() * 30) * PX, -(6 + Math.random() * 18) * PX, 3 + Math.random() * 3, dustCol(tgt[1]), 0.5 + Math.random() * 0.3);
@@ -352,7 +489,7 @@ export function update(dt) {
   if (thrusting && !S.thrustOn) sfx("ignite");
   S.thrustOn = !!thrusting;
   sfxLoop("thrust", !!thrusting, { pitch: P.vy < 0 ? 1.4 : 1 });
-  sfxLoop("drill", !!P.digging, { hard: !!(S.dig && hardOf(tiles[S.dig.r * W + S.dig.c], S.dig.r) >= 1.2) });
+  sfxLoop("drill", !!P.digging && P.mech, { hard: !!(S.dig && hardOf(tiles[S.dig.r * W + S.dig.c], S.dig.r) >= 1.2) });
   if (!thrusting && grounded && !digging && Math.abs(P.vx) > 40 * PX) {
     sfx("step", { pitch: 0.8 + Math.abs(P.vx) / (340 * PX) });
     S.trackDustT = (S.trackDustT || 0) - dt;                         // 궤도 뒤로 흙먼지가 조금씩
@@ -363,7 +500,7 @@ export function update(dt) {
     }
   }
   // 연료가 1/4 아래로 떨어지면 1.5초마다 경고음
-  if (!(Math.floor(P.y / T) < SURF) && P.fuel / maxFuel() < 0.25) { S.lowBeepT = (S.lowBeepT || 0) - dt; if (S.lowBeepT <= 0) { S.lowBeepT = 1.5; sfx("warn"); } }
+  if (!(Math.floor(P.y / T) < SURF) && (P.mech || STAT.rocket > 0) && P.fuel / maxFuel() < 0.25) { S.lowBeepT = (S.lowBeepT || 0) - dt; if (S.lowBeepT <= 0) { S.lowBeepT = 1.5; sfx("warn"); } }
   else S.lowBeepT = 0;
   // 추진 파티클
   if (thrusting && Math.random() < 0.7) {                           // 불꽃처럼 움직이는 반대쪽으로 흩날림
@@ -379,7 +516,7 @@ export function update(dt) {
   S.nearItems = onGround && inB(B_SHOP, col);                      // 상점 앞
   S.nearCraft = onGround && inB(B_CRAFT, col);                     // 제작소 앞
   S.nearFurnace = onGround && inB(B_FURN, col);                    // 용광로 앞
-  if (!onGround) P.fuel -= (FUEL_IDLE + (thrusting ? FUEL_THRUST : 0) + (digging ? FUEL_DIG : 0)) * STAT.eff * dt;
+  if (!onGround) P.fuel -= (P.mech ? FUEL_IDLE + (thrusting ? FUEL_THRUST : 0) + (digging ? FUEL_DIG : 0) : (thrusting ? FUEL_THRUST : 0)) * STAT.eff * dt;   // 사람은 백팩 로켓을 쓸 때만
   if (onGround && !S.inShop) {
     const was = P.fuel;
     P.fuel = maxFuel();
@@ -414,7 +551,8 @@ export function update(dt) {
     sfx("cave", { pitch: 0.8 });
   }
 
-  if (P.fuel <= 0) {
+  if (P.fuel <= 0 && !P.mech) P.fuel = 0;                          // 사람: 연료가 없으면 로켓만 못 씀
+  else if (P.fuel <= 0) {
     P.fuel = 0;
     P.dead = 2.5;
     if (S.acct) S.acct.stats.deaths++;

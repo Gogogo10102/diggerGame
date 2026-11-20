@@ -9,7 +9,7 @@ import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
 import { BAR_KEYS, furnaceAct, openFurnace } from "./furnace.ts";
 import { ORDER_N, SELL_CAT_START, SELL_KEYS, SELL_ORES, buyItem, craftItem, deliverOrder, openCraft, rerollOrders, sellCat, sellItem, sellStash } from "./town.ts";
-import { useConsumable } from "./update.ts";
+import { atGarage, toggleMech, useConsumable } from "./update.ts";
 import { openQuests } from "../ui/dom.ts";
 import { closeMenu, openInventory, openMenu } from "../ui/menu.ts";
 import { hideOv, openAccountScreen } from "../ui/overlay.ts";
@@ -102,8 +102,8 @@ addEventListener("keydown", (e) => {
   if (e.code === "KeyM") { if (!e.repeat) openMap(); return; }
   keys[e.code] = true;
   if (e.code === "KeyH") { S.showHelp = !S.showHelp; S.helpPinned = S.showHelp; }
-  if (e.code === "KeyE" && !e.repeat && P.dead <= 0) { if (S.nearItems) openShop(); else if (S.nearCraft) openCraft(); else if (S.nearFurnace) openFurnace(); }
-  if (/^Digit[1-6]$/.test(e.code) && !e.repeat) useConsumable(HOT[Number(e.code.slice(5)) - 1]);
+  if (e.code === "KeyE" && !e.repeat && P.dead <= 0) { if (S.nearItems) openShop(); else if (S.nearCraft) openCraft(); else if (S.nearFurnace) openFurnace(); else if (atGarage()) toggleMech(); }
+  if (/^Digit[1-7]$/.test(e.code) && !e.repeat) useConsumable(HOT[Number(e.code.slice(5)) - 1]);
   if (e.code === "KeyZ" && !e.repeat) cycleZoom();
 });
 addEventListener("keyup", (e) => { keys[e.code] = false; });
@@ -216,7 +216,7 @@ stage.addEventListener("pointerdown", (e) => {
     if (!hit(S.shopRect)) closeShop();                 // 패널 바깥을 탭하면 닫기
     return;
   }
-  if (S.promptBtn && P.dead <= 0 && hit(S.promptBtn)) { if (S.nearItems) openShop(); else if (S.nearCraft) openCraft(); else if (S.nearFurnace) openFurnace(); else switchTown("sell"); return; }   // 상점/제작소 열기 버튼
+  if (S.promptBtn && P.dead <= 0 && hit(S.promptBtn)) { if (S.nearItems) openShop(); else if (S.nearCraft) openCraft(); else if (S.nearFurnace) openFurnace(); else if (atGarage()) toggleMech(); else switchTown("sell"); return; }   // 상점/제작소 열기 버튼
   if (S.menuBtn && hit(S.menuBtn)) { sfx("click"); openMenu(); return; }
   if (S.bagBtn && hit(S.bagBtn)) { sfx("click"); openInventory(); return; }
   if (S.questBtn && hit(S.questBtn)) { sfx("click"); openQuests(); return; }                      // 메뉴 버튼

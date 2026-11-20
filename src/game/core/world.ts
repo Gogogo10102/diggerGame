@@ -300,7 +300,7 @@ export const solid = (c, r) => {
   if (c < 0 || c >= W || r >= H) return true;
   if (r < 0) return false;
   const v = tiles[r * W + c];
-  return v !== 0 && v !== 14 && v !== 15;       // 지지대는 지나갈 수 있음
+  return v !== 0 && v !== 14 && v !== 15 && v !== 19;       // 지지대 · 사다리는 지나갈 수 있음
 };
-export const isAir = (c, r) => r >= SURF && c >= 0 && c < W && r < H && (tiles[r * W + c] === 0 || tiles[r * W + c] === 14 || tiles[r * W + c] === 15);
+export const isAir = (c, r) => r >= SURF && c >= 0 && c < W && r < H && (tiles[r * W + c] === 0 || tiles[r * W + c] === 14 || tiles[r * W + c] === 15 || tiles[r * W + c] === 19);
 

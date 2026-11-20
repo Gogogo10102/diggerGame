@@ -11,7 +11,10 @@ async function login(t, name) {
   await t.click("계정 만들기");
   // 대부분의 테스트는 굴을 직접 파서 확인하므로 자연 동굴은 끈 월드로 (동굴 테스트 [28]은 켬)
   t.ev("WGEN.caveOff = true; genWorld(acct.seed); fixFoundation()");
+  mechOn(t);
 }
+// 예전 테스트는 로봇(날 수 있고 드릴로 팜) 기준 → 로봇을 가진 채 탄 상태로 (사람 광부 테스트는 [40]~)
+function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()"); }
 
 (async () => {
   console.log("[1] 광물/월드");
@@ -36,6 +39,8 @@ async function login(t, name) {
   await t.click("계정 만들기");
   ok(t.ev("state") === "play", "계정 생성 후 플레이 시작");
   ok(t.ev("acct.name") === "Tester", "이름 공백 정리");
+  ok(t.ev("P.mech") === false && !t.ev("P.items.robot") && t.ev("P.inv.ladder") === 5, "새 계정은 사람 광부 · 로봇 없음 · 사다리 5개");
+  mechOn(t);
   const hashA = worldHash(t);
   t.run(30);
 
@@ -307,15 +312,18 @@ async function login(t, name) {
 
   console.log("[15] 상점 2쪽 + 소모품 구매");
   const t9 = boot(path); t9.run(5); await login(t9, "ShopP"); t9.run(10);
-  ok(t9.ev("CATS.length") === 8, "상점 분류 8개(소모품 포함)");
-  ok(t9.ev("CATS.slice(0, 7).every((c) => c.ids.length === 8)"), "분류마다 아이템 8개 (기존 3 + 5)");
-  ok(t9.ev("new Set(Object.keys(ITEMS)).size") === 56 + 32 + 6, "아이템 id 중복 없음 (소모품 6) (" + t9.ev("Object.keys(ITEMS).length") + ")");
+  ok(t9.ev("CATS.length") === 11, "상점 분류 11개(곡괭이·백팩 로켓·로봇 + 로봇 장비 7 + 소모품)");
+  ok(t9.ev("CATS.slice(3, 10).every((c) => c.ids.length === 8)"), "로봇 장비 분류마다 아이템 8개 (기존 3 + 5)");
+  ok(t9.ev("CATS[0].ids.length") === 5 && t9.ev("CATS[1].ids.length") === 4 && t9.ev("CATS[2].ids[0]") === "robot", "곡괭이 5 · 백팩 로켓 4 · 로봇");
+  ok(t9.ev("new Set(Object.keys(ITEMS)).size") === 56 + 32 + 7 + 10, "아이템 id 중복 없음 (소모품 7 · 사람 장비 10) (" + t9.ev("Object.keys(ITEMS).length") + ")");
   ok(t9.ev("Object.keys(ITEMS).every((id) => itemIcon(id) && itemIcon(id).width === 16)"), "모든 아이템에 아이콘 존재");
   const uniq = t9.ev("new Set(CATS.slice(0,7).flatMap((c) => c.ids).map((id) => itemIcon(id).toDataURL ? id : id)).size");
   t9.ev("P.x = 4 * T; P.y = SURF * T - 20; P.vx = P.vy = 0"); t9.run(5);
   t9.key("KeyE"); await t9.tick();
   ok(t9.ev("state") === "shop", "상점 열림");
   t9.ev("P.money = 100000");
+  t9.key("ArrowRight"); t9.key("ArrowRight"); t9.key("ArrowRight");
+  ok(t9.ev("shopTab") === 3, "드릴 탭으로 이동");
   t9.key("ArrowDown"); t9.key("ArrowDown"); t9.key("ArrowDown"); t9.key("ArrowDown");
   ok(t9.ev("shopSel") === 4, "아래로 4칸 → 2쪽 첫 항목");
   t9.key("Digit1"); await t9.tick();
@@ -328,7 +336,7 @@ async function login(t, name) {
   const pgBtn = t9.ev("JSON.stringify(shopBtn.filter((b) => b.act === 'page'))");
   ok(JSON.parse(pgBtn).length === 2, "쪽 넘기기 버튼 2개");
   t9.key("ArrowRight"); t9.key("ArrowRight"); t9.key("ArrowRight"); t9.key("ArrowRight"); t9.key("ArrowRight"); t9.key("ArrowRight"); t9.key("ArrowRight");
-  ok(t9.ev("shopTab") === 7, "소모품 탭으로 이동");
+  ok(t9.ev("shopTab") === 10, "소모품 탭으로 이동");
   t9.ev("P.money = 1000"); t9.key("Digit3"); await t9.tick();
   ok(t9.ev("P.inv.fuel_l") === 1 && t9.ev("P.money") === 800, "대형 연료통 구매 → 보유 수량 증가");
   t9.key("Digit3"); await t9.tick();
@@ -362,7 +370,7 @@ async function login(t, name) {
   ok(t10.ev("LOOK.key") !== k0 && t10.ev("LOOK.drill") === 2 && t10.ev("LOOK.lamp") === 1, "장비 단계가 외형(LOOK)에 반영");
   t10.run(20);
   const hb = JSON.parse(t10.ev("JSON.stringify(hotBtns)"));
-  ok(hb.length === 6 && hb.every((b) => b.x >= 0 && b.x + b.w <= 390 && b.y + b.h <= 844), "휴대폰에서 소모품 슬롯 6개가 화면 안에 있음");
+  ok(hb.length === 7 && hb.every((b) => b.x >= 0 && b.x + b.w <= 390 && b.y + b.h <= 844), "휴대폰에서 소모품 슬롯 7개(사다리 포함)가 화면 안에 있음");
   t10.ev("P.inv = { fuel_s: 2 }; P.fuel = 5");
   t10.ptr("pointerdown", hb[0].x + 5, hb[0].y + 5); t10.ptr("pointerup", 0, 0);
   ok(t10.ev("P.inv.fuel_s") === 1 && t10.ev("P.fuel") > 5, "슬롯 터치로 연료통 사용");
@@ -449,7 +457,7 @@ async function login(t, name) {
   ok(t20.ev("state") === "play", "손상된 rub 데이터도 무시하고 시작");
 
   console.log("[20] 지지대는 이제 팔지 않음 / 옛 지지대 / 폭파");
-  ok(!t20.ev("HOT").includes("sup_w") && !t20.ev("HOT").includes("sup_s") && t20.ev("HOT.length") === 6, "단축 슬롯 6칸 (지지대 없음)");
+  ok(!t20.ev("HOT").includes("sup_w") && !t20.ev("HOT").includes("sup_s") && t20.ev("HOT.length") === 7 && t20.ev("HOT[6]") === "ladder", "단축 슬롯 7칸 (지지대 없음 · 7 = 사다리)");
   ok(!t20.ev("CATS[CATS.length - 1].ids").some((id) => id.startsWith("sup_")), "상점 소모품에 지지대 없음");
   t20.ev("P.dead = 0; P.x = 15 * T + 16; P.y = (SURF + 20) * T + 16; P.vx = P.vy = 0; tiles[(SURF+20)*W+15] = 14; tiles[(SURF+20)*W+14] = 1; tiles[(SURF+20)*W+16] = 1");
   ok(!t20.ev("collide(P.x, P.y)"), "옛 세이브의 지지대는 그대로 지나갈 수 있음");
@@ -912,10 +920,11 @@ async function login(t, name) {
   t60.key("KeyE"); t60.run(1);
   ok(t60.ev("state") === "shop" && t60.ev("shopBtn.filter((b) => b.act === 'tab').length") === t60.ev("CATS.length"), "상점: 왼쪽에 분류 버튼 " + t60.ev("CATS.length") + "개");
   ok(t60.ev("shopBtn.filter((b) => b.act === 'buy').length") === t60.ev("Math.min(S.shopPer, CATS[shopTab].ids.length)") && t60.ev("S.shopPer") >= 3, "목록 줄마다 구매 버튼 (창 높이에 맞춘 줄 수)");
+  t60.tapAct("tab", 3); t60.run(1);
   t60.tapAct("buy", "steel_drill"); t60.run(1);
   ok(t60.ev("!!P.items.steel_drill") && t60.ev("P.money") === 920, "줄의 구매 버튼으로 바로 구매");
-  t60.tapAct("tab", 2); t60.run(1);
-  ok(t60.ev("shopTab") === 2 && t60.canvasTexts().some((x) => x.includes("확장 화물칸")), "분류를 누르면 오른쪽 목록이 바뀜");
+  t60.tapAct("tab", 5); t60.run(1);
+  ok(t60.ev("shopTab") === 5 && t60.canvasTexts().some((x) => x.includes("확장 화물칸")), "분류를 누르면 오른쪽 목록이 바뀜");
   // 판매: 원석 / 주괴 분류
   t60.ev("P.stash = { 2: 5 }; P.bars = { fe: 2 }; switchTown('sell')"); t60.run(1);
   ok(t60.ev("shopBtn.filter((b) => b.act === 'scat').length") === 3 && t60.canvasTexts().some((x) => x.includes("구리")), "판매: 원석/주괴/의뢰 분류 + 원석 목록");
@@ -1146,6 +1155,100 @@ async function login(t, name) {
   t60.ev("closeMenu(); S.charId = 'yellow'");
 
   t60.ev("P.y = (SURF - 1) * T"); t60.run(1);
+
+  console.log("[40] 사람 광부 · 곡괭이 · 점프 · 사다리 · 백팩 로켓 · 차고");
+  const t70 = boot(path, { w: 1000, h: 640 }); t70.run(5); await login(t70, "Human"); t70.run(10);
+  const human = () => t70.ev("P.items = {}; P.mech = false; P.climbing = false; S.rocketOn = false; recalcStats()");
+  human();
+  ok(t70.ev("canFly()") === false && t70.ev("drillMult()") < t70.ev("STAT.drill") && t70.ev("drillMult()") === t70.ev("STAT.pick"), "사람: 못 날고 곡괭이 속도(드릴보다 느림)");
+  // 방: 바닥 SURF+21 위에 3칸 높이 굴
+  const hroom = () => t70.ev("(() => { graceT = 99; ensureRect(20, SURF, 50, SURF + 40); for (let r = SURF + 14; r <= SURF + 30; r++) for (let c = 24; c <= 40; c++) tiles[r*W+c] = 1; for (let r = SURF + 18; r <= SURF + 20; r++) for (let c = 26; c <= 34; c++) tiles[r*W+c] = 0; P.x = 30 * T + T / 2; P.y = (SURF + 21) * T - HH - 1; P.vx = P.vy = 0; P.fuel = maxFuel(); P.facing = 1; })()");
+  hroom(); t70.run(3);
+  ok(t70.ev("P.grounded"), "사람이 바닥에 섬");
+  const y0 = t70.ev("P.y"); let ymin = y0;
+  t70.ev("keys.ArrowUp = true");
+  for (let i = 0; i < 90; i++) { t70.run(1); ymin = Math.min(ymin, t70.ev("P.y")); }
+  const f0 = t70.ev("P.fuel");
+  t70.run(60);
+  ok(y0 - ymin > 64 && y0 - ymin < 128, "↑ 는 점프: 1~2칸 높이 (" + Math.round(y0 - ymin) + "px)");
+  ok(t70.ev("P.grounded") && Math.abs(t70.ev("P.y") - y0) < 2 && t70.ev("P.fuel") === f0, "계속 눌러도 날지 않고 다시 착지 · 연료 그대로");
+  t70.ev("keys.ArrowUp = false"); t70.run(2);
+  // 곡괭이: 연료가 없어도 캠, 단계가 오르면 빨라짐
+  const pick0 = t70.ev("STAT.pick");
+  t70.ev("P.money = 100000; buyItem('pick_iron')");
+  ok(t70.ev("P.items.pick_iron") && t70.ev("STAT.pick") > pick0 && t70.ev("LOOK.pick") === 1, "곡괭이 사면 채굴 속도 · 외형 단계 오름");
+  ok(t70.ev("buyItem('steel_drill'), !P.items.steel_drill"), "로봇 없으면 로봇 드릴은 못 삼");
+  hroom(); t70.ev("P.fuel = 0"); t70.run(2);
+  t70.ev("keys.ArrowDown = true");
+  for (let i = 0; i < 400 && t70.ev("tiles[(SURF+21)*W+30]") !== 0; i++) t70.run(1);
+  t70.ev("keys.ArrowDown = false"); t70.run(30);
+  ok(t70.ev("tiles[(SURF+21)*W+30]") === 0 && t70.ev("P.dead") <= 0, "연료 0 이어도 곡괭이로 파고 죽지 않음");
+  ok(t70.ev("humanAnim()[0]") !== "", "사람 애니메이션 고르기 동작");
+  // 사다리: 구멍 가장자리에서 구멍 쪽을 보고 → 아래로 10칸 촤라락
+  t70.ev("(() => { graceT = 99; for (let r = SURF + 14; r <= SURF + 32; r++) for (let c = 24; c <= 40; c++) tiles[r*W+c] = 1; tiles[(SURF+17)*W+29] = 0; tiles[(SURF+17)*W+28] = 0; for (let r = SURF + 17; r <= SURF + 27; r++) tiles[r*W+30] = 0; P.x = 29 * T + T / 2; P.y = (SURF + 18) * T - HH - 1; P.vx = P.vy = 0; P.facing = 1; P.inv.ladder = 1; ladderQ.length = 0; })()");
+  t70.run(3);
+  ok(t70.ev("JSON.stringify(ladderSpot())") === JSON.stringify({ c: 30, r: t70.ev("SURF + 18"), dir: 1 }), "사다리 자리: 바라보는 구멍, 내 바닥 높이 아래 칸부터");
+  t70.key("Digit7"); t70.run(2);
+  const lad1 = t70.ev("(() => { let n = 0; for (let r = SURF + 17; r <= SURF + 28; r++) if (tiles[r*W+30] === 19) n++; return n; })()");
+  t70.run(40);
+  const lad2 = t70.ev("(() => { let n = 0; for (let r = SURF + 17; r <= SURF + 28; r++) if (tiles[r*W+30] === 19) n++; return n; })()");
+  ok(t70.ev("P.inv.ladder") === 0 && lad1 > 0 && lad1 < lad2, "사다리가 한 칸씩 펼쳐짐 (" + lad1 + " → " + lad2 + ")");
+  ok(lad2 === 10 && t70.ev("tiles[(SURF+17)*W+30]") === 0 && t70.ev("tiles[(SURF+27)*W+30]") === 19, "아래로 10칸 (SURF+18 ~ SURF+27)");
+  ok(t70.ev("solid(30, SURF + 20)") === false && t70.ev("isAir(30, SURF + 20)") !== false, "사다리 칸은 지나갈 수 있음");
+  // 사다리 꼭대기는 발판: 걸어서 건너감
+  t70.ev("keys.ArrowRight = true"); t70.run(14); t70.ev("keys.ArrowRight = false"); t70.run(10);
+  ok(Math.floor(t70.ev("P.x / T")) === 30 && t70.ev("P.grounded") && Math.abs(t70.ev("P.y + HH") - t70.ev("(SURF + 18) * T")) < 1, "사다리 맨 윗면에 서 있을 수 있음");
+  // ↓ 로 타고 내려가 바닥까지, ↑ 로 다시 올라옴
+  t70.ev("P.x = 30 * T + T / 2"); t70.ev("keys.ArrowDown = true");
+  for (let i = 0; i < 300 && !(t70.ev("P.grounded") && t70.ev("P.y") > t70.ev("(SURF + 27) * T")); i++) t70.run(1);
+  t70.ev("keys.ArrowDown = false"); t70.run(2);
+  ok(t70.ev("P.y") > t70.ev("(SURF + 27) * T") && t70.ev("P.dead") <= 0, "↓ 로 사다리를 타고 바닥까지 내려감");
+  t70.ev("keys.ArrowUp = true"); t70.run(4);
+  ok(t70.ev("P.climbing") && t70.ev("humanAnim()[0]") === "climb", "↑ 로 사다리를 붙잡고 오름 (오르기 동작)");
+  for (let i = 0; i < 400 && t70.ev("P.climbing"); i++) t70.run(1);
+  t70.ev("keys.ArrowUp = false"); t70.run(20);
+  ok(Math.abs(t70.ev("P.y + HH") - t70.ev("(SURF + 18) * T")) < 1 && t70.ev("P.grounded"), "꼭대기까지 올라와 발판 위에 섬");
+  t70.ev("keys.ArrowLeft = true"); t70.run(20); t70.ev("keys.ArrowLeft = false"); t70.run(5);
+  ok(t70.ev("P.x / T") < 29.8 && Math.abs(t70.ev("P.y + HH") - t70.ev("(SURF + 18) * T")) < 1, "사다리에서 옆 바닥으로 그대로 걸어 나감 (" + t70.ev("[P.x / T, (P.y + HH) / T - SURF].join()") + ")");
+  // 구멍 바닥에 갇힘 → 위로 세움 (옆으로 내려설 높이에서 멈춤)
+  t70.ev("(() => { graceT = 99; for (let r = SURF + 14; r <= SURF + 32; r++) for (let c = 24; c <= 40; c++) tiles[r*W+c] = 1; for (let c = 26; c <= 29; c++) tiles[(SURF+17)*W+c] = 0; for (let r = SURF + 18; r <= SURF + 22; r++) tiles[r*W+30] = 0; tiles[(SURF+17)*W+30] = 0; P.x = 30 * T + T / 2; P.y = (SURF + 23) * T - HH - 1; P.vx = P.vy = 0; P.inv.ladder = 1; ladderQ.length = 0; })()");
+  t70.run(3);
+  ok(t70.ev("ladderSpot() && ladderSpot().dir") === -1, "아래가 막힌 구멍 바닥에선 위로 세움");
+  t70.key("Digit7"); t70.run(60);
+  ok(t70.ev("tiles[(SURF+22)*W+30]") === 19 && t70.ev("tiles[(SURF+18)*W+30]") === 19 && t70.ev("tiles[(SURF+17)*W+30]") === 0, "위로 세운 사다리는 옆 굴 바닥 높이에서 멈춤");
+  // 백팩 로켓: 점프 뒤 계속 누르면 연료를 쓰며 날아오름
+  hroom(); t70.ev("P.items = { rocket1: true }; recalcStats(); P.fuel = maxFuel()"); t70.run(3);
+  ok(t70.ev("canFly()") && t70.ev("LOOK.rocket") === 1, "백팩 로켓을 사면 날 수 있음");
+  const fr0 = t70.ev("P.fuel");
+  t70.ev("keys.ArrowUp = true"); for (let i = 0; i < 120 && !t70.ev("collide(P.x, P.y - 1)"); i++) t70.run(1);
+  ok(t70.ev("collide(P.x, P.y - 1)") && t70.ev("P.fuel") < fr0, "백팩 로켓으로 천장까지 날아오름 (연료 사용)");
+  t70.run(10); ok(t70.ev("humanAnim()[0]") === "fly" || t70.ev("P.digging"), "나는 동안 날기 동작");
+  t70.ev("keys.ArrowUp = false"); t70.run(60);
+  // 차고: 로봇을 사야 탈 수 있고, 차고에서만 타고 내림
+  t70.ev("P.x = GARAGE[0] * T + T; P.y = SURF * T - HH - 1; P.vx = P.vy = 0; P.items = {}; P.mech = false; recalcStats()"); t70.run(3);
+  ok(t70.ev("atGarage()"), "차고 칸 판정");
+  t70.key("KeyE"); t70.run(1);
+  ok(t70.ev("P.mech") === false, "로봇이 없으면 못 탐");
+  t70.ev("P.money = 5000; buyItem('robot')");
+  ok(t70.ev("P.items.robot") && t70.ev("P.money") === 3500, "로봇 구매 ($1500)");
+  t70.run(2); t70.key("KeyE"); t70.run(1);
+  ok(t70.ev("P.mech") && t70.ev("canFly()") && t70.ev("drillMult()") === t70.ev("STAT.drill"), "차고에서 E → 로봇 탑승 (날기 · 드릴)");
+  t70.ev("P.x = 30 * T"); t70.run(2); t70.key("KeyE"); t70.run(1);
+  ok(t70.ev("P.mech"), "차고 밖에서는 내릴 수 없음");
+  t70.ev("P.x = GARAGE[0] * T + T; P.y = SURF * T - HH - 1; P.vx = P.vy = 0"); t70.run(2); t70.key("KeyE"); t70.run(1);
+  ok(t70.ev("P.mech") === false, "차고에서 E → 로봇에서 내림");
+  // 저장: mech 기록 · 옛 세이브는 로봇을 탄 채로
+  ok(t70.ev("(() => { P.mech = true; const d = snapshot(); P.mech = false; applyAccount(d); return P.mech && P.items.robot; })()"), "로봇 탑승 상태가 저장됨");
+  ok(t70.ev("(() => { const d = snapshot(); delete d.player.mech; delete d.player.items.robot; applyAccount(d); return P.mech === true && P.items.robot === true; })()"), "옛 세이브(mech 없음)는 로봇을 가진 채 탄 상태");
+  ok(t70.ev("(() => { const d = snapshot(); d.player.mech = true; delete d.player.items.robot; applyAccount(d); return P.mech === false; })()"), "로봇이 없는데 mech 기록만 있으면 사람으로");
+  // 구조 요청
+  t70.ev("P.mech = false; P.x = 30 * T + T / 2; P.y = (SURF + 23) * T - HH - 1; P.cargo = { 2: 3 }"); t70.run(2);
+  t70.ev("rescuePlayer(); closeMenu()"); t70.run(2);
+  ok(t70.ev("P.y") < t70.ev("SURF * T") && Object.keys(t70.ev("P.cargo")).length === 0, "구조 요청 → 지상으로, 화물은 잃음");
+  t70.ev("P.mech = false; P.y = (SURF + 23) * T - HH - 1"); t70.run(1);
+  t70.ev("openMenu()"); await t70.tick();
+  ok(!!t70.btn("구조 요청 (지상으로)"), "땅속에서 메뉴에 구조 요청 버튼");
+  t70.ev("closeMenu()");
 
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });

@@ -246,7 +246,7 @@ export function drawShopModal(vw, vh) {
   if (pages > 1) pager(f, page, pages, "page");
   if (!(S.msgT > 0)) {
     const it = ITEMS[cat.ids[Math.min(S.shopSel, len - 1)]];
-    const tip = it.cons ? "소모품은 여러 개 살 수 있어요 · 아래 슬롯(1~6)으로 사용" : cat.ids.length && !it.cons ? "위에서부터 차례로 강화돼요 · 산 장비는 바로 장착" : "";
+    const tip = it.cons ? "소모품은 여러 개 살 수 있어요 · 아래 슬롯(1~7)으로 사용" : cat.ids.length && !it.cons ? "위에서부터 차례로 강화돼요 · 산 장비는 바로 장착" : "";
     txt(fitText(tip, f.cw, 12), f.cx, f.noteY, SY.mute, 12);
   }
 }
