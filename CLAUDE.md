@@ -122,9 +122,12 @@ docs/                  plan.md decisions.md
 - 흙·뒷벽·돌·풀·장식·균열·광물(땅속/아이콘/떨어진 것)·주괴·해·구름·캐릭터 부품은 `python3 tools/make-hires.py` 가 만듭니다.
   **맵 스타일 A(굵은 외곽선 덩어리, 2026-11-20 확정)**: 흙·뒷벽·땅속 광물·풀·풀잎·해·구름은 `tools/mapart.py`(칸당 32px 도트 ×2). 흙은 4x4칸이 이어지는 돌바닥 무늬라 변형 번호 = `(c&3) + (r&3)*4` (draw.ts). 굴 윤곽선은 4px.
   지층 색·광물 색은 `config.ts`, 주괴 색은 `furnace.ts` 에서 읽어 오므로 색을 바꾸면 다시 돌리면 됩니다. 그 뒤 PNG 를 직접 고쳐도 됩니다.
-- **사람 광부**(기본 캐릭터): `tools/make-player.py` → `player/body.png · pick.png · pack.png`(64x64 칸, 줄 = 애니메이션, 오른쪽을 봄) + `tiles/ladder.png`.
-  줄 순서는 `sprites.ts` 의 `PLAYER_ANIM` 과 같아야 하고, 몸 가운데 x 28 · 발바닥 y 61 (`draw.ts` 의 `PCX`·`PFT`). 곡괭이 날은 회색으로 그려 두면 곡괭이 단계 색(`PICK_TIER`)으로 칠함.
-  상태 → 애니메이션 고르기는 `draw.ts` 의 `humanAnim()`. 로봇은 사서 마을 차고(`GARAGE` 7~8칸)에서 타는 탈것: `P.mech` 가 참일 때만 로봇 그림·드릴·추진.
+- **사람 광부**(기본 캐릭터): 사용자가 준 참고 시트(`tools/ref/player_sheet.png`, 5칸 × 4줄: 서기·걷기·달리기·점프)를 `python3 tools/make-player.py` 가
+  잘라(바둑판 배경 지움) 키 60px 로 줄여 `player/body.png`(80x80 칸)로 만듭니다. 같은 도구가 `player/pick.png`(곡괭이 1장, 손잡이 (16,29), 자루가 위) · `pack.png`(백팩 로켓) · `tiles/ladder.png` 도 만듦.
+  칸 고르기는 `sprites.ts` 의 `PLAYER_ANIM`([칸, 줄] 목록), 손 자리는 `PGRIP`. 몸 가운데 x 40 · 발바닥 y 76 (`draw.ts` 의 `PCX`·`PFT`).
+  곡괭이질은 시트에 없어서 '팔 든 칸(raise) ↔ 몸 낮춘 칸(crouch)' + 곡괭이를 손에 붙여 코드로 돌림(`draw.ts` 의 `SWING_POSE`·`humanPose()`).
+  박자는 `update.ts` 의 `PICK_SWING`(0.4초): 내리찍는 순간에만 소리·부스러기·캐기 진행이 들어갑니다. 곡괭이 날은 회색이라 단계 색(`PICK_TIER`)으로 칠함.
+  로봇은 사서 마을 차고(`GARAGE` 7~8칸)에서 타는 탈것: `P.mech` 가 참일 때만 로봇 그림·드릴·추진.
 - 캐릭터(**드릴 로봇**, 탈것, `sprites.ts` 의 `getMiner`): 옆에서 살짝 비껴 본 3D(3/4 각도), 노란 몸 + 회색 머리·파란 외눈 + 안테나 두 개 + 관절 없는 통짜 팔 끝 드릴, 궤도 위.
   `tools/robot3d.py` 가 상자·원기둥·공으로 세운 작은 3D 장면을 눈높이에서 비스듬히 비춰 4단 명암으로 끊어 그립니다(돈 각도 `TH`, 내려다본 각도 `PH`=0 이라 궤도 두 줄이 같은 땅에 붙음, 크기 `K`, 발밑 자리 `ORG`).
   부품 PNG `miner/*.png` 21개(`tools/make-hires.py` 가 robot3d 로 만듦. 안테나 3자세 `ant_0~2`·`lamp_0/lamp/lamp_2`, 눈 감은 덮개 `blink_<자세>` 포함)를 읽으면 그것으로 조립하고, 없으면 예전 미니 굴착기 코드 도트(40x40 × 3)로 그립니다.

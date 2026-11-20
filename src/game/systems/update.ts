@@ -121,6 +121,9 @@ import { sfx, sfxLoop } from "../core/sound.ts";
 // ---- 사람 움직임 숫자 (타일 32px 시절 값 × PX) ----
 export const HUMAN_SPEED = 150, JUMP_V = 300, CLIMB_SPEED = 110;     // 점프 300 → 약 1.5칸 높이 (한 칸 턱을 뛰어오름)
 
+// 곡괭이 한 번 휘두르는 시간(초). 내리찍을 때마다 이만큼 캔 것으로 침 → 흙(0.35)은 기본 곡괭이(0.5)로 두 번
+export const PICK_SWING = 0.4;
+
 // ---- 사다리: 떨어뜨리면 아래로 한 칸씩 촤라락 펼쳐짐 (빈칸을 따라 최대 len 칸) ----
 //  놓는 자리 (먼저 맞는 것):
 //   1) 바라보는 쪽 발밑 줄이 비어 있음(구멍) → 구멍 가장자리에서 아래로. 맨 윗칸 윗면 = 내가 선 바닥 높이
@@ -319,6 +322,8 @@ export function update(dt) {
   updateBombs(dt);
   updateGas(dt);
   if (S.shakeT > 0) S.shakeT -= dt;
+  if (S.landT > 0) S.landT -= dt;
+  if (S.pickHitT > 0) S.pickHitT -= dt;
   if (S.stoneHintT > 0) S.stoneHintT -= dt;
   updateCave(dt);
   updateChunks(dt);
@@ -382,6 +387,7 @@ export function update(dt) {
   const fallV = P.vy;
   if (collide(P.x, P.y)) {
     if (fallV > 260 * PX) sfx("land", { vol: Math.min(1, fallV / (520 * PX)) });   // 세게 떨어질수록 큰 쿵
+    if (fallV > 150 * PX) S.landT = 0.12;                            // 사람: 잠깐 착지 자세(무릎 굽힘)
     if (fallV > 200 * PX) {                                          // 착지: 궤도 양 끝에서 먼지가 옆으로 퍼짐
       const fr = Math.floor((P.y + HH + 2) / T), n = Math.min(4, 1 + Math.floor(fallV / (130 * PX)));
       for (const sd of [-1, 1]) for (let k = 0; k < n; k++)
@@ -405,7 +411,7 @@ export function update(dt) {
   let onLadTop = false;
   if (!P.mech && !P.climbing && P.vy >= 0 && !D_()) {
     const top = ladderTopAt(P.x, P.y + HH);
-    if (top >= 0 && prevFeet <= top + 1) { P.y = top - HH - 0.001; if (fallV > 260 * PX) sfx("land", { vol: 0.5 }); P.vy = 0; onLadTop = true; }
+    if (top >= 0 && prevFeet <= top + 1) { P.y = top - HH - 0.001; if (fallV > 260 * PX) sfx("land", { vol: 0.5 }); if (fallV > 150 * PX) S.landT = 0.12; P.vy = 0; onLadTop = true; }
     else if (ladderTopAt(P.x, P.y + HH + 1) >= 0 && (P.y + HH + 1) % T < 2) onLadTop = true;
   }
   const grounded = collide(P.x, P.y + 1) || onLadTop;
@@ -445,11 +451,16 @@ export function update(dt) {
     if (info.hard !== Infinity && (P.fuel > 0 || !P.mech)) {           // 사람은 곡괭이라 연료 없이도 캠
       digging = true;
       if (!S.dig || S.dig.c !== tgt[0] || S.dig.r !== tgt[1]) S.dig = { c: tgt[0], r: tgt[1], t: 0 };
-      S.dig.t += dt;
+      if (!P.mech && !P.digging) S.digPT = PICK_SWING * 0.55;      // 곡괭이: 새로 캐기 시작하면 치켜드는 중간부터 (첫 타격까지 약 0.2초)
+      if (P.mech) S.dig.t += dt;                                     // 드릴은 누르는 동안 계속 깎이고, 곡괭이는 내리찍을 때만 깎임
       S.digPT -= dt;
       if (S.digPT <= 0) {
         if (P.mech) { S.digPT = 0.06; chips(S.dig.c, S.dig.r, id, 2, 1, digDir); sfx("dig", { hard: info.hard >= 1.2, vol: 0.45 }); }   // 드릴 소리 위에 흙 부스러지는 소리
-        else { S.digPT = 0.4; chips(S.dig.c, S.dig.r, id, 5, 1.2, digDir); sfx("dig", { hard: info.hard >= 1.2, vol: 0.8, pitch: 1.25 }); }   // 곡괭이: 휘두를 때마다(0.4초) 한 번씩 콱
+        else {                                                       // 곡괭이: 휘두를 때마다 한 번씩 콱 (그림의 휘두르기와 같은 박자)
+          S.digPT += PICK_SWING; S.dig.t += PICK_SWING;
+          chips(S.dig.c, S.dig.r, id, 6, 1.3, digDir); sfx("dig", { hard: info.hard >= 1.2, vol: 0.85, pitch: 1.25 });
+          S.pickHitT = 0.1;
+        }
         if (Math.random() < 0.8) {                                 // 드릴 끝에서 먼지가 피어오름
           const [fx, fy] = digDir === "down" ? [P.x + P.facing * 4, tgt[1] * T] : digDir === "up" ? [P.x, (tgt[1] + 1) * T] : [digDir === "right" ? tgt[0] * T : (tgt[0] + 1) * T, P.y + 6];
           puff(fx, fy, (digDir === "left" ? 1 : digDir === "right" ? -1 : (Math.random() - 0.5)) * (20 + Math.random() * 30) * PX, -(6 + Math.random() * 18) * PX, 3 + Math.random() * 3, dustCol(tgt[1]), 0.5 + Math.random() * 0.3);
