@@ -526,7 +526,9 @@ function getMinerHi(mode, leg, dig, part, ant, blink, id = S.charId) {
 export function minerPreview(id) {
   const key = "pv|" + id + "|" + LOOK.key + (minerHiReady() ? "hi" : "");
   if (minerCache.has(key)) return minerCache.get(key);
-  const im = minerHiReady() ? getMinerHi("side", 0, 0, "all", 1, false, id) : getMiner("side", 0, 0);
+  const full = minerHiReady() ? getMinerHi("side", 0, 0, "all", 1, false, id) : getMiner("side", 0, 0);
+  // 빈 여백을 잘라 로봇만 (고해상도 120x120 → 112x92, 안테나 끝 ~ 궤도 밑)
+  const im = minerHiReady() ? sprite(112, 92, (p, g) => g.drawImage(full, -8, -2)) : full;
   minerCache.set(key, im);
   return im;
 }

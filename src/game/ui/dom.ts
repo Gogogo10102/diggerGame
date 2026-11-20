@@ -83,7 +83,9 @@ export function renderRobots(note) {
   for (const ch of CHAR_INFO) {
     const on = S.charId === ch.id, ok = charOpen(ch);
     const card = el("div", "robot" + (on ? " on" : "") + (ok ? "" : " lock"));
-    card.appendChild(iconEl(minerPreview(ch.id), 120));
+    const pv = iconEl(minerPreview(ch.id), 1);                  // 1.5배로 크게 (도트 규칙: 0.5 단위 배율)
+    pv.style.width = Math.round(pv.width * 1.5) + "px"; pv.style.height = Math.round(pv.height * 1.5) + "px";
+    card.appendChild(pv);
     card.appendChild(el("div", "nm", ch.name));
     card.appendChild(el("div", "dim sm", ch.desc));
     if (!ok) {

@@ -22,7 +22,12 @@ export function mkBtn(text, fn, cls) {
   b.addEventListener("click", (ev) => { sfx("click"); return fn(ev); });
   return b;
 }
+let ovCloseTimer = null;                                            // 닫히는 애니메이션이 끝나면 숨김
 export function showOv(root) {
+  if (ovCloseTimer) { clearTimeout(ovCloseTimer); ovCloseTimer = null; }
+  const wasClosing = ov.classList.contains("closing");
+  ov.classList.remove("closing");
+  if (wasClosing) ov.classList.remove("on");                          // 닫히던 중에 다시 열면 처음부터 톡
   while (ov.firstChild) ov.removeChild(ov.firstChild);
   const opening = !ov.classList.contains("on");                       // 처음 열 때만 톡 튀어나오게 (안에서 탭을 바꿀 땐 그대로)
   const p = el("div", "pnl" + (String(root.className || "").indexOf("wide") >= 0 ? " wide" : "") + (opening ? " pop" : ""));
@@ -30,7 +35,13 @@ export function showOv(root) {
   ov.appendChild(p);
   ov.classList.add("on");
 }
-export function hideOv() { ov.classList.remove("on"); }
+// 닫기: 0.14초 동안 살짝 가라앉으며 사라진 뒤 숨김 (그동안 클릭은 뒤 게임으로 지나감)
+export function hideOv() {
+  if (!ov.classList.contains("on") || ov.classList.contains("closing")) return;
+  if (typeof setTimeout !== "function") { ov.classList.remove("on"); return; }
+  ov.classList.add("closing");
+  ovCloseTimer = setTimeout(() => { ov.classList.remove("on"); ov.classList.remove("closing"); ovCloseTimer = null; }, 140);
+}
 export function keysReset() {
   for (const k in keys) keys[k] = false;
   S.stick = null; touch.l = touch.r = touch.u = touch.d = false;

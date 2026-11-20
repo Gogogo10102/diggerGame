@@ -68,7 +68,7 @@ export function uiBtn(x: number, y: number, w: number, h: number, label: string,
 // 공용 틀: 노란 머리띠(탭 + 닫기) + 왼쪽 분류(있으면) + 오른쪽 판. 각 자리를 돌려줌
 //   cats: [{name, icon}] 또는 null(분류 없음) · sel: 고른 분류 · catAct: 분류를 눌렀을 때 동작 이름
 export function townFrame(vw, vh, title, cats, sel, catAct, hint) {
-  ctx.fillStyle = "rgba(10,11,14,0.72)"; ctx.fillRect(0, 0, vw, vh);
+  if (!S.townDimDone) { ctx.fillStyle = "rgba(10,11,14,0.72)"; ctx.fillRect(0, 0, vw, vh); }   // (draw.ts 가 이미 화면 전체를 어둡게 깔았으면 생략)
   const narrow = vw < 560;
   const w = Math.min(720, vw - 16), h = Math.min(narrow ? 600 : 520, vh - 16);
   const short = h < 420;
@@ -224,7 +224,7 @@ export function drawShopModal(vw, vh) {
     townRow(f.cx, ry, f.cw, inner, i === S.shopSel, k);
     let lx = f.cx + 6;
     if (!S.usedTouch && !f.narrow) { keycap(lx, ry + Math.floor((inner - 26) / 2), String(k + 1)); lx += 32; }
-    const ib = inner >= 44 ? 40 : 36 <= inner ? 36 : inner - 4;
+    const ib = inner >= 44 ? Math.min(52, inner - 4) : 36 <= inner ? 36 : inner - 4;   // 줄이 높으면 아이콘도 크게 (드릴 그림이 가로로 길어서)
     iconSlot(itemIcon(id), lx, ry + Math.floor((inner - ib) / 2), ib, locked ? 0.35 : 1); lx += ib + 10;
     // 오른쪽 버튼: 구매(가격) / 장착 중 / 잠김
     const bw = f.narrow ? 76 : 96, bh = Math.min(inner - 6, 48), bx = f.cx + f.cw - 6 - bw, by2 = ry + Math.floor((inner - bh) / 2);
@@ -368,6 +368,12 @@ function drawOrders(vw, vh) {
     txt(fitText(matName(o.k) + " " + o.n + "개", nameW, 16), lx, t, SY.txt, 16);
     txt(fitText("가진 것 " + have + " / " + o.n + "  ·  보상 " + money(o.pay) + " · 경험치 " + o.xp, nameW, 12), lx, t + 21, ok ? SY.green : SY.dim, 12);
     shopBtn.push({ x: f.cx, y: ry, w: bx - f.cx - 4, h: inner, act: "sellsel", i: SELL_KEYS.length + k });
+    const fl = S.orderFlash;
+    if (fl && fl.k === k && fl.t > 0) {                                // 방금 끝낸 줄: 초록 반짝 + '완료!' (새 의뢰가 그 자리로)
+      ctx.globalAlpha = Math.min(1, fl.t / 0.6) * 0.45; ctx.fillStyle = SY.green; ctx.fillRect(f.cx, ry, f.cw, inner); ctx.globalAlpha = 1;
+      txt("완료!", f.cx + f.cw / 2, ry + Math.floor(inner / 2) - 8 - Math.round((0.6 - fl.t) * 20), "#ffffff", 16, "center");
+      fl.t -= 1 / 60;
+    }
   });
   const c = orderRerollCost();
   uiBtn(f.cx, f.cy + f.ch - 46, f.cw, 44, "새 의뢰 받기 (셋 다 바꿈)", money(c), "plain", P.money >= c, "oreroll");

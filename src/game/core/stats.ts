@@ -69,7 +69,7 @@ export const bombs = [], flashes = [];
 S.shakeT = 0; S.stoneHintT = 0; S.lastRevealKey = "";
 S.inShop = true;
 S.nearItems = false; S.nearCraft = false; S.nearFurnace = false;
-S.shopTab = 0; S.shopSel = 0; S.craftTab = 0; S.craftSel = 0; S.sellSel = 0; S.shopPer = 0;
+S.shopTab = 0; S.shopSel = 0; S.craftTab = 0; S.craftSel = 0; S.sellSel = 0; S.shopPer = 0; S.townU = 1; S.townLast = null; S.townCloseT = 0; S.townCloseState = null; S.townDimDone = false;
 S.state = "title";       // title | play
 S.showHelp = true;
 S.msg = ""; S.msgT = 0;

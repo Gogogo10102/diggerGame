@@ -110,6 +110,7 @@ export function buyItem(id) {
 //   늘 3개. 캐 본 적 있는 광물(주괴는 그 원석)만 나옴. 끝내면 그 자리에 새 의뢰. '새 의뢰 받기'로 셋 다 바꿈($)
 // ---------------------------------------------------------------------
 export const ORDER_N = 3, ORDER_BONUS = 1.6;
+S.orderFlash = null;
 export const orderRerollCost = () => 40 + Math.round(Math.min(2000, (S.acct ? S.acct.stats.maxDepth : 0)) * 0.6);
 function orderPool() {
   const ores = SELL_KEYS.slice(0, SELL_ORES).filter((id) => minedOf(id) > 0);
@@ -142,7 +143,8 @@ export function deliverOrder(i) {
   S.acct.stats.orders = (S.acct.stats.orders || 0) + 1;
   addXP(o.xp);
   S.acct.orders[i] = makeOrder(S.acct.orders.map((x) => x.k));
-  say("의뢰 완료! +$" + o.pay + " · 경험치 +" + o.xp); sfx("sell");
+  S.orderFlash = { k: i, t: 0.6 };                                  // 그 줄이 잠깐 초록으로 반짝이고 새 의뢰가 들어옴
+  say("의뢰 완료! +$" + o.pay + " · 경험치 +" + o.xp); sfx("sell"); sfx("levelup", { pitch: 1.5, vol: 0.35 });
   checkQuests();
   saveNow(true, true);
 }

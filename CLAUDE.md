@@ -34,7 +34,7 @@ src/
     ui/     dom inventory overlay menu
 public/assets/         게임 그림 PNG + manifest.json
 tests/                 harness.cjs(가짜 DOM/캔버스) smoke.cjs(테스트)
-tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-icons.py(+pixicon.py)  make-buildings.py  make-signs.py
+tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-icons.py(+pixicon.py)  make-drill-icons.py(+drillart/)  make-buildings.py  make-signs.py
 docs/                  plan.md decisions.md
 ```
 
@@ -82,11 +82,12 @@ docs/                  plan.md decisions.md
 - 글자 크기는 **12 / 16 / 32px 만** 씁니다. 12px = 갈무리11, 16·32px = Neo둥근모. 도트 글꼴은 설계 크기의 정수배가 아니면 흐려집니다.
   캔버스는 `txt(글, x, y, 색, 크기)` 를 쓰면 자동으로 가까운 단계에 맞춰집니다. 글자 폭을 잴 때는 `setFont(크기)` 후 `measureText`.
 - 도트 그림은 `drawPx(그림, x, y, 칸크기)` 로 정수 배율로만 키웁니다(1.5배 금지).
-- **굴 가장자리**는 `draw.ts` 의 `softEdge` 가 흙 칸의 옆벽·천장 쪽을 2~5칸(그림 기준) 깎아 그립니다(충돌은 그대로 칸 단위). 바닥은 캐릭터가 딛는 곳이라 평평하게 둡니다.
+- **굴 가장자리**는 `draw.ts` 의 `softEdge` 가 흙 칸의 옆벽·천장 쪽을 화면 4~12px 깎아 그립니다(충돌은 그대로 칸 단위). 바닥은 캐릭터가 딛는 곳이라 평평하게 두되 윤곽선·빛 테는 그립니다.
 - **UI 스타일 = 안전 노랑**: 숯색 판(`SY.body`) + 검은 테두리 + 노란 머리띠·경고 줄무늬, 고른 것은 노랑. 색은 `render/util.ts` 의 `SY`.
 - **버튼 색 = 뜻**: 초록 진행·구매 / 파랑 저장·정보 / 주황 설정·메뉴 / 빨강 닫기·뒤로·삭제 / 회색 못 누름.
   캔버스는 `uiBtn`(kind: go·plain·gold·danger·steel) 또는 `btnPx`, HTML 창은 `mkBtn(글, 함수, "pri"|"info"|"back"|"del"|"off")` (없으면 주황).
 - **양 표시는 칸 막대**(`segBar`): 연료·화물·경험치·단계·소리 크기. 아이콘은 막대 왼쪽 끝에 겹침.
+- **큰 화면 UI 배율**: 마을 창은 `townScale`(draw.ts)로 2배/1.5배 키워 그리고 누른 자리도 나눠 맞춤(`S.townU`). 창 함수는 나눈 화면 크기를 받으니 배치는 그대로 짜면 됨. HTML 창은 style.css 의 zoom.
 - 마을 창(상점·제작·용광로·판매)은 `render/townUI.ts` 의 공용 틀 `townFrame(…, 분류목록, 고른분류, 분류동작)` 을 씁니다.
   "왼쪽 분류 → 오른쪽 목록(줄마다 버튼)" 흐름을 지켜 주세요. 상세 칸이 필요하면 `townFooter`.
 - **효과음**: 새 동작을 넣으면 `sfx("이름")` 도 같이 (`core/sound.ts` 의 목록에서 고르거나 추가). 테스트 환경에선 소리 없이 지나감.
@@ -114,6 +115,7 @@ docs/                  plan.md decisions.md
   처음 만들었고, 이후엔 PNG를 직접 고쳐도 됩니다. 그림 아래 끝이 땅 표면이고, 크기를 바꿔도 건물 칸 가운데에 붙습니다.
   불빛·연기 위치는 `art/buildings.ts` 의 `BLD_FX` (그림 크기가 같을 때만 그림). 용광로 아궁이·쇳물 홈은 그림에 구멍을 뚫어 두고 그 뒤에 불을 그립니다.
 - 광물 id: 2 구리, 3 철, 4 금, 5 다이아, 6 석탄, 8 은, 9 에메랄드, 10 루비, 11 미스릴.
+- **드릴 아이콘**(`items/<드릴 id>.png` 15개 + `ui/icon/drill.png`)은 `python3 tools/make-drill-icons.py` (확정 도안 v2, 등급 4 × 진화 4 중 고른 표는 파일 안 MAP).
 - 현재 원석·주괴 그림은 **임시 확정(v1)** 입니다. 나중에 다시 작업 예정.
 - 아이템·소모품·화면 아이콘(`items/`, `ui/icon/`)은 `python3 tools/make-icons.py` 로 다시 만들 수 있습니다(밝은 플랫 스타일, 기본 32px · `--size 16` 이면 예전 크기). 고친 뒤 `npm run assets:manifest`.
 - 흙·뒷벽·돌·풀·장식·균열·광물(땅속/아이콘/떨어진 것)·주괴·해·구름·캐릭터 부품은 `python3 tools/make-hires.py` 가 만듭니다.

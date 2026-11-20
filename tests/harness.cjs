@@ -94,7 +94,8 @@ function boot(path, opts = {}) {
     tapAct: (act, arg) => {
       const b = vm.runInContext("shopBtn", sandbox).find((q) => q.act === act && (arg === undefined || JSON.stringify(q.arg) === JSON.stringify(arg) || q.i === arg));
       if (!b) throw new Error("캔버스 버튼을 못 찾음: " + act + " " + JSON.stringify(arg));
-      t.ptr("pointerdown", b.x + b.w / 2, b.y + b.h / 2);
+      const U = vm.runInContext("['shop', 'craft', 'furnace'].includes(S.state) ? (S.townU || 1) : 1", sandbox);   // 마을 창 UI 배율
+      t.ptr("pointerdown", (b.x + b.w / 2) * U, (b.y + b.h / 2) * U);
     },
   };
   return t;

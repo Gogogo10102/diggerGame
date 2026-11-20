@@ -6,10 +6,14 @@
   #ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(14,15,23,.8);z-index:10;font-family:var(--font-m);color:#fff;font-size:16px;line-height:1.5;-webkit-font-smoothing:none;-moz-osx-font-smoothing:grayscale;touch-action:auto;-webkit-user-select:text;user-select:text}
   #ov.on{display:flex}
   #ov.on{animation:ovFade .14s ease-out}
-  #ov.on .pnl.pop{animation:ovPop .18s cubic-bezier(.2,1.4,.4,1)}
+  #ov.on .pnl.pop{animation:ovPop .2s cubic-bezier(.2,1.4,.4,1)}
   @keyframes ovFade{from{background:rgba(14,15,23,0)}to{background:rgba(14,15,23,.8)}}
-  @keyframes ovPop{from{transform:translateY(10px) scale(.96);opacity:0}to{transform:none;opacity:1}}
-  @media (prefers-reduced-motion:reduce){#ov.on,#ov.on .pnl.pop{animation:none}}
+  @keyframes ovPop{from{transform:translateY(16px) scale(.92);opacity:0}to{transform:none;opacity:1}}
+  #ov.closing{pointer-events:none;animation:ovFadeOut .14s ease-in forwards}
+  #ov.closing .pnl{animation:ovSink .14s ease-in forwards}
+  @keyframes ovFadeOut{from{background:rgba(14,15,23,.8)}to{background:rgba(14,15,23,0)}}
+  @keyframes ovSink{from{transform:none;opacity:1}to{transform:translateY(8px) scale(.95);opacity:0}}
+  @media (prefers-reduced-motion:reduce){#ov.on,#ov.on .pnl.pop,#ov.closing,#ov.closing .pnl{animation:none}}
   /* ---- 안전 노랑 스타일: 숯색 철판 + 노란 머리띠(경고 줄무늬) · 버튼은 레퍼런스 버튼표 (docs/decisions.md "UI 스타일") ---- */
   #ov .pnl{box-sizing:border-box;width:min(480px,94vw);max-height:90vh;overflow:auto;background:#2a2e37;border:0;box-shadow:0 0 0 2px #0b0c0f,inset 0 2px 0 #3c424e,0 6px 0 2px rgba(0,0,0,.35);padding:0 16px 16px}
   #ov h2{margin:0 -16px 14px;padding:6px 16px 4px;font-size:32px;line-height:1.25;color:#1a1a1a;font-weight:normal;text-align:left;background:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAQUlEQVR4XmP8f0iKAQakI+BMBiasok9XwCSQ1T5dAVIM0oEpysDAwCglhbADohYCEHYgi0pHwCTQRKE6MEUZGBgAfQ0QOCsPcU8AAAAASUVORK5CYII=) right 10px center/32px 32px repeat-x,#ffc21a;background-size:16px 16px;box-shadow:inset 0 2px 0 #ffe27a,inset 0 -2px 0 #c48600;image-rendering:pixelated}
@@ -77,9 +81,12 @@
   #ov .robots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   @media (max-width:520px){#ov .robots{grid-template-columns:repeat(2,1fr)}}
   #ov .robot{background:#1d2027;border:2px solid #0b0c0f;padding:6px 6px 8px;text-align:center;min-width:0;display:flex;flex-direction:column;gap:4px}
-  #ov .robot .ico{image-rendering:pixelated;display:block;margin:0 auto;background:radial-gradient(circle at 50% 70%,#3a3020 0,#1d2027 70%)}
+  #ov .robot .ico{image-rendering:pixelated;display:block;margin:0 auto;max-width:100%;background:radial-gradient(circle at 50% 70%,#3a3020 0,#1d2027 70%)}
   #ov .robot.on{box-shadow:0 0 0 3px #ffc21a}
   #ov .robot.lock .ico{filter:brightness(.18) contrast(1.4)}
   #ov .robot .nm{font-size:16px}
   #ov .robot .sm{font-family:var(--font-s);font-size:12px;line-height:1.35}
   #ov .robot .btn{margin:2px 0 0;width:100%}
+  /* 큰 화면(PC): 창을 통째로 키워 글자가 잘 읽히게 (마을 창 townScale 과 같은 기준). zoom 은 vh 도 같이 키우므로 최대 높이는 나눠서 */
+  @media (min-width:1280px) and (min-height:880px){#ov .pnl{zoom:2;max-height:45vh}}
+  @media (min-width:960px) and (min-height:660px) and (not ((min-width:1280px) and (min-height:880px))){#ov .pnl{zoom:1.5;max-height:60vh}}

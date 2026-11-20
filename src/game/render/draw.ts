@@ -44,11 +44,11 @@ function edgeHash(a, b) {
 }
 // 깎는 모양의 격자: 한 칸을 EDGE_G x EDGE_G 로 나눔 (32 → 화면 2px 단위. 고해상도 타일에 맞춰 촘촘하게)
 const EDGE_G = 32;
-// 경계선 line 위, 격자 좌표 along 에서 깎는 깊이 (4~10칸 = 화면 8~20px). 12칸마다 정한 값을 부드럽게 이어서 이빨처럼 들쭉날쭉하지 않고 물결처럼
+// 경계선 line 위, 격자 좌표 along 에서 깎는 깊이 (2~6칸 = 화면 4~12px). 12칸마다 정한 값을 부드럽게 이어서 이빨처럼 들쭉날쭉하지 않고 물결처럼
 function edgeDepth(along, line) {
   const k = Math.floor(along / 12), f = (along - k * 12) / 12, s2 = f * f * (3 - 2 * f);
   const v = edgeHash(k, line) * (1 - s2) + edgeHash(k + 1, line) * s2;    // 0~3
-  return 4 + Math.round(v * 2);
+  return 2 + Math.round(v * 1.34);                                  // 2~6칸 = 화면 4~12px (맵 스타일 A: 덩이 무늬가 덜 잘려 보이게 얕게)
 }
 const seenAir = (c, r) => isAir(c, r) && seen[r * W + c] === 1;
 function edgePaths(c, r, bits, dig, digSide) {
@@ -57,7 +57,7 @@ function edgePaths(c, r, bits, dig, digSide) {
   if (e) return e;
   const G = EDGE_G, G1 = G - 1;
   const aT = bits & 1, aB = bits & 2, aL = bits & 4, aR = bits & 8, dTL = bits & 16, dTR = bits & 32, dBL = bits & 64, dBR = bits & 128;
-  const cut = new Uint8Array(G * G), X0 = c * G, Y0 = r * G, RC = 12;
+  const cut = new Uint8Array(G * G), X0 = c * G, Y0 = r * G, RC = 7;     // 볼록한 모서리 둥글기 (7칸 = 14px)
   const extra = (side) => (side === digSide ? dig : 0);
   for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
     const X = X0 + x, Y = Y0 + y;
@@ -108,7 +108,7 @@ function edgePaths(c, r, bits, dig, digSide) {
     if (isCut(x - 1, y + 1) && !isCut(x - 1, y) && !isCut(x, y + 1)) line.rect(px, py + u - LW, LW, LW);
     if (isCut(x + 1, y + 1) && !isCut(x + 1, y) && !isCut(x, y + 1)) line.rect(px + u - LW, py + u - LW, LW, LW);
   }
-  e = { cut: cutP, line, lit, shade, any: cut.some((v) => v) };
+  e = { cut: cutP, line, lit, shade, any: cut.some((v) => v) || !!aT };   // 깎인 곳이 없어도 바닥(위가 빈칸)이면 윤곽선·빛은 그림
   if (EDGE_CACHE.size > 6000) EDGE_CACHE.clear();
   EDGE_CACHE.set(key, e);
   return e;
@@ -139,8 +139,7 @@ function softEdge(c, r, px, py, id) {
   ctx.translate(px, py);
   ctx.save(); ctx.clip(e.cut);
   const natN = ((bits & 1) && natAir((r - 1) * W + c)) || ((bits & 2) && natAir((r + 1) * W + c)) || ((bits & 4) && natAir(r * W + c - 1)) || ((bits & 8) && natAir(r * W + c + 1));
-  ctx.drawImage((natN ? caveBack : backTiles)[layerOf(r - SURF)][(c * 5 + r * 3) & 3], 0, 0, T, T);   // 자연 동굴 쪽은 동굴 뒷벽
-  ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(0, 0, T, T);   // 깎인 자리는 굴 안쪽이라 살짝 어둡게
+  ctx.drawImage((natN ? caveBack : backTiles)[layerOf(r - SURF)][(c * 5 + r * 3) & 3], 0, 0, T, T);   // 자연 동굴 쪽은 동굴 뒷벽 (예전엔 더 어둡게 덮어서 굴 안과 띠가 져 보였음)
   ctx.restore();
   ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.fill(e.shade);
   ctx.fillStyle = "rgba(255,230,190,0.16)"; ctx.fill(e.lit);
@@ -658,23 +657,42 @@ export function draw() {
 
   if (S.state !== "title") drawHUD(SW, SH, depth);       // 타이틀 화면에선 HUD 를 숨겨 로고가 돋보이게
   drawStick();
-  const townOpen = S.state === "shop" || S.state === "craft" || S.state === "furnace";
-  if (!townOpen) S.townOpenT = 0;
-  else {
-    if (!S.townOpenT) S.townOpenT = performance.now();
-    const k = Math.min(1, (performance.now() - S.townOpenT) / 160), e = 1 - (1 - k) * (1 - k) * (1 - k);
-    if (k < 1) {                                                    // 0.16초 동안 97% → 100% 크기 + 흐릿 → 또렷
-      const s = 0.97 + 0.03 * e;
-      ctx.globalAlpha = 0.35 + 0.65 * e;
-      ctx.setTransform(s, 0, 0, s, SW / 2 * (1 - s), SH / 2 * (1 - s));
-    }
-    if (S.state === "shop") drawShopModal(SW, SH);
-    if (S.state === "craft") drawCraftModal(SW, SH);
-    if (S.state === "furnace") drawFurnaceModal(SW, SH);
+  // 마을 창(상점·제작·용광로·판매): 큰 화면은 UI 배율(townScale)로 키워 그림 + 열 때 톡 떠오르고 닫을 때 살짝 가라앉으며 사라짐
+  const townOpen = S.state === "shop" || S.state === "craft" || S.state === "furnace", now = performance.now();
+  if (townOpen) {
+    if (!S.townOpenT) S.townOpenT = now;
+    S.townLast = S.state; S.townCloseT = 0;
+  } else if (S.townLast) { S.townCloseT = now; S.townCloseState = S.townLast; S.townLast = null; S.townOpenT = 0; }
+  const closing = !townOpen && S.townCloseT && now - S.townCloseT < TOWN_CLOSE_MS;
+  if (townOpen || closing) {
+    const U = townScale(SW, SH); S.townU = U;
+    let e = 1;                                                      // 0 = 숨음 · 1 = 다 보임
+    if (townOpen) { const k = Math.min(1, (now - S.townOpenT) / TOWN_OPEN_MS); e = 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2); }   // 살짝 지나쳤다 돌아오는 ease-out-back
+    else { const k = Math.min(1, (now - S.townCloseT) / TOWN_CLOSE_MS); e = 1 - k * k; }
+    ctx.fillStyle = "rgba(10,11,14," + (0.72 * Math.max(0, Math.min(1, e))).toFixed(3) + ")"; ctx.fillRect(0, 0, SW, SH);   // 뒤 어둡게 (창 크기와 따로)
+    S.townDimDone = true;
+    const s = 0.9 + 0.1 * e, oy = (1 - e) * 18 * U;
+    ctx.globalAlpha = Math.max(0, Math.min(1, e * 1.3));
+    ctx.setTransform(U * s, 0, 0, U * s, SW / 2 * (1 - s), SH / 2 * (1 - s) + oy);
+    const keep = S.state;
+    if (closing) S.state = S.townCloseState;                       // 닫히는 동안 마지막 창 모습 그대로 (탭 표시 등)
+    if (S.state === "shop") drawShopModal(SW / U, SH / U);
+    if (S.state === "craft") drawCraftModal(SW / U, SH / U);
+    if (S.state === "furnace") drawFurnaceModal(SW / U, SH / U);
+    S.state = keep; S.townDimDone = false;
+    if (closing) shopBtn.length = 0;                                // 닫히는 창의 버튼은 누를 수 없음
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
   }
   if (S.state === "map") drawMapModal(SW, SH);
   if (S.state === "title") drawTitle(SW, SH);
+}
+
+// 마을 창 UI 배율: PC 처럼 큰 화면에서는 2배(또는 1.5배)로 키워서 글자·버튼이 잘 보이게 (창 안 배치는 나눈 크기 기준으로 그대로)
+export const TOWN_OPEN_MS = 200, TOWN_CLOSE_MS = 140;
+export function townScale(SW, SH) {
+  if (SW >= 1200 && SH >= 860) return 2;
+  if (SW >= 900 && SH >= 645) return 1.5;
+  return 1;
 }
 
 // 소모품 단축 슬롯 (1~6 키 / 터치로 탭)
