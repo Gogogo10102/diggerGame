@@ -618,24 +618,25 @@ export function getMiner(mode, leg, dig, part = "all") {
 
 // =====================================================================
 //  광부(사람) 캐릭터: tools/make-player.py 가 만든 그림 3장 (오른쪽을 봄)
-//   body 사람 시트 · pick 곡괭이 1장(회색 날 → 곡괭이 단계 색, 코드로 돌려 휘두름) · pack 백팩 로켓 1장(몸 뒤). 몸 가운데 x 40 · 발바닥 y 76 (draw.ts 의 PCX·PFT)
+//   body 사람 시트 · pick 곡괭이 1장(회색 날 → 곡괭이 단계 색, 코드로 돌려 휘두름) · pack 백팩 로켓 1장(예전 그림용). 모자 가운데 x 40 · 발바닥 y 68 (draw.ts 의 PCX·PFT)
 // =====================================================================
 export const PSZ = 80;
-//  사람 광부 시트(make-player.py 가 참고 시트를 잘라 만듦): 80x80 칸, 줄 0 서기 · 1 걷기 · 2 달리기 · 3 점프(0 준비 · 1 오름 · 2 팔 듦 · 3 내려옴 · 4 착지)
-//  애니메이션 = [칸, 줄] 목록 + 초당 프레임. 곡괭이질·오르기·날기는 이 칸들을 골라 쓰고 곡괭이는 코드로 돌려 그림
+//  사람 광부 시트(make-player.py 가 PixelLab 원본으로 만듦): 80x80 칸, 줄 0 = 오른쪽 · 줄 1 = 왼쪽
+//   칸 0 서 있기, 칸 1~8 걷기. 점프·오르기·곡괭이질은 아직 원본이 없어서 이 칸들을 빌려 씀 (원본이 생기면 칸을 더하고 여기만 고치면 됨)
+//  애니메이션 = 칸 번호 목록 + 초당 프레임(걷기는 속도에 맞춰 draw.ts 가 정함)
 export const PLAYER_ANIM = {
-  idle: { f: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [3, 0], [2, 0], [1, 0]], fps: 7 },
-  walk: { f: [[0, 1], [1, 1], [2, 1], [3, 1], [4, 1]], fps: 10 },
-  run: { f: [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2]], fps: 13 },
-  jump: { f: [[1, 3], [2, 3], [3, 3]], fps: 0 },
-  land: { f: [[4, 3]], fps: 0 },
-  climb: { f: [[2, 3], [0, 3]], fps: 0 },
-  fly: { f: [[3, 3]], fps: 0 },
-  raise: { f: [[2, 3]], fps: 0 },                                   // 곡괭이 치켜든 자세 (팔 머리 위)
-  crouch: { f: [[4, 3]], fps: 0 },                                  // 곡괭이 내리찍은 자세 (몸 낮춤)
+  idle: { f: [0], fps: 0 },
+  walk: { f: [1, 2, 3, 4, 5, 6, 7, 8], fps: 8 },
+  run: { f: [1, 2, 3, 4, 5, 6, 7, 8], fps: 14 },
+  jump: { f: [2, 2, 6], fps: 0 },                                   // 오름 · 꼭대기 · 내려옴 (다리 벌린 칸)
+  land: { f: [0], fps: 0 },
+  climb: { f: [2, 6], fps: 0 },
+  fly: { f: [2], fps: 0 },
+  raise: { f: [0], fps: 0 },                                        // 곡괭이 치켜든 자세
+  crouch: { f: [4], fps: 0 },                                       // 곡괭이 내리찍은 자세 (팔이 앞으로 나간 칸)
 };
-//  칸 안의 손(곡괭이 손잡이) 자리 — 오른쪽을 볼 때
-export const PGRIP = { raise: [31, 27], crouch: [47, 58], back: [30, 50] };
+//  칸 안의 손(곡괭이 손잡이) 자리 — 오른쪽을 볼 때. 왼쪽은 draw.ts 가 좌우로 뒤집어 씀
+export const PGRIP = { raise: [42, 46], crouch: [51, 50], back: [30, 50] };
 export const PLAYER_IMG = { body: sprite(1, 1, () => {}), pick: sprite(1, 1, () => {}), pack: sprite(1, 1, () => {}) };
 const PLAYER_CACHE = new Map();
 // 회색 칸만 단계 색으로 (곡괭이 자루 나무색은 그대로)
@@ -660,16 +661,20 @@ const PLAYER_FALLBACK = sprite(32, 32, (p) => {
   p(12, 15, 9, 8, "#14151f"); p(13, 15, 7, 7, "#1f6f8a"); p(15, 15, 2, 6, "#6a1a2a");
   p(13, 23, 3, 5, "#24202e"); p(17, 23, 3, 5, "#24202e"); p(12, 28, 4, 2, "#14151f"); p(17, 28, 4, 2, "#14151f");
 });
-//  몸 칸 하나 (anim 의 i 번째). 시트가 없으면 대체 그림
-export function playerFrame(anim, i) {
+//  몸 칸 하나 (anim 의 i 번째, facing 1 오른쪽 · -1 왼쪽). 시트가 없으면 대체 그림
+export function playerFrame(anim, i, facing = 1) {
   const src = PLAYER_IMG.body;
   if (src.width < PSZ) return PLAYER_FALLBACK;
-  const A = PLAYER_ANIM[anim] || PLAYER_ANIM.idle, n = A.f.length, [c, r] = A.f[((i % n) + n) % n];
+  const A = PLAYER_ANIM[anim] || PLAYER_ANIM.idle, n = A.f.length, c = A.f[((i % n) + n) % n];
+  const r = facing < 0 && src.height >= PSZ * 2 ? 1 : 0;
   const key = "b" + c + "," + r;
   let im = PLAYER_CACHE.get(key);
   if (!im) { im = sprite(PSZ, PSZ, (p, g) => g.drawImage(src, c * PSZ, r * PSZ, PSZ, PSZ, 0, 0, PSZ, PSZ)); PLAYER_CACHE.set(key, im); }
   return im;
 }
+//  로봇(탈것) 그림: PixelLab 원본 72x72 (오른쪽·왼쪽 비스듬히). 없으면 null → 예전 코드 로봇
+export const MECH_IMG = { east: sprite(1, 1, () => {}), west: sprite(1, 1, () => {}) };
+export const mechImg = (facing) => { const im = facing < 0 ? MECH_IMG.west : MECH_IMG.east; return im.width > 8 ? im : null; };
 //  곡괭이 (tier 0 = 기본 녹슨 쇠, 1~ = PICK_TIER 색). 시트가 없으면 null
 export function pickImg(tier = 0) {
   const src = PLAYER_IMG.pick;

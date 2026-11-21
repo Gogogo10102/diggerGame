@@ -6,7 +6,7 @@
 //  - 그림을 바꾸려면: PNG를 수정해서 같은 경로에 덮어쓰기 → 새로고침. 크기는 원래와 달라도 됩니다.
 //  - 새 PNG를 추가했다면 manifest.json 에도 경로를 넣어 주세요 (npm run assets:manifest).
 // =====================================================================
-import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg, MINER_HI, MINER_CH, minerCache, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, gasTile, ladderTile, PLAYER_IMG, clearPlayerCache } from "./sprites.ts";
+import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg, MINER_HI, MINER_CH, minerCache, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, gasTile, ladderTile, PLAYER_IMG, MECH_IMG, clearPlayerCache } from "./sprites.ts";
 import { ITEM_ICON } from "./itemIcons.ts";
 import { SIGN_IMG, TAB_IMG, plinthTop, plinthLow } from "./buildings.ts";
 import { barIcon, furnaceImg } from "../systems/furnace.ts";
@@ -48,6 +48,7 @@ export function assetTable() {
   t["tiles/gas.png"] = () => gasTile;
   t["tiles/ladder.png"] = () => ladderTile;
   for (const k in PLAYER_IMG) t["player/" + k + ".png"] = () => PLAYER_IMG[k];   // 광부 시트 (몸 · 곡괭이 · 백팩 로켓)
+  for (const k in MECH_IMG) t["mech/" + k + ".png"] = () => MECH_IMG[k];          // 로봇 탈것 (PixelLab 원본)
   for (const k in MINER_HI) t["miner/" + k + ".png"] = () => MINER_HI[k];
   for (const id in MINER_CH) for (const k in MINER_CH[id]) t["miner/" + id + "/" + k + ".png"] = () => MINER_CH[id][k];   // 다른 캐릭터 부품
   return t;

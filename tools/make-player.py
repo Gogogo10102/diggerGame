@@ -1,54 +1,55 @@
 #!/usr/bin/env python3
-# 사람 광부 그림 만들기
-#   python3 tools/make-player.py [참고 시트]   (기본: tools/ref/player_sheet.png)
-#   → public/assets/player/body.png  참고 시트(5칸 × 4줄: 서기·걷기·달리기·점프)를 잘라 80x80 칸으로 줄임
-#     public/assets/player/pick.png  곡괭이 1장 (자루가 위를 봄, 손잡이 = (16, 29)). 날은 회색 → 게임이 곡괭이 단계 색으로 칠함
-#     public/assets/player/pack.png  백팩 로켓 1장
-#     public/assets/tiles/ladder.png 사다리 칸 (맵 스타일 A: 32px 도트 ×2)
-#   칸 배치·손 위치는 sprites.ts 의 PLAYER_ANIM · PGRIP 과 짝. 몸 가운데 x 40 · 발바닥 y 76 (draw.ts 의 PCX·PFT)
-import os, sys
+# 사람 광부 · 로봇 그림 만들기 (PixelLab 에서 뽑은 원본 → 게임용 시트)
+#   python3 tools/make-player.py [원본 폴더]   (기본: tools/ref/pixellab)
+#   원본 폴더에 있어야 하는 것 (모두 배경 투명, 같은 배율):
+#     east.png · west.png        서 있는 광부 (오른쪽 · 왼쪽)
+#     walk_east.gif              오른쪽으로 걷기 (프레임 여러 장, 칸 크기는 달라도 됨)
+#     robot_se.png · robot_sw.png 로봇 (오른쪽 · 왼쪽 비스듬히)
+#     [있으면] <동작>_east.gif    jump · climb · mine 등 — ANIMS 표에 줄을 더하면 시트에 들어감
+#   → public/assets/player/body.png  80x80 칸. 줄 0 = 오른쪽, 줄 1 = 왼쪽(걷기는 좌우 뒤집음)
+#                                     칸 0 서 있기, 칸 1~8 걷기 (sprites.ts 의 PLAYER_ANIM 과 짝)
+#     public/assets/player/pick.png  손에 드는 곡괭이 1장 (자루가 위, 손잡이 (16, 29))
+#     public/assets/player/pack.png  백팩 로켓 1장 (예전 그림용, 지금 광부는 자기 배낭이 있어 안 씀)
+#     public/assets/mech/east.png · west.png  로봇 (원본 그대로)
+#     public/assets/tiles/ladder.png 사다리 칸
+#   모든 칸은 발바닥 y 68, 모자 가운데 x 40 에 맞춤 (draw.ts 의 PFT · PCX)
+import os, sys, shutil
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps, ImageSequence
 from scipy import ndimage as nd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "public/assets/player")
-F, FOOT, CX = 80, 76, 40          # 칸 크기 · 발바닥 · 몸 가운데
-HEIGHT = 60                       # 게임 속 키(px). 칸(64) 보다 조금 작게
+F, FOOT, CX = 80, 68, 40          # 칸 크기 · 발바닥(이 줄부터 땅) · 모자 가운데
 def hx(h): h = h.lstrip("#"); return np.array([int(h[i:i + 2], 16) for i in (0, 2, 4)], float)
 
-# ---- 참고 시트 자르기: 바둑판(가짜 투명) 배경을 가장자리부터 지우고 캐릭터 20개를 찾음 ----
-def body_sheet(path):
-    src = np.array(Image.open(path).convert("RGB")).astype(int)
-    mx, mn = src.max(2), src.min(2)
-    cand = ((mx - mn) < 28) & (mx > 105)                          # 무채색 밝은 칸 = 배경 후보 (외곽선은 아주 어두워서 막힘)
-    lab, _ = nd.label(cand)
-    edge = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
-    fg = nd.binary_opening(~np.isin(lab, list(edge)), iterations=1)
-    lab, _ = nd.label(fg)
-    objs = [(i + 1, s) for i, s in enumerate(nd.find_objects(lab)) if (lab[s] == i + 1).sum() > fg.size * 0.0008]
-    assert len(objs) == 20, "캐릭터 20개를 찾지 못함: %d" % len(objs)
-    objs.sort(key=lambda t: t[1][0].stop)
-    rows = [sorted(objs[k * 5:(k + 1) * 5], key=lambda t: t[1][1].start) for k in range(4)]
-    sc = HEIGHT / np.median([s[0].stop - s[0].start for _, s in objs[:10]])   # 서기·걷기 키로 배율
-    out = Image.new("RGBA", (F * 5, F * 4))
-    for r, row in enumerate(rows):
-        for c, (li, s) in enumerate(row):
-            y0, y1, x0, x1 = s[0].start - 2, s[0].stop + 2, s[1].start - 2, s[1].stop + 2
-            a = (lab[y0:y1, x0:x1] == li).astype(float)
-            pm = np.dstack([src[y0:y1, x0:x1] * a[..., None], a * 255])
-            h, w = a.shape; th, tw = round(h * sc), round(w * sc)
-            sm = np.array(Image.fromarray(pm.clip(0, 255).astype(np.uint8), "RGBA").resize((tw, th), Image.BOX)).astype(float)
-            al = sm[..., 3] / 255
-            rgb = np.where(al[..., None] > 0, sm[..., :3] / np.maximum(al[..., None], 1e-3), 0)
-            A = al > 0.45
-            lab2, n2 = nd.label(A)                                  # 속도선 부스러기 지우기 (몸통에 안 붙은 작은 점)
-            if n2 > 1:
-                sz = nd.sum(A, lab2, range(1, n2 + 1)); A = lab2 == (1 + int(np.argmax(sz)))
-            fr = np.dstack([rgb.clip(0, 255).astype(np.uint8), (A * 255).astype(np.uint8)])
-            ys, xs = np.nonzero(A)
-            yy, xx = np.nonzero(A[:int(th * 0.45)])                 # 가로 기준 = 머리 가운데
-            out.alpha_composite(Image.fromarray(fr, "RGBA"), (c * F + CX - int(round(xx.mean())), r * F + FOOT - (ys.max() + 1)))
+def frames_of(path):
+    im = Image.open(path)
+    return [f.convert("RGBA") for f in ImageSequence.Iterator(im)] if getattr(im, "n_frames", 1) > 1 else [im.convert("RGBA")]
+
+# 한 장을 80 칸에 놓을 자리: 발 = 맨 아래 불투명 줄, 가로 = 위쪽 25%(모자) 가운데
+def anchor(img):
+    a = np.array(img)[..., 3] > 0
+    ys, xs = np.nonzero(a)
+    top = ys.min(); band = a[top:top + max(4, (ys.max() - top) // 4)]
+    by, bx = np.nonzero(band)
+    return int(round(bx.mean())), ys.max() + 1
+
+def body_sheet(src):
+    east = frames_of(os.path.join(src, "east.png"))[0]
+    west = frames_of(os.path.join(src, "west.png"))[0]
+    walk = frames_of(os.path.join(src, "walk_east.gif"))
+    # 걷기 프레임은 원본끼리의 흔들림을 살리려고 첫 장 기준 한 번만 맞춤
+    wx, wy = anchor(walk[0])
+    cols = 1 + len(walk)
+    out = Image.new("RGBA", (F * cols, F * 2))
+    def put(img, c, r, ax=None, ay=None):
+        if ax is None: ax, ay = anchor(img)
+        out.alpha_composite(img, (c * F + CX - ax, r * F + FOOT - ay))
+    put(east, 0, 0); put(west, 0, 1)
+    for i, f in enumerate(walk):
+        put(f, 1 + i, 0, wx, wy)
+        m = ImageOps.mirror(f); put(m, 1 + i, 1, f.width - 1 - wx, wy)
     return out
 
 # ---- 외곽선 붙이기 (1px, 4방향) ----
@@ -96,9 +97,12 @@ def ladder_tile():
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
-    ref = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "tools/ref/player_sheet.png")
-    body_sheet(ref).save(os.path.join(OUT, "body.png"))
+    src = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "tools/ref/pixellab")
+    body_sheet(src).save(os.path.join(OUT, "body.png"))
     pick().save(os.path.join(OUT, "pick.png"))
     pack().save(os.path.join(OUT, "pack.png"))
+    os.makedirs(os.path.join(ROOT, "public/assets/mech"), exist_ok=True)
+    for a, b in (("robot_se.png", "east.png"), ("robot_sw.png", "west.png")):
+        frames_of(os.path.join(src, a))[0].save(os.path.join(ROOT, "public/assets/mech", b))
     Image.fromarray(ladder_tile(), "RGBA").save(os.path.join(ROOT, "public/assets/tiles/ladder.png"))
-    print("player: body 400x320 (80칸 5x4) · pick 32 · pack 20x24 · ladder")
+    print("player: body (80칸, 줄 0 오른쪽 · 1 왼쪽) · pick · pack · mech east/west · ladder")

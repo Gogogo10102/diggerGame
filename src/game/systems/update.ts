@@ -323,6 +323,7 @@ export function update(dt) {
   updateGas(dt);
   if (S.shakeT > 0) S.shakeT -= dt;
   if (S.landT > 0) S.landT -= dt;
+  if (P.grounded) S.walkD = ((S.walkD || 0) + Math.abs(P.vx) * dt) % 1e6;   // 걸은 거리 → 걷기 그림 칸 (draw.ts)
   if (S.pickHitT > 0) S.pickHitT -= dt;
   if (S.stoneHintT > 0) S.stoneHintT -= dt;
   updateCave(dt);
