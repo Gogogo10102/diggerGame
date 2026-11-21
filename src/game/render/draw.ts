@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, PSZ } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechImg, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -172,9 +172,9 @@ const SWING_POSE = {
 };
 const smooth = (t) => t * t * (3 - 2 * t);
 //  지금 자세: { anim, i, pick: { g: [x, y], ang, front } | null }
+//  (광부 그림에 곡괭이가 배낭에 꽂혀 있어서, 캘 때만 손에 든 곡괭이를 따로 그림)
 export function humanPose() {
-  const stow = { g: PGRIP.back, ang: -35, front: false };          // 안 쓸 때 곡괭이는 등에 멤
-  if (P.climbing) return { anim: "climb", i: Math.floor(P.y / 18), pick: stow };   // 오르내린 거리만큼 손을 번갈아 뻗음
+  if (P.climbing) return { anim: "climb", i: Math.floor(P.y / 18), pick: null };   // 오르내린 거리만큼 다리를 번갈아
   if (P.digging) {
     const [W0, W1] = SWING_POSE[P.mode] || SWING_POSE.side;
     const p = Math.max(0, Math.min(1, 1 - (S.digPT || 0) / PICK_SWING));   // 0 = 막 내리찍음
@@ -187,49 +187,50 @@ export function humanPose() {
     return { anim: k > 0.5 ? W0[0] : W1[0], i: 0, pick: { g: [ga[0] + (gb[0] - ga[0]) * k, ga[1] + (gb[1] - ga[1]) * k], ang, front: ang >= 0 } };
   }
   if (!P.grounded) {
-    if (S.thrustOn) return { anim: "fly", i: 0, pick: stow };
-    return { anim: "jump", i: P.vy < -120 * PX ? 0 : P.vy < 60 * PX ? 1 : 2, pick: stow };
+    if (S.thrustOn) return { anim: "fly", i: 0, pick: null };
+    return { anim: "jump", i: P.vy < -120 * PX ? 0 : P.vy < 60 * PX ? 1 : 2, pick: null };
   }
-  if (S.landT > 0) return { anim: "land", i: 0, pick: stow };
+  if (S.landT > 0) return { anim: "land", i: 0, pick: null };
   const sp = Math.abs(P.vx);
-  if (sp > 20) return sp > 200 ? { anim: "run", i: Math.floor(S.animT * PLAYER_ANIM.run.fps), pick: stow } : { anim: "walk", i: Math.floor(S.animT * PLAYER_ANIM.walk.fps), pick: stow };
-  return { anim: "idle", i: Math.floor(S.animT * PLAYER_ANIM.idle.fps), pick: stow };
+  // 걷기 그림 한 바퀴(8칸)에 약 1.1칸을 가게 → 빠를수록 다리도 빨리 (미끄러져 보이지 않게)
+  if (sp > 20) return { anim: "walk", i: Math.floor((S.walkD || 0) / (T * 1.1 / 8)), pick: null };
+  return { anim: "idle", i: 0, pick: null };
 }
 //  테스트·디버그용: [동작 이름, 칸 번호] (곡괭이질은 mine_<방향>)
 export function humanAnim() {
   const ps = humanPose();
   return [P.digging ? "mine_" + P.mode : ps.anim, ps.i];
 }
-export const PCX = 40, PFT = 76;                                     // 칸 안의 몸 가운데 x · 발바닥 y (make-player.py 와 짝)
-//  (fx, fy) = 발밑 가운데 화면 자리, k = 배율(정수)
+export const PCX = 40, PFT = 68;                                     // 칸 안의 모자 가운데 x · 발바닥 y (make-player.py 와 짝)
+//  (fx, fy) = 발밑 가운데 화면 자리, k = 배율(정수). 몸은 시트의 왼쪽/오른쪽 줄을 그대로, 곡괭이만 좌우로 뒤집어 그림
 function drawHumanAt(fx, fy, facing, ps, k = 1, pack = false) {
-  const body = playerFrame(ps.anim, ps.i);
+  const body = playerFrame(ps.anim, ps.i, facing);
   ctx.save();
   ctx.translate(fx, fy);
-  if (facing < 0) ctx.scale(-1, 1);
   if (k !== 1) ctx.scale(k, k);
-  if (body.width < PSZ) { ctx.drawImage(body, -32, -60, 64, 64); ctx.restore(); return; }   // 시트 파일이 없을 때: 32px 대체 그림을 2배로
+  if (body.width < PSZ) { if (facing < 0) ctx.scale(-1, 1); ctx.drawImage(body, -32, -60, 64, 64); ctx.restore(); return; }   // 시트 파일이 없을 때: 32px 대체 그림을 2배로
   const pk = ps.pick ? pickImg(LOOK.pick || 0) : null;
   const drawPick = () => {
     if (!pk) return;
     ctx.save();
+    if (facing < 0) ctx.scale(-1, 1);
     ctx.translate(Math.round(ps.pick.g[0] - PCX), Math.round(ps.pick.g[1] - PFT));
     ctx.rotate((ps.pick.ang * Math.PI) / 180);
     ctx.drawImage(pk, -16, -29);
     ctx.restore();
   };
-  if (pack) ctx.drawImage(PLAYER_IMG.pack, 16 - PCX, 38 - PFT);
+  if (pack && PLAYER_IMG.pack.width > 8 && body.width >= PSZ && !PLAYER_HAS_PACK) ctx.drawImage(PLAYER_IMG.pack, (facing < 0 ? 44 : 16) - PCX, 38 - PFT);
   if (pk && !ps.pick.front) drawPick();
   ctx.drawImage(body, -PCX, -PFT);
   if (pk && ps.pick.front) drawPick();
   ctx.restore();
 }
+const PLAYER_HAS_PACK = true;                                        // 지금 광부 그림은 배낭을 메고 있음 → 백팩 로켓 그림은 겹쳐 그리지 않음
 function drawHuman(px, py) {
   const ps = humanPose();
-  const pack = STAT.rocket > 0 && PLAYER_IMG.pack.width > 8;
-  if (S.thrustOn) drawThrustFlame(px - P.facing * 14, py + HH - 12, 0.55);
+  if (S.thrustOn) drawThrustFlame(px - P.facing * 11, py + HH - 12, 0.55);   // 배낭 아래에서 불꽃
   const hit = S.pickHitT > 0 ? 1 : 0;                                // 내리찍는 순간 몸이 1px 눌림
-  drawHumanAt(px, py + HH + hit, P.facing, ps, 1, pack);
+  drawHumanAt(px, py + HH + hit, P.facing, ps, 1, STAT.rocket > 0);
 }
 // ---- 마을 차고 ----
 function drawGarage(camX, camY, vw) {
@@ -243,11 +244,15 @@ function drawGarage(camX, camY, vw) {
   // 세워 둔 로봇 (샀고, 지금 안 타고 있으면)
   if (P.items.robot && !P.mech) {
     const ms = MINER_SZ * 3, mb = MINER_BOX * 3, cx = gx + gw / 2, by = gy - 10;
-    ctx.save(); ctx.translate(Math.round(cx), by);
-    const bob = Math.round(Math.sin(S.animT * 2) * 1);
-    ctx.drawImage(getMiner("side", 0, -1, "body"), -24 - mb, -48 - mb + bob, ms, ms);
-    ctx.drawImage(getMiner("side", 0, -1, "drill"), -24 - mb, -48 - mb + bob, ms, ms);
-    ctx.restore();
+    const mi = mechImg(-1);
+    if (mi) ctx.drawImage(mi, Math.round(cx - 36), by - 71);               // PixelLab 로봇: 마을 쪽(왼쪽)을 보고 서 있음
+    else {
+      ctx.save(); ctx.translate(Math.round(cx), by);
+      const bob = Math.round(Math.sin(S.animT * 2) * 1);
+      ctx.drawImage(getMiner("side", 0, -1, "body"), -24 - mb, -48 - mb + bob, ms, ms);
+      ctx.drawImage(getMiner("side", 0, -1, "drill"), -24 - mb, -48 - mb + bob, ms, ms);
+      ctx.restore();
+    }
   }
   // 차고 표시: 기둥 두 개 + 로봇 아이콘 배지 (글자 없이)
   ctx.fillStyle = "#14151f"; ctx.fillRect(gx + 2, gy - 110, 8, 100); ctx.fillRect(gx + gw - 10, gy - 110, 8, 100);
@@ -607,7 +612,27 @@ export function draw() {
       const id = tiles[S.dig.r * W + S.dig.c], need = Math.max(0.01, hardOf(id, S.dig.r) / drillMult());
       push = Math.min(1, S.dig.t / need) * 18 + (((S.animT * 18) | 0) % 2) * 4;
     }
-    const ms = MINER_SZ * 3, mb = MINER_BOX * 3;                     // 그림 x3: 몸통 48px(블록의 3/4) · 충돌 크기는 그대로
+    const mi = mechImg(P.facing);
+    if (mi) {
+      // PixelLab 로봇 한 장: 발 = 그림 아래 끝(y 71), 가운데 x 36. 팔 때는 파는 쪽으로 진행도만큼 몸을 들이밀며 덜덜
+      const lean = push / 3, lx = P.mode === "side" ? lean * P.facing : 0, ly = P.mode === "down" ? lean : P.mode === "up" ? -lean : 0;
+      ctx.drawImage(mi, Math.round(px - 36 + ox + lx), Math.round(py + HH - 71 + oy + ly));
+      if (S.thrustOn) drawThrustFlame(px, py + HH);
+    }
+  }
+  if (P.dead <= 0 && S.state !== "title" && P.mech && !mechImg(P.facing)) {
+    const px = Math.round(P.x - camX), py = Math.round(P.y - camY);
+    const moving = Math.abs(P.vx) > 20 && P.grounded;
+    const leg = moving ? ((S.animT * 10) | 0) % 2 : 0;
+    const dg = P.digging ? ((S.animT * 24) | 0) % 2 : -1;
+    const fr = (S.animT * 60) | 0, jit = (k) => ((Math.imul(fr + k * 7919, 2654435761) >>> 24) % 5) - 2;
+    let ox = 0, oy = 0, push = 0;
+    if (P.digging) { ox = jit(1) * 2; oy = jit(2) * 2; }
+    if (P.digging && S.dig) {
+      const id = tiles[S.dig.r * W + S.dig.c], need = Math.max(0.01, hardOf(id, S.dig.r) / drillMult());
+      push = Math.min(1, S.dig.t / need) * 18 + (((S.animT * 18) | 0) % 2) * 4;
+    }
+    const ms = MINER_SZ * 3, mb = MINER_BOX * 3;                     // 그림 x3: 몸통 48px(블록의 3/4) · 충돌 크기는 그대로 (예전 코드 로봇)
     ctx.save();
     ctx.translate(px + ox, py + HH + oy);
     if (P.facing < 0) ctx.scale(-1, 1);
@@ -1215,13 +1240,15 @@ export function drawTitle(vw, vh) {
   // 2.5초마다 다른 로봇으로 (로봇 6종 자랑) — 바뀔 때 살짝 튀어오름
   const ci = Math.floor(now / 2.5) % CHAR_IDS.length, hop = (now % 2.5) < 0.18 ? -6 : 0;
   const keep = S.charId; S.charId = CHAR_IDS[ci];
-  ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 20), y + bob + hop, 120, 120);
+  const tmi = mechImg(-1);
+  if (tmi) ctx.drawImage(tmi, Math.floor(vw / 2 + 4), y + 120 - 142 + bob, 144, 144);   // PixelLab 로봇 2배, 광부 쪽을 봄
+  else ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 20), y + bob + hop, 120, 120);
   S.charId = keep;
-  // 사람 광부: 로봇 옆에서 곡괭이질 (그림 2배, 발을 로봇 궤도 바닥(y 84)에 맞춤)
+  // 사람 광부: 로봇 옆에서 곡괭이질 (그림 2배, 발을 로봇 발 높이에 맞춤)
   if (PLAYER_IMG.body.width >= PSZ) {
     const keepD = P.digging, keepM = P.mode, keepT = S.digPT;
     P.digging = true; P.mode = "side"; S.digPT = PICK_SWING * (1 - ((now / 0.8) % 1));   // 타이틀은 천천히 (0.8초에 한 번)
-    drawHumanAt(Math.floor(vw / 2 - 20 - 60), y + 84, 1, humanPose(), 2);
+    drawHumanAt(Math.floor(vw / 2 - 70), y + (tmi ? 120 : 84), 1, humanPose(), 2);
     P.digging = keepD; P.mode = keepM; S.digPT = keepT;
   }
   y += 120 + 8;
