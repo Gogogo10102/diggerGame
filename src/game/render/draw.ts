@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechFrame, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -202,8 +202,9 @@ export function mechAnim() {
     if (S.thrustOn) return S.thrustT < 0.16 ? ["takeoff", Math.floor(S.thrustT / 0.08)] : ["fly", Math.floor(S.animT * 8)];
     return ["fall", 0];
   }
+  if (P.digging) return S.digHoldT < 0.24 ? ["dig_in", Math.floor(S.digHoldT / 0.06)] : ["dig", Math.floor(S.animT * 12)];
   if (S.landT > 0) return ["land", S.landT > 0.06 ? 0 : 1];
-  if (!P.digging && Math.abs(P.vx) > 20) return ["walk", Math.floor((S.walkD || 0) / (T * 2.4 / 8))];   // 한 바퀴(8칸)에 약 2.4칸
+  if (Math.abs(P.vx) > 20) return ["walk", Math.floor((S.walkD || 0) / (T * 2.4 / 8))];   // 한 바퀴(8칸)에 약 2.4칸
   return ["idle", 0];
 }
 //  테스트·디버그용: [동작 이름, 칸 번호] (곡괭이질은 mine_<방향>)
@@ -625,9 +626,11 @@ export function draw() {
     const [man, mi_] = mechAnim();
     const mi = mechFrame(man, mi_, P.facing);
     if (mi) {
-      // PixelLab 로봇 시트: 발 y 96 · 가운데 x 52. 걷기·점프 그림이 스스로 움직이니 덜덜은 팔 때만. 로켓 불꽃도 그림에 들어 있음
-      const lean = push / 3, lx = P.mode === "side" ? lean * P.facing : 0, ly = P.mode === "down" ? lean : P.mode === "up" ? -lean : 0;
-      const jx = P.digging ? ox : 0, jy = P.digging ? oy : 0;
+      // PixelLab 로봇 시트: 발 y 96 · 가운데 x 52. 걷기·점프·캐기 그림이 스스로 움직이니 덜덜은 팔 때 1px 만. 로켓 불꽃도 그림에 들어 있음
+      //  (캐기 그림이 없는 예전 시트면 서 있기 칸을 파는 쪽으로 들이밀며 덜덜)
+      const hasDig = MECH_IMG.body.width >= MSZ * 27;
+      const lean = hasDig ? 0 : push / 3, lx = P.mode === "side" ? lean * P.facing : 0, ly = P.mode === "down" ? lean : P.mode === "up" ? -lean : 0;
+      const jx = P.digging ? (hasDig ? Math.sign(ox) : ox) : 0, jy = P.digging ? (hasDig ? Math.sign(oy) : oy) : 0;
       ctx.drawImage(mi, Math.round(px - MCX + jx + lx), Math.round(py + HH - MFT + jy + ly));
     }
   }

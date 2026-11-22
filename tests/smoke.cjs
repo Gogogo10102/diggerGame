@@ -1264,6 +1264,12 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(landSeen && t70.ev("mechAnim()[0]") === "idle", "땅에 닿으면 착지 동작 뒤 서 있기");
   t70.ev("keys.ArrowRight = true"); t70.run(10);
   ok(t70.ev("mechAnim()[0]") === "walk", "로봇 걷기");
+  t70.ev("keys.ArrowRight = false"); hroom(); t70.ev("P.items.robot = true; P.mech = true; recalcStats(); P.fuel = maxFuel(); tiles[(SURF + 20) * W + 31] = 3"); t70.run(10);
+  t70.ev("keys.ArrowRight = true");
+  for (let i = 0; i < 60 && !t70.ev("P.digging"); i++) t70.run(1);
+  ok(t70.ev("P.digging") && t70.ev("mechAnim()[0]") === "dig_in", "로봇 캐기 시작: 팔 내지르기부터");
+  t70.run(20);
+  ok(t70.ev("P.digging") && t70.ev("mechAnim()[0]") === "dig", "계속 캐면 톱니바퀴 회전 반복");
   t70.ev("keys.ArrowRight = false; P.mech = false; recalcStats()"); t70.run(10);
   // 저장: mech 기록 · 옛 세이브는 로봇을 탄 채로
   ok(t70.ev("(() => { P.mech = true; const d = snapshot(); P.mech = false; applyAccount(d); return P.mech && P.items.robot; })()"), "로봇 탑승 상태가 저장됨");
