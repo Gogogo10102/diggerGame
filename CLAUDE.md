@@ -128,7 +128,8 @@ docs/                  plan.md decisions.md
   `python3 tools/make-player.py` 가 → `player/body.png`(80x80 칸, 줄 0 오른쪽 · 줄 1 왼쪽, 칸 0 서 있기 · 1~8 걷기, 왼쪽 걷기는 뒤집음) + `mech/body.png`(104x104 칸, 같은 줄 규칙) +
   `player/pick.png`(손에 드는 곡괭이, 손잡이 (16,29)) · `tiles/ladder.png`. 광부 칸은 모자 가운데 x 40 · 발바닥 y 68 (`draw.ts` 의 `PCX`·`PFT`), 로봇 칸은 몸 가운데 x 52 · 발바닥 y 96 (`sprites.ts` 의 `MCX`·`MFT`).
   로봇 동작은 `sprites.ts` 의 `MECH_ANIM` + `draw.ts` 의 `mechAnim()`: 점화(한 번, `S.thrustT` < 0.16초) → 비행(누르는 동안 반복) → 낙하(뗌) → 착지(`S.landT`) → 서 있기 / 걷기(걸은 거리).
-  캐기는 팔 내지르기(`dig_in`, 캔 지 0.24초까지 `S.digHoldT`) → 톱니바퀴 회전(`dig` 반복). 아래·위 캐기도 아직 같은 그림. 로봇은 그림 속 불꽃을 쓰고 코드 불꽃은 안 그림.
+  캐기는 팔 내지르기(`dig_in`, 캔 지 0.24초까지 `S.digHoldT`) → 톱니바퀴 회전(`dig` 반복). 아래·위는 `dig_down*`·`dig_up*`(시트 27~35·36~44칸):
+  원본 `robot_dig_down_se.gif`·`robot_dig_up_se.gif` 가 있으면 9장으로 맞춰 넣고, 없으면 임시 칸. 캐는 동안 파는 쪽으로 몸을 붙이고 ±2px 갈리는 떨림(톱니바퀴가 암석에 닿게). 로봇은 그림 속 불꽃을 쓰고 코드 불꽃은 안 그림.
   칸 고르기는 `sprites.ts` 의 `PLAYER_ANIM`(칸 번호 목록), 손 자리는 `PGRIP`. **점프·사다리·곡괭이질 원본은 아직 없어서** 서 있기/걷기 칸을 빌려 쓰고 곡괭이는 손에 붙여 코드로 돌림(`SWING_POSE`·`humanPose()`).
   새 동작 원본(예: `mine_east.gif`)을 받으면 make-player.py 의 시트에 칸을 더하고 `PLAYER_ANIM` 만 고치면 됨. 걷기 칸은 걸은 거리(`S.walkD`)로 넘김(미끄러져 보이지 않게).
   박자는 `update.ts` 의 `PICK_SWING`(0.4초): 내리찍는 순간에만 소리·부스러기·캐기 진행. 곡괭이 날은 회색이라 단계 색(`PICK_TIER`)으로 칠함.

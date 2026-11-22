@@ -6,12 +6,13 @@
 #     walk_east.gif              오른쪽으로 걷기 (프레임 여러 장, 칸 크기는 달라도 됨)
 #     robot_se.png · robot_sw.png 로봇 서 있기 (오른쪽 · 왼쪽 비스듬히)
 #     robot_walk_se.gif · robot_jump_se.gif · robot_dig_se.gif  로봇 걷기 · 점프(백팩 로켓 점화 → 착지) · 캐기(오른팔 톱니바퀴). 왼쪽은 뒤집어 씀
+#     [있으면] robot_dig_down_se.gif · robot_dig_up_se.gif  아래 · 위 캐기 (9장으로 맞춤. 없으면 임시 칸)
 #     [있으면] <동작>_east.gif    jump · climb · mine 등 — ANIMS 표에 줄을 더하면 시트에 들어감
 #   → public/assets/player/body.png  80x80 칸. 줄 0 = 오른쪽, 줄 1 = 왼쪽(걷기는 좌우 뒤집음)
 #                                     칸 0 서 있기, 칸 1~8 걷기 (sprites.ts 의 PLAYER_ANIM 과 짝)
 #     public/assets/player/pick.png  손에 드는 곡괭이 1장 (자루가 위, 손잡이 (16, 29))
 #     public/assets/player/pack.png  백팩 로켓 1장 (예전 그림용, 지금 광부는 자기 배낭이 있어 안 씀)
-#     public/assets/mech/body.png    104x104 칸. 줄 0 오른쪽 · 줄 1 왼쪽, 칸 0 서 있기 · 1~8 걷기 · 9~17 점프 · 18~26 캐기 (sprites.ts 의 MECH_ANIM 과 짝)
+#     public/assets/mech/body.png    104x104 칸. 줄 0 오른쪽 · 줄 1 왼쪽, 칸 0 서 있기 · 1~8 걷기 · 9~17 점프 · 18~26 옆 캐기 · 27~35 아래 캐기 · 36~44 위 캐기 (sprites.ts 의 MECH_ANIM 과 짝)
 #                                     발바닥 y 96, 몸 가운데 x 52 (sprites.ts 의 MCX · MFT)
 #     public/assets/tiles/ladder.png 사다리 칸
 #   모든 칸은 발바닥 y 68, 모자 가운데 x 40 에 맞춤 (draw.ts 의 PFT · PCX)
@@ -49,6 +50,11 @@ def mech_sheet(src):
     se = frames_of(os.path.join(src, "robot_se.png"))[0]
     sw = frames_of(os.path.join(src, "robot_sw.png"))[0]
     anims = [frames_of(os.path.join(src, n)) for n in ("robot_walk_se.gif", "robot_jump_se.gif", "robot_dig_se.gif")]
+    # 아래·위 캐기: 원본이 있으면 9장으로 맞춰 넣고, 없으면 임시 그림(아래 = 몸 낮춘 점프 칸, 위 = 서 있기)을 9칸 채움 → 칸 번호가 늘 같게
+    for n, fallback in (("robot_dig_down_se.gif", anims[1][1]), ("robot_dig_up_se.gif", se)):
+        p = os.path.join(src, n)
+        fr = frames_of(p) if os.path.exists(p) else [fallback] * 9
+        anims.append([fr[min(len(fr) - 1, round(i * (len(fr) - 1) / 8))] for i in range(9)])
     cols = 1 + sum(len(a) for a in anims)
     out = Image.new("RGBA", (MF * cols, MF * 2))
     def put(img, c, r, ax, ay): out.alpha_composite(img, (c * MF + MCX - ax, r * MF + MFOOT - ay))
