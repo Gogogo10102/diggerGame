@@ -198,7 +198,7 @@ export function humanPose() {
 }
 //  로봇 동작: [이름, 칸 번호] — 점화(한 번) → 비행(반복) → 낙하 → 착지(한 번) → 서 있기 / 걷기
 export function mechAnim() {
-  if (P.digging) {                                                  // 날면서 캘 때도 캐기 그림 (불꽃은 draw 가 코드로 덧그림)
+  if (P.digging && P.grounded) {                                    // 날면서 캘 때는 아직 전용 그림이 없어 비행 그림 그대로 (발 모양이 달라 섞지 않음)
     const k = P.mode === "down" ? "dig_down" : P.mode === "up" ? "dig_up" : "dig";
     return S.digHoldT < 0.24 ? [k + "_in", Math.floor(S.digHoldT / 0.06)] : [k, Math.floor(S.animT * 12)];
   }
@@ -634,7 +634,7 @@ export function draw() {
       //  톱니바퀴가 암석에 닿아 갈리는 느낌: 팔을 다 뻗은 뒤엔 파는 쪽으로 몸을 6px + 진행도만큼 더(최대 +6) 붙이고, 갈리는 반동으로 ±2px 앞뒤로 떨림
       const hasDig = MECH_IMG.body.width >= MSZ * 27;
       let lean = hasDig ? 0 : push / 3;
-      if (hasDig && P.digging && S.dig) {
+      if (hasDig && P.digging && P.grounded && S.dig) {
         const id = tiles[S.dig.r * W + S.dig.c], prog = Math.min(1, S.dig.t / Math.max(0.01, hardOf(id, S.dig.r) / drillMult()));
         const reach = Math.min(1, S.digHoldT / 0.24);                    // 팔을 내지르는 동안 서서히 붙음
         const grind = Math.sin(S.animT * 95) * 2;                          // 톱니에 튕겨 나왔다 다시 붙음
@@ -642,8 +642,6 @@ export function draw() {
       }
       const lx = P.mode === "side" ? lean * P.facing : 0, ly = P.mode === "down" ? lean : P.mode === "up" ? -lean : 0;
       const jx = P.digging ? (hasDig ? Math.sign(ox) : ox) : 0, jy = P.digging ? (hasDig ? Math.sign(oy) : oy) : 0;
-      // 날면서 캐는 중: 캐기 그림엔 불꽃이 없으니 등 아래 분사구에서 코드 불꽃 (로봇 뒤에 그림)
-      if (P.digging && S.thrustOn) drawThrustFlame(Math.round(px - P.facing * 20 + jx + lx), Math.round(py + HH - 26 + jy + ly), 0.8);
       ctx.drawImage(mi, Math.round(px - MCX + jx + lx), Math.round(py + HH - MFT + jy + ly));
     }
   }
