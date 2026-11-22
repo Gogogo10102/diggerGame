@@ -495,6 +495,7 @@ export function update(dt) {
   }
   if (!digging) S.dig = null;
   P.digging = digging;
+  S.digHoldT = digging ? (S.digHoldT || 0) + dt : 0;                // 계속 캔 시간 (로봇 팔 내지르기 → 톱니바퀴 회전)
   P.mode = digging && downDig ? "down" : digging && upDig ? "up" : "side";
 
   // 이동 · 추진 · 드릴 소리: 추진은 켜는 순간 점화음 + 로켓 불꽃 소리, 파는 동안은 드릴 소리가 이어짐

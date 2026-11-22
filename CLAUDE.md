@@ -123,10 +123,12 @@ docs/                  plan.md decisions.md
   **맵 스타일 A(굵은 외곽선 덩어리, 2026-11-20 확정)**: 흙·뒷벽·땅속 광물·풀·풀잎·해·구름은 `tools/mapart.py`(칸당 32px 도트 ×2). 흙은 4x4칸이 이어지는 돌바닥 무늬라 변형 번호 = `(c&3) + (r&3)*4` (draw.ts). 굴 윤곽선은 4px.
   지층 색·광물 색은 `config.ts`, 주괴 색은 `furnace.ts` 에서 읽어 오므로 색을 바꾸면 다시 돌리면 됩니다. 그 뒤 PNG 를 직접 고쳐도 됩니다.
 - **사람 광부 · 로봇 그림 = PixelLab 원본**(`tools/ref/pixellab/`): `east.png`·`west.png`(서 있기 56x56) · `walk_east.gif`(걷기 8장 80x80) · `robot_se.png`·`robot_sw.png`(로봇 72x72)
-  · `robot_walk_se.gif`(로봇 걷기 8장) · `robot_jump_se.gif`(로봇 점프 9장: 웅크림 → 백팩 로켓 점화 → 착지, 불꽃이 그림에 들어 있음).
+  · `robot_walk_se.gif`(로봇 걷기 8장) · `robot_jump_se.gif`(로봇 점프 9장: 웅크림 → 백팩 로켓 점화 → 착지, 불꽃이 그림에 들어 있음)
+  · `robot_dig_se.gif`(로봇 캐기 9장: 오른팔 톱니바퀴를 앞으로 내질러 돌림).
   `python3 tools/make-player.py` 가 → `player/body.png`(80x80 칸, 줄 0 오른쪽 · 줄 1 왼쪽, 칸 0 서 있기 · 1~8 걷기, 왼쪽 걷기는 뒤집음) + `mech/body.png`(104x104 칸, 같은 줄 규칙) +
   `player/pick.png`(손에 드는 곡괭이, 손잡이 (16,29)) · `tiles/ladder.png`. 광부 칸은 모자 가운데 x 40 · 발바닥 y 68 (`draw.ts` 의 `PCX`·`PFT`), 로봇 칸은 몸 가운데 x 52 · 발바닥 y 96 (`sprites.ts` 의 `MCX`·`MFT`).
-  로봇 동작은 `sprites.ts` 의 `MECH_ANIM` + `draw.ts` 의 `mechAnim()`: 점화(한 번, `S.thrustT` < 0.16초) → 비행(누르는 동안 반복) → 낙하(뗌) → 착지(`S.landT`) → 서 있기 / 걷기(걸은 거리). 로봇은 그림 속 불꽃을 쓰고 코드 불꽃은 안 그림.
+  로봇 동작은 `sprites.ts` 의 `MECH_ANIM` + `draw.ts` 의 `mechAnim()`: 점화(한 번, `S.thrustT` < 0.16초) → 비행(누르는 동안 반복) → 낙하(뗌) → 착지(`S.landT`) → 서 있기 / 걷기(걸은 거리).
+  캐기는 팔 내지르기(`dig_in`, 캔 지 0.24초까지 `S.digHoldT`) → 톱니바퀴 회전(`dig` 반복). 아래·위 캐기도 아직 같은 그림. 로봇은 그림 속 불꽃을 쓰고 코드 불꽃은 안 그림.
   칸 고르기는 `sprites.ts` 의 `PLAYER_ANIM`(칸 번호 목록), 손 자리는 `PGRIP`. **점프·사다리·곡괭이질 원본은 아직 없어서** 서 있기/걷기 칸을 빌려 쓰고 곡괭이는 손에 붙여 코드로 돌림(`SWING_POSE`·`humanPose()`).
   새 동작 원본(예: `mine_east.gif`)을 받으면 make-player.py 의 시트에 칸을 더하고 `PLAYER_ANIM` 만 고치면 됨. 걷기 칸은 걸은 거리(`S.walkD`)로 넘김(미끄러져 보이지 않게).
   박자는 `update.ts` 의 `PICK_SWING`(0.4초): 내리찍는 순간에만 소리·부스러기·캐기 진행. 곡괭이 날은 회색이라 단계 색(`PICK_TIER`)으로 칠함.
