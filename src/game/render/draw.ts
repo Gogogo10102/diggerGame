@@ -202,7 +202,10 @@ export function mechAnim() {
     if (S.thrustOn) return S.thrustT < 0.16 ? ["takeoff", Math.floor(S.thrustT / 0.08)] : ["fly", Math.floor(S.animT * 8)];
     return ["fall", 0];
   }
-  if (P.digging) return S.digHoldT < 0.24 ? ["dig_in", Math.floor(S.digHoldT / 0.06)] : ["dig", Math.floor(S.animT * 12)];
+  if (P.digging) {
+    const k = P.mode === "down" ? "dig_down" : P.mode === "up" ? "dig_up" : "dig";
+    return S.digHoldT < 0.24 ? [k + "_in", Math.floor(S.digHoldT / 0.06)] : [k, Math.floor(S.animT * 12)];
+  }
   if (S.landT > 0) return ["land", S.landT > 0.06 ? 0 : 1];
   if (Math.abs(P.vx) > 20) return ["walk", Math.floor((S.walkD || 0) / (T * 2.4 / 8))];   // 한 바퀴(8칸)에 약 2.4칸
   return ["idle", 0];
@@ -628,8 +631,16 @@ export function draw() {
     if (mi) {
       // PixelLab 로봇 시트: 발 y 96 · 가운데 x 52. 걷기·점프·캐기 그림이 스스로 움직이니 덜덜은 팔 때 1px 만. 로켓 불꽃도 그림에 들어 있음
       //  (캐기 그림이 없는 예전 시트면 서 있기 칸을 파는 쪽으로 들이밀며 덜덜)
+      //  톱니바퀴가 암석에 닿아 갈리는 느낌: 팔을 다 뻗은 뒤엔 파는 쪽으로 몸을 6px + 진행도만큼 더(최대 +6) 붙이고, 갈리는 반동으로 ±2px 앞뒤로 떨림
       const hasDig = MECH_IMG.body.width >= MSZ * 27;
-      const lean = hasDig ? 0 : push / 3, lx = P.mode === "side" ? lean * P.facing : 0, ly = P.mode === "down" ? lean : P.mode === "up" ? -lean : 0;
+      let lean = hasDig ? 0 : push / 3;
+      if (hasDig && P.digging && S.dig) {
+        const id = tiles[S.dig.r * W + S.dig.c], prog = Math.min(1, S.dig.t / Math.max(0.01, hardOf(id, S.dig.r) / drillMult()));
+        const reach = Math.min(1, S.digHoldT / 0.24);                    // 팔을 내지르는 동안 서서히 붙음
+        const grind = Math.sin(S.animT * 95) * 2;                          // 톱니에 튕겨 나왔다 다시 붙음
+        lean = (P.mode === "side" ? 6 + prog * 6 : 2 + prog * 4) * reach + grind * reach;
+      }
+      const lx = P.mode === "side" ? lean * P.facing : 0, ly = P.mode === "down" ? lean : P.mode === "up" ? -lean : 0;
       const jx = P.digging ? (hasDig ? Math.sign(ox) : ox) : 0, jy = P.digging ? (hasDig ? Math.sign(oy) : oy) : 0;
       ctx.drawImage(mi, Math.round(px - MCX + jx + lx), Math.round(py + HH - MFT + jy + ly));
     }
