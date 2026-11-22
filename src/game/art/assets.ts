@@ -48,7 +48,7 @@ export function assetTable() {
   t["tiles/gas.png"] = () => gasTile;
   t["tiles/ladder.png"] = () => ladderTile;
   for (const k in PLAYER_IMG) t["player/" + k + ".png"] = () => PLAYER_IMG[k];   // 광부 시트 (몸 · 곡괭이 · 백팩 로켓)
-  for (const k in MECH_IMG) t["mech/" + k + ".png"] = () => MECH_IMG[k];          // 로봇 탈것 (PixelLab 원본)
+  for (const k in MECH_IMG) t["mech/" + k + ".png"] = () => MECH_IMG[k];          // 로봇 탈것 시트 (PixelLab 원본으로 만듦)
   for (const k in MINER_HI) t["miner/" + k + ".png"] = () => MINER_HI[k];
   for (const id in MINER_CH) for (const k in MINER_CH[id]) t["miner/" + id + "/" + k + ".png"] = () => MINER_CH[id][k];   // 다른 캐릭터 부품
   return t;

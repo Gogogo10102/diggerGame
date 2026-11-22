@@ -500,6 +500,7 @@ export function update(dt) {
   // 이동 · 추진 · 드릴 소리: 추진은 켜는 순간 점화음 + 로켓 불꽃 소리, 파는 동안은 드릴 소리가 이어짐
   if (thrusting && !S.thrustOn) sfx("ignite");
   S.thrustOn = !!thrusting;
+  S.thrustT = thrusting ? (S.thrustT || 0) + dt : 0;                 // 점화한 지 얼마나 됐나 (로봇 점화 그림)
   sfxLoop("thrust", !!thrusting, { pitch: P.vy < 0 ? 1.4 : 1 });
   sfxLoop("drill", !!P.digging && P.mech, { hard: !!(S.dig && hardOf(tiles[S.dig.r * W + S.dig.c], S.dig.r) >= 1.2) });
   if (!thrusting && grounded && !digging && Math.abs(P.vx) > 40 * PX) {

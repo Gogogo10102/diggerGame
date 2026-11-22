@@ -1250,6 +1250,21 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t70.ev("P.mech"), "차고 밖에서는 내릴 수 없음");
   t70.ev("P.x = GARAGE[0] * T + T; P.y = SURF * T - HH - 1; P.vx = P.vy = 0"); t70.run(2); t70.key("KeyE"); t70.run(1);
   ok(t70.ev("P.mech") === false, "차고에서 E → 로봇에서 내림");
+  // 로봇 동작 순서: 서 있기 → 점화(한 번) → 비행(반복) → 낙하 → 착지 → 서 있기
+  hroom(); t70.ev("P.items.robot = true; P.mech = true; recalcStats(); P.fuel = maxFuel()"); t70.run(5);
+  ok(t70.ev("mechAnim()[0]") === "idle", "로봇 서 있기");
+  t70.ev("keys.ArrowUp = true"); t70.run(2);
+  ok(t70.ev("mechAnim()[0]") === "takeoff", "↑ 누르면 점화 동작부터");
+  t70.run(20);
+  ok(t70.ev("mechAnim()[0]") === "fly", "누르고 있으면 비행 동작 반복");
+  t70.ev("keys.ArrowUp = false"); t70.run(1);
+  ok(t70.ev("mechAnim()[0]") === "fall", "손을 떼면 불 꺼지고 낙하");
+  let landSeen = false;
+  for (let i = 0; i < 120 && !(t70.ev("P.grounded") && t70.ev("mechAnim()[0]") === "idle"); i++) { t70.run(1); if (t70.ev("mechAnim()[0]") === "land") landSeen = true; }
+  ok(landSeen && t70.ev("mechAnim()[0]") === "idle", "땅에 닿으면 착지 동작 뒤 서 있기");
+  t70.ev("keys.ArrowRight = true"); t70.run(10);
+  ok(t70.ev("mechAnim()[0]") === "walk", "로봇 걷기");
+  t70.ev("keys.ArrowRight = false; P.mech = false; recalcStats()"); t70.run(10);
   // 저장: mech 기록 · 옛 세이브는 로봇을 탄 채로
   ok(t70.ev("(() => { P.mech = true; const d = snapshot(); P.mech = false; applyAccount(d); return P.mech && P.items.robot; })()"), "로봇 탑승 상태가 저장됨");
   ok(t70.ev("(() => { const d = snapshot(); delete d.player.mech; delete d.player.items.robot; applyAccount(d); return P.mech === true && P.items.robot === true; })()"), "옛 세이브(mech 없음)는 로봇을 가진 채 탄 상태");
