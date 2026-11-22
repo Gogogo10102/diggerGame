@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechImg, PSZ } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechFrame, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -196,6 +196,16 @@ export function humanPose() {
   if (sp > 20) return { anim: "walk", i: Math.floor((S.walkD || 0) / (T * 1.1 / 8)), pick: null };
   return { anim: "idle", i: 0, pick: null };
 }
+//  로봇 동작: [이름, 칸 번호] — 점화(한 번) → 비행(반복) → 낙하 → 착지(한 번) → 서 있기 / 걷기
+export function mechAnim() {
+  if (!P.grounded) {
+    if (S.thrustOn) return S.thrustT < 0.16 ? ["takeoff", Math.floor(S.thrustT / 0.08)] : ["fly", Math.floor(S.animT * 8)];
+    return ["fall", 0];
+  }
+  if (S.landT > 0) return ["land", S.landT > 0.06 ? 0 : 1];
+  if (!P.digging && Math.abs(P.vx) > 20) return ["walk", Math.floor((S.walkD || 0) / (T * 2.4 / 8))];   // 한 바퀴(8칸)에 약 2.4칸
+  return ["idle", 0];
+}
 //  테스트·디버그용: [동작 이름, 칸 번호] (곡괭이질은 mine_<방향>)
 export function humanAnim() {
   const ps = humanPose();
@@ -244,8 +254,8 @@ function drawGarage(camX, camY, vw) {
   // 세워 둔 로봇 (샀고, 지금 안 타고 있으면)
   if (P.items.robot && !P.mech) {
     const ms = MINER_SZ * 3, mb = MINER_BOX * 3, cx = gx + gw / 2, by = gy - 10;
-    const mi = mechImg(-1);
-    if (mi) ctx.drawImage(mi, Math.round(cx - 36), by - 71);               // PixelLab 로봇: 마을 쪽(왼쪽)을 보고 서 있음
+    const mi = mechFrame("idle", 0, -1);
+    if (mi) ctx.drawImage(mi, Math.round(cx - MCX), by - MFT);             // PixelLab 로봇: 마을 쪽(왼쪽)을 보고 서 있음
     else {
       ctx.save(); ctx.translate(Math.round(cx), by);
       const bob = Math.round(Math.sin(S.animT * 2) * 1);
@@ -612,15 +622,16 @@ export function draw() {
       const id = tiles[S.dig.r * W + S.dig.c], need = Math.max(0.01, hardOf(id, S.dig.r) / drillMult());
       push = Math.min(1, S.dig.t / need) * 18 + (((S.animT * 18) | 0) % 2) * 4;
     }
-    const mi = mechImg(P.facing);
+    const [man, mi_] = mechAnim();
+    const mi = mechFrame(man, mi_, P.facing);
     if (mi) {
-      // PixelLab 로봇 한 장: 발 = 그림 아래 끝(y 71), 가운데 x 36. 팔 때는 파는 쪽으로 진행도만큼 몸을 들이밀며 덜덜
+      // PixelLab 로봇 시트: 발 y 96 · 가운데 x 52. 걷기·점프 그림이 스스로 움직이니 덜덜은 팔 때만. 로켓 불꽃도 그림에 들어 있음
       const lean = push / 3, lx = P.mode === "side" ? lean * P.facing : 0, ly = P.mode === "down" ? lean : P.mode === "up" ? -lean : 0;
-      ctx.drawImage(mi, Math.round(px - 36 + ox + lx), Math.round(py + HH - 71 + oy + ly));
-      if (S.thrustOn) drawThrustFlame(px, py + HH);
+      const jx = P.digging ? ox : 0, jy = P.digging ? oy : 0;
+      ctx.drawImage(mi, Math.round(px - MCX + jx + lx), Math.round(py + HH - MFT + jy + ly));
     }
   }
-  if (P.dead <= 0 && S.state !== "title" && P.mech && !mechImg(P.facing)) {
+  if (P.dead <= 0 && S.state !== "title" && P.mech && !mechFrame("idle", 0)) {
     const px = Math.round(P.x - camX), py = Math.round(P.y - camY);
     const moving = Math.abs(P.vx) > 20 && P.grounded;
     const leg = moving ? ((S.animT * 10) | 0) % 2 : 0;
@@ -1240,8 +1251,8 @@ export function drawTitle(vw, vh) {
   // 2.5초마다 다른 로봇으로 (로봇 6종 자랑) — 바뀔 때 살짝 튀어오름
   const ci = Math.floor(now / 2.5) % CHAR_IDS.length, hop = (now % 2.5) < 0.18 ? -6 : 0;
   const keep = S.charId; S.charId = CHAR_IDS[ci];
-  const tmi = mechImg(-1);
-  if (tmi) ctx.drawImage(tmi, Math.floor(vw / 2 + 4), y + 120 - 142 + bob, 144, 144);   // PixelLab 로봇 2배, 광부 쪽을 봄
+  const tmi = mechFrame("walk", Math.floor(now * 5), -1);
+  if (tmi) ctx.drawImage(tmi, Math.floor(vw / 2 + 4 - 34), y + 120 - MFT * 2, MSZ * 2, MSZ * 2);   // PixelLab 로봇 2배, 광부 쪽을 보고 제자리걸음
   else ctx.drawImage(getMiner("side", leg, dig), Math.floor(vw / 2 - 20), y + bob + hop, 120, 120);
   S.charId = keep;
   // 사람 광부: 로봇 옆에서 곡괭이질 (그림 2배, 발을 로봇 발 높이에 맞춤)

@@ -672,9 +672,28 @@ export function playerFrame(anim, i, facing = 1) {
   if (!im) { im = sprite(PSZ, PSZ, (p, g) => g.drawImage(src, c * PSZ, r * PSZ, PSZ, PSZ, 0, 0, PSZ, PSZ)); PLAYER_CACHE.set(key, im); }
   return im;
 }
-//  로봇(탈것) 그림: PixelLab 원본 72x72 (오른쪽·왼쪽 비스듬히). 없으면 null → 예전 코드 로봇
-export const MECH_IMG = { east: sprite(1, 1, () => {}), west: sprite(1, 1, () => {}) };
-export const mechImg = (facing) => { const im = facing < 0 ? MECH_IMG.west : MECH_IMG.east; return im.width > 8 ? im : null; };
+//  로봇(탈것) 시트 mech/body.png (make-player.py 가 PixelLab 원본으로 만듦): 104x104 칸, 줄 0 오른쪽 · 줄 1 왼쪽
+//   칸 0 서 있기 · 1~8 걷기 · 9~17 점프(9~11 웅크림 · 12 점화 · 13~14 로켓 상승 · 15~16 착지 분사 · 17 착지 끝). 불꽃은 그림에 들어 있음
+export const MSZ = 104, MCX = 52, MFT = 96;                          // 칸 크기 · 몸 가운데 x · 발바닥 y
+export const MECH_ANIM = {
+  idle: [0],
+  walk: [1, 2, 3, 4, 5, 6, 7, 8],
+  takeoff: [11, 12],                                                // 점화 순간 (한 번)
+  fly: [13, 14],                                                    // 누르고 있는 동안 (반복)
+  fall: [17],                                                       // 불 꺼지고 떨어지는 중
+  land: [16, 9],                                                    // 착지: 발밑 분사 → 무릎 굽힘
+};
+export const MECH_IMG = { body: sprite(1, 1, () => {}) };
+//  로봇 칸 하나. 시트가 없으면 null → 예전 코드 로봇
+export function mechFrame(anim, i, facing = 1) {
+  const src = MECH_IMG.body;
+  if (src.width < MSZ) return null;
+  const f = MECH_ANIM[anim] || MECH_ANIM.idle, c = f[((i % f.length) + f.length) % f.length], r = facing < 0 ? 1 : 0;
+  const key = "m" + c + "," + r;
+  let im = PLAYER_CACHE.get(key);
+  if (!im) { im = sprite(MSZ, MSZ, (p, g) => g.drawImage(src, c * MSZ, r * MSZ, MSZ, MSZ, 0, 0, MSZ, MSZ)); PLAYER_CACHE.set(key, im); }
+  return im;
+}
 //  곡괭이 (tier 0 = 기본 녹슨 쇠, 1~ = PICK_TIER 색). 시트가 없으면 null
 export function pickImg(tier = 0) {
   const src = PLAYER_IMG.pick;

@@ -4,13 +4,15 @@
 #   원본 폴더에 있어야 하는 것 (모두 배경 투명, 같은 배율):
 #     east.png · west.png        서 있는 광부 (오른쪽 · 왼쪽)
 #     walk_east.gif              오른쪽으로 걷기 (프레임 여러 장, 칸 크기는 달라도 됨)
-#     robot_se.png · robot_sw.png 로봇 (오른쪽 · 왼쪽 비스듬히)
+#     robot_se.png · robot_sw.png 로봇 서 있기 (오른쪽 · 왼쪽 비스듬히)
+#     robot_walk_se.gif · robot_jump_se.gif  로봇 걷기 · 점프(백팩 로켓 점화 → 착지). 왼쪽은 뒤집어 씀
 #     [있으면] <동작>_east.gif    jump · climb · mine 등 — ANIMS 표에 줄을 더하면 시트에 들어감
 #   → public/assets/player/body.png  80x80 칸. 줄 0 = 오른쪽, 줄 1 = 왼쪽(걷기는 좌우 뒤집음)
 #                                     칸 0 서 있기, 칸 1~8 걷기 (sprites.ts 의 PLAYER_ANIM 과 짝)
 #     public/assets/player/pick.png  손에 드는 곡괭이 1장 (자루가 위, 손잡이 (16, 29))
 #     public/assets/player/pack.png  백팩 로켓 1장 (예전 그림용, 지금 광부는 자기 배낭이 있어 안 씀)
-#     public/assets/mech/east.png · west.png  로봇 (원본 그대로)
+#     public/assets/mech/body.png    104x104 칸. 줄 0 오른쪽 · 줄 1 왼쪽, 칸 0 서 있기 · 1~ 걷기 · 그 뒤 점프 (sprites.ts 의 MECH_ANIM 과 짝)
+#                                     발바닥 y 96, 몸 가운데 x 52 (sprites.ts 의 MCX · MFT)
 #     public/assets/tiles/ladder.png 사다리 칸
 #   모든 칸은 발바닥 y 68, 모자 가운데 x 40 에 맞춤 (draw.ts 의 PFT · PCX)
 import os, sys, shutil
@@ -34,6 +36,30 @@ def anchor(img):
     top = ys.min(); band = a[top:top + max(4, (ys.max() - top) // 4)]
     by, bx = np.nonzero(band)
     return int(round(bx.mean())), ys.max() + 1
+
+# 로봇 시트: 몸통(위 45%) 가운데 · 발바닥으로 맞춤. GIF 는 첫 장 기준 한 번만 맞춰 원본의 들썩임을 살림
+MF, MFOOT, MCX = 104, 96, 52
+def anchor_mech(img):
+    a = np.array(img)[..., 3] > 0
+    ys, xs = np.nonzero(a)
+    top = ys.min(); band = a[top:top + int((ys.max() - top) * 0.45)]
+    by, bx = np.nonzero(band)
+    return int(round(bx.mean())), ys.max() + 1
+def mech_sheet(src):
+    se = frames_of(os.path.join(src, "robot_se.png"))[0]
+    sw = frames_of(os.path.join(src, "robot_sw.png"))[0]
+    anims = [frames_of(os.path.join(src, n)) for n in ("robot_walk_se.gif", "robot_jump_se.gif")]
+    cols = 1 + sum(len(a) for a in anims)
+    out = Image.new("RGBA", (MF * cols, MF * 2))
+    def put(img, c, r, ax, ay): out.alpha_composite(img, (c * MF + MCX - ax, r * MF + MFOOT - ay))
+    ax, ay = anchor_mech(se); put(se, 0, 0, ax, ay)
+    ax, ay = anchor_mech(sw); put(sw, 0, 1, ax, ay)
+    c = 1
+    for fr in anims:
+        ax, ay = anchor_mech(fr[0])
+        for f in fr:
+            put(f, c, 0, ax, ay); put(ImageOps.mirror(f), c, 1, f.width - 1 - ax, ay); c += 1
+    return out
 
 def body_sheet(src):
     east = frames_of(os.path.join(src, "east.png"))[0]
@@ -102,7 +128,6 @@ if __name__ == "__main__":
     pick().save(os.path.join(OUT, "pick.png"))
     pack().save(os.path.join(OUT, "pack.png"))
     os.makedirs(os.path.join(ROOT, "public/assets/mech"), exist_ok=True)
-    for a, b in (("robot_se.png", "east.png"), ("robot_sw.png", "west.png")):
-        frames_of(os.path.join(src, a))[0].save(os.path.join(ROOT, "public/assets/mech", b))
+    mech_sheet(src).save(os.path.join(ROOT, "public/assets/mech/body.png"))
     Image.fromarray(ladder_tile(), "RGBA").save(os.path.join(ROOT, "public/assets/tiles/ladder.png"))
-    print("player: body (80칸, 줄 0 오른쪽 · 1 왼쪽) · pick · pack · mech east/west · ladder")
+    print("player: body (80칸, 줄 0 오른쪽 · 1 왼쪽) · pick · pack · mech body (104칸) · ladder")
