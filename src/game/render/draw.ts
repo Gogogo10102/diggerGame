@@ -198,13 +198,13 @@ export function humanPose() {
 }
 //  로봇 동작: [이름, 칸 번호] — 점화(한 번) → 비행(반복) → 낙하 → 착지(한 번) → 서 있기 / 걷기
 export function mechAnim() {
+  if (P.digging) {                                                  // 날면서 캘 때도 캐기 그림 (불꽃은 draw 가 코드로 덧그림)
+    const k = P.mode === "down" ? "dig_down" : P.mode === "up" ? "dig_up" : "dig";
+    return S.digHoldT < 0.24 ? [k + "_in", Math.floor(S.digHoldT / 0.06)] : [k, Math.floor(S.animT * 12)];
+  }
   if (!P.grounded) {
     if (S.thrustOn) return S.thrustT < 0.16 ? ["takeoff", Math.floor(S.thrustT / 0.08)] : ["fly", Math.floor(S.animT * 8)];
     return ["fall", 0];
-  }
-  if (P.digging) {
-    const k = P.mode === "down" ? "dig_down" : P.mode === "up" ? "dig_up" : "dig";
-    return S.digHoldT < 0.24 ? [k + "_in", Math.floor(S.digHoldT / 0.06)] : [k, Math.floor(S.animT * 12)];
   }
   if (S.landT > 0) return ["land", S.landT > 0.06 ? 0 : 1];
   if (Math.abs(P.vx) > 20) return ["walk", Math.floor((S.walkD || 0) / (T * 2.4 / 8))];   // 한 바퀴(8칸)에 약 2.4칸
@@ -642,6 +642,8 @@ export function draw() {
       }
       const lx = P.mode === "side" ? lean * P.facing : 0, ly = P.mode === "down" ? lean : P.mode === "up" ? -lean : 0;
       const jx = P.digging ? (hasDig ? Math.sign(ox) : ox) : 0, jy = P.digging ? (hasDig ? Math.sign(oy) : oy) : 0;
+      // 날면서 캐는 중: 캐기 그림엔 불꽃이 없으니 등 아래 분사구에서 코드 불꽃 (로봇 뒤에 그림)
+      if (P.digging && S.thrustOn) drawThrustFlame(Math.round(px - P.facing * 20 + jx + lx), Math.round(py + HH - 26 + jy + ly), 0.8);
       ctx.drawImage(mi, Math.round(px - MCX + jx + lx), Math.round(py + HH - MFT + jy + ly));
     }
   }

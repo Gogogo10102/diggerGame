@@ -1275,6 +1275,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t70.ev("P.digging") && t70.ev("mechAnim()[0]") === "dig", "계속 캐면 톱니바퀴 회전 반복");
   ok(t70.ev("(() => { const m = P.mode, h = S.digHoldT; P.mode = 'down'; S.digHoldT = 0.1; const a = mechAnim()[0]; S.digHoldT = 1; const b = mechAnim()[0]; P.mode = 'up'; const c = mechAnim()[0]; P.mode = m; S.digHoldT = h; return a === 'dig_down_in' && b === 'dig_down' && c === 'dig_up'; })()"), "아래·위 캐기는 따로 (dig_down · dig_up)");
   ok(t70.ev("MECH_ANIM.dig_up[3] === 44"), "로봇 시트 칸 번호: 위 캐기 끝 = 44");
+  ok(t70.ev("(() => { const g = P.grounded, d = P.digging, m = P.mode; P.grounded = false; P.digging = true; P.mode = 'side'; const a = mechAnim()[0]; P.grounded = g; P.digging = d; P.mode = m; return a.startsWith('dig'); })()"), "날면서 캘 때도 캐기 동작");
   t70.ev("keys.ArrowRight = false; P.mech = false; recalcStats()"); t70.run(10);
   // 저장: mech 기록 · 옛 세이브는 로봇을 탄 채로
   ok(t70.ev("(() => { P.mech = true; const d = snapshot(); P.mech = false; applyAccount(d); return P.mech && P.items.robot; })()"), "로봇 탑승 상태가 저장됨");
