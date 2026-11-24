@@ -5,9 +5,10 @@
 #     바뀐 진한 색 픽셀에서 구리 색 단계를 뽑음. 다른 광물은 config.ts 의 ORE_COL [밝은·기본·어두운] 으로 같은 단계를 만듦.
 #     ref/pixellab/ores/<id>_ref.png (같은 흙 칸에 인페인팅한 결과)가 있으면 그 광물은 거기서 색을 뽑음.
 #   - 알갱이: 3칸 ㄱ자 / 2x2 / 2x2+1칸, 왼위 한 점 하이라이트 · 오른아래 어둡게 · 아래 그림자 한 칸(박힌 느낌)
-#   - 놓기: 칸을 3x3 자리로 나눠 7~8개를 한 자리에 하나씩(흔들어 불규칙하게), 테두리에서 4px 안쪽, 알갱이끼리 1px 이상 띄움
+#   - 놓기: 칸을 3x3 자리로 나눠 자리 가운데에 하나씩(±1px 흔들기, 네 귀퉁이는 늘 채움 → 전체가 네모꼴),
+#     금속 6~7개 · 보석 7~8개, 테두리에서 4px 안쪽, 알갱이끼리 1px 이상 띄움
 #   - 반짝이는 광물(SPARK_ORES)용 반짝임 자리(알갱이 하이라이트)를 출력 → sprites.ts 의 ORE_FLECK_SPARK 에 붙여 넣기
-#   - 보석(다이아·에메랄드·루비, GEMS)은 <id>_ref.png(같은 흙 칸에 인페인팅)가 있을 때만: 그 색으로 작은 결정(2~4칸)을 9~10개.
+#   - 보석(다이아·에메랄드·루비, GEMS)은 <id>_ref.png(같은 흙 칸에 인페인팅)가 있을 때만: 그 색으로 작은 결정(2~4칸)을 7~8개.
 #     없으면 건너뜀(예전 그림 유지)
 import os, re, sys, json, colorsys
 import numpy as np
@@ -18,8 +19,9 @@ REF = os.path.join(ROOT, "tools/ref/pixellab/ores")
 OUT = os.path.join(ROOT, "public/assets/ores/world")
 GEMS = {5, 9, 10}                      # 다이아 · 에메랄드 · 루비
 SHADOW = (82, 46, 22)                  # 알갱이 아래 그림자 (흙 틈)
-COUNT, CELLS, MARGIN = (7, 9), 3, 4    # 개수(7~8) · 3x3 자리 · 테두리 여백(원본 px)
-GEM_COUNT, GEM_CELLS = (9, 11), 4      # 보석: 더 작은 결정을 더 많이(9~10개, 4x4 자리)
+COUNT, CELLS, MARGIN = (6, 8), 3, 4    # 개수(6~7) · 3x3 자리 · 테두리 여백(원본 px)
+GEM_COUNT, GEM_CELLS = (7, 9), 3       # 보석: 결정이 작아서 조금 더 많이(7~8개)
+JITTER = 1.2                           # 자리 가운데에서 흔드는 폭(px). 작을수록 네모 격자에 가깝게
 # ORE_COL 대신 쓸 색 [밝은·기본·어두운]: 철은 ORE_COL(밝은 회색)대로면 은과 똑같아 보여서 따뜻하고 어두운 쇳빛으로
 COL_OVERRIDE = {3: [(222, 208, 196), (164, 144, 132), (104, 86, 78)]}
 
@@ -70,15 +72,19 @@ def fleck_tile(pal, seed, M=MARGIN, gem=False):
     cells = GEM_CELLS if gem else CELLS
     n = int(rng.integers(*(GEM_COUNT if gem else COUNT)))
     cw = (32 - 2 * M) / cells
-    slots = [(cx, cy) for cy in range(cells) for cx in range(cells)]
-    rng.shuffle(slots)
+    # 네 귀퉁이는 늘 채워서 전체가 네모꼴로 보이게, 나머지 자리에서 골라 빈 곳을 만듦
+    corners = [(0, 0), (cells - 1, 0), (0, cells - 1), (cells - 1, cells - 1)]
+    rest = [(cx, cy) for cy in range(cells) for cx in range(cells) if (cx, cy) not in corners]
+    rng.shuffle(rest)
+    slots = corners + rest
     hi = []
     for cx, cy in slots:
         if len(hi) >= n: break
         pts = gem_blob(rng) if gem else blob(rng, int(rng.integers(3, 6)))
         w = max(p[0] for p in pts) + 1; h = max(p[1] for p in pts) + 1
-        for _ in range(20):
-            x0 = int(M + cx * cw + rng.uniform(0, cw - w - 1)); y0 = int(M + cy * cw + rng.uniform(0, cw - h - 1))
+        for _ in range(20):                                         # 자리 가운데 + 살짝 흔들기
+            x0 = int(round(M + (cx + 0.5) * cw - w / 2 + rng.uniform(-JITTER, JITTER)))
+            y0 = int(round(M + (cy + 0.5) * cw - h / 2 + rng.uniform(-JITTER, JITTER)))
             area = taken[max(0, y0 - 1):y0 + h + 2, max(0, x0 - 1):x0 + w + 2]   # 1px 띄움(그림자 자리 포함)
             if x0 + w + 1 <= 32 - M and y0 + h + 1 <= 32 - M and not area.any(): break
         else: continue
