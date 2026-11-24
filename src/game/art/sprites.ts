@@ -672,9 +672,16 @@ export const PLAYER_ANIM = {
 };
 export const PLAYER_MINE_CELLS = 18;                                  // 시트에 옆 곡괭이질 칸까지 있으면 칸 수가 이만큼 (없으면 예전처럼 코드로 휘두름)
 export const PLAYER_MINE_DOWN_CELLS = 27;                             // 아래 곡괭이질 칸까지
+//  백팩 로켓 착장 시트 player/rocket.png (make-player.py): body.png 와 같은 칸 배치(로켓 통을 덧붙임) + 칸 27~35 로켓 날기 (PixelLab rocket_fly_east.gif)
+//   날기 원본 9장: 0~3 발을 떼며 떠오름(점화 직후 한 번) · 4~8 떠 있기(반복)
+PLAYER_ANIM.rfly_in = { f: [27, 28, 29, 30], fps: 0 };
+PLAYER_ANIM.rfly = { f: [31, 32, 33, 34, 35], fps: 0 };
+export const ROCKET_CELLS = 36;
+//  칸마다 로켓 통 분사구 자리(칸 안 좌표, 오른쪽을 볼 때. 왼쪽은 x → 80 - x). make-player.py 가 출력한 값
+export const ROCKET_NOZZLE = [[26,60],[25,60],[25,59],[25,58],[25,59],[25,60],[24,59],[24,58],[25,58],[25,60],[26,60],[26,60],[25,60],[25,60],[25,60],[25,60],[25,60],[25,60],[25,60],[25,56],[26,51],[26,61],[27,61],[24,60],[25,60],[26,52],[26,62],[26,60],[26,60],[26,59],[26,59],[26,60],[26,61],[26,60],[26,61],[26,60]];
 //  칸 안의 손(곡괭이 손잡이) 자리 — 오른쪽을 볼 때. 왼쪽은 draw.ts 가 좌우로 뒤집어 씀
 export const PGRIP = { raise: [42, 46], crouch: [51, 50], back: [30, 50] };
-export const PLAYER_IMG = { body: sprite(1, 1, () => {}), pick: sprite(1, 1, () => {}), pack: sprite(1, 1, () => {}) };
+export const PLAYER_IMG = { body: sprite(1, 1, () => {}), pick: sprite(1, 1, () => {}), pack: sprite(1, 1, () => {}), rocket: sprite(1, 1, () => {}), flame: sprite(1, 1, () => {}) };   // rocket = 로켓 착장 시트, flame = 로봇 점화 불꽃 3칸(40x48, 분사구 (20, 2))
 const PLAYER_CACHE = new Map();
 // 회색 칸만 단계 색으로 (곡괭이 자루 나무색은 그대로)
 function tintGrayOnly(src, ramp) {
@@ -699,12 +706,14 @@ const PLAYER_FALLBACK = sprite(32, 32, (p) => {
   p(13, 23, 3, 5, "#24202e"); p(17, 23, 3, 5, "#24202e"); p(12, 28, 4, 2, "#14151f"); p(17, 28, 4, 2, "#14151f");
 });
 //  몸 칸 하나 (anim 의 i 번째, facing 1 오른쪽 · -1 왼쪽). 시트가 없으면 대체 그림
-export function playerFrame(anim, i, facing = 1) {
-  const src = PLAYER_IMG.body;
+//  sheet: "body" 기본 착장 · "rocket" 백팩 로켓 착장 (칸 배치 같음 + 날기 칸)
+export const playerCell = (anim, i) => { const A = PLAYER_ANIM[anim] || PLAYER_ANIM.idle, n = A.f.length; return A.f[((i % n) + n) % n]; };
+export function playerFrame(anim, i, facing = 1, sheet = "body") {
+  const src = PLAYER_IMG[sheet] || PLAYER_IMG.body;
   if (src.width < PSZ) return PLAYER_FALLBACK;
-  const A = PLAYER_ANIM[anim] || PLAYER_ANIM.idle, n = A.f.length, c = A.f[((i % n) + n) % n];
+  const c = playerCell(anim, i);
   const r = facing < 0 && src.height >= PSZ * 2 ? 1 : 0;
-  const key = "b" + c + "," + r;
+  const key = sheet[0] + c + "," + r;
   let im = PLAYER_CACHE.get(key);
   if (!im) { im = sprite(PSZ, PSZ, (p, g) => g.drawImage(src, c * PSZ, r * PSZ, PSZ, PSZ, 0, 0, PSZ, PSZ)); PLAYER_CACHE.set(key, im); }
   return im;

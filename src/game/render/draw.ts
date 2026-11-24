@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PLAYER_MINE_CELLS, PLAYER_MINE_DOWN_CELLS, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PLAYER_MINE_CELLS, PLAYER_MINE_DOWN_CELLS, ROCKET_CELLS, ROCKET_NOZZLE, playerCell, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -109,6 +109,7 @@ export function humanPose() {
     return { anim: k > 0.5 ? W0[0] : W1[0], i: 0, pick: { g: [ga[0] + (gb[0] - ga[0]) * k, ga[1] + (gb[1] - ga[1]) * k], ang, front: ang >= 0 } };
   }
   if (!P.grounded) {
+    if (S.thrustOn && rocketLook()) return S.thrustT < 0.3 ? { anim: "rfly_in", i: Math.floor(S.thrustT / 0.075), pick: null } : { anim: "rfly", i: Math.floor(S.animT * 10), pick: null };
     if (S.thrustOn) return { anim: "fly", i: 0, pick: null };
     return { anim: "jump", i: P.vy < -120 * PX ? 0 : P.vy < 60 * PX ? 1 : 2, pick: null };
   }
@@ -140,8 +141,11 @@ export function humanAnim() {
 const MINE_REACH = 26;                                               // 곡괭이질 그림에서 내리찍을 때 곡괭이 끝이 몸 가운데보다 앞선 거리(px, make-player 시트 칸 13~15)
 export const PCX = 40, PFT = 68;                                     // 칸 안의 모자 가운데 x · 발바닥 y (make-player.py 와 짝)
 //  (fx, fy) = 발밑 가운데 화면 자리, k = 배율(정수). 몸은 시트의 왼쪽/오른쪽 줄을 그대로, 곡괭이만 좌우로 뒤집어 그림
+//  백팩 로켓을 샀고 로켓 착장 시트가 있으면 그 시트로 그림 (모든 동작 + 날기)
+export const rocketLook = () => STAT.rocket > 0 && PLAYER_IMG.rocket.width >= PSZ * ROCKET_CELLS;
 function drawHumanAt(fx, fy, facing, ps, k = 1, pack = false) {
-  const body = playerFrame(ps.anim, ps.i, facing);
+  const sheet = pack && rocketLook() ? "rocket" : "body";
+  const body = playerFrame(ps.anim, ps.i, facing, sheet);
   ctx.save();
   ctx.translate(fx, fy);
   if (k !== 1) ctx.scale(k, k);
@@ -157,6 +161,13 @@ function drawHumanAt(fx, fy, facing, ps, k = 1, pack = false) {
     ctx.restore();
   };
   if (pack && PLAYER_IMG.pack.width > 8 && body.width >= PSZ && !PLAYER_HAS_PACK) ctx.drawImage(PLAYER_IMG.pack, (facing < 0 ? 44 : 16) - PCX, 38 - PFT);
+  if (sheet === "rocket" && S.thrustOn && PLAYER_IMG.flame.width >= 120) {       // 로봇 점화 불꽃(PixelLab)을 로켓 통 분사구에 붙임: 점화 직후 작은 불 → 분사 둘을 번갈아
+    const [nx, ny] = ROCKET_NOZZLE[playerCell(ps.anim, ps.i)] || ROCKET_NOZZLE[0];
+    const fi = S.thrustT < 0.1 ? 0 : 1 + (Math.floor(S.animT * 14) & 1);
+    ctx.save(); ctx.translate(facing * (nx - PCX), ny - PFT); if (facing < 0) ctx.scale(-1, 1);
+    ctx.drawImage(PLAYER_IMG.flame, fi * 40, 0, 40, 48, -20, -2, 40, 48);
+    ctx.restore();
+  }
   if (pk && !ps.pick.front) drawPick();
   ctx.drawImage(body, -PCX, -PFT);
   if (pk && ps.pick.front) drawPick();
@@ -165,7 +176,7 @@ function drawHumanAt(fx, fy, facing, ps, k = 1, pack = false) {
 const PLAYER_HAS_PACK = true;                                        // 지금 광부 그림은 배낭을 메고 있음 → 백팩 로켓 그림은 겹쳐 그리지 않음
 function drawHuman(px, py) {
   const ps = humanPose();
-  if (S.thrustOn) drawThrustFlame(px - P.facing * 11, py + HH - 12, 0.55);   // 배낭 아래에서 불꽃
+  if (S.thrustOn && !rocketLook()) drawThrustFlame(px - P.facing * 11, py + HH - 12, 0.55);   // 배낭 아래에서 불꽃 (로켓 착장 시트가 있으면 그림 불꽃을 씀 → drawHumanAt)
   const hit = S.pickHitT > 0 ? 1 : 0;                                // 내리찍는 순간 몸이 1px 눌림
   // 옆 곡괭이질 그림: 곡괭이 끝(몸 가운데에서 MINE_REACH px 앞)이 블록 면에 4px 박히도록 몸을 블록 쪽으로 붙임
   let lean = 0;

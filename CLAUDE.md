@@ -149,6 +149,10 @@ docs/                  plan.md decisions.md
   칸 고르기는 `sprites.ts` 의 `PLAYER_ANIM`(칸 번호 목록), 손 자리는 `PGRIP`. **옆 곡괭이질은 PixelLab 원본** `mine_east.gif`(9장 → 시트 칸 9~17, 몸에서 떨어진 효과 조각은 지움):
   한 번 휘두를 동안(0.4초) 내리찍는 장부터 한 바퀴(`PLAYER_ANIM.mine`), 곡괭이 끝(몸 가운데 +26px, `MINE_REACH`)이 블록 면에 닿게 몸을 붙임. 이 그림의 곡괭이는 단계 색을 칠하지 않음(옷과 색이 겹쳐서).
   **아래 곡괭이질** `mine_down_east.gif`(9장 → 칸 18~26, 원본은 꺼내기 + 두 번 내리찍기): 한 번 치는 바퀴(원본 3~7장)만 0.4초에 돌림(`PLAYER_ANIM.mine_down`).
+  **백팩 로켓 착장**(로켓을 사면, `rocketLook()`): `player/rocket.png` = body.png 와 같은 칸(서 있기는 원본 `rocket_rot8.gif` 의 east 장, 나머지는 기본 동작에
+  원본의 로켓 통을 배낭 왼쪽 끝·모자 꼭대기에 맞춰 덧붙임) + 칸 27~35 로켓 날기(`rocket_fly_east.gif`, 떠오르는 만큼은 지우고 모자 높이 고정).
+  날기: 점화 0.3초 `rfly_in`(27~30) → `rfly`(31~35 반복). 불꽃 = 로봇 점화 장면(`robot_jump_se.gif` 4~6장)에서 잘라 낸 `player/flame.png` 3칸을
+  칸마다 로켓 통 분사구(`ROCKET_NOZZLE`, make-player.py 가 출력)에 붙임(코드 불꽃은 로켓 착장 시트가 없을 때만).
   **점프·사다리·위 곡괭이질 원본은 아직 없어서** 서 있기/걷기 칸을 빌려 쓰고 곡괭이는 손에 붙여 코드로 돌림(`SWING_POSE`·`humanPose()`).
   새 동작 원본(예: `mine_east.gif`)을 받으면 make-player.py 의 시트에 칸을 더하고 `PLAYER_ANIM` 만 고치면 됨. 걷기 칸은 걸은 거리(`S.walkD`)로 넘김(미끄러져 보이지 않게).
   박자는 `update.ts` 의 `PICK_SWING`(0.4초): 내리찍는 순간에만 소리·부스러기·캐기 진행. 곡괭이 날은 회색이라 단계 색(`PICK_TIER`)으로 칠함.
