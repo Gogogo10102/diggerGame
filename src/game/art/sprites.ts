@@ -70,6 +70,8 @@ export const caveBack = LAYERS.map((L, li) => [0, 1, 2, 3].map((v) => sprite(16,
 export const caveTop = LAYERS.map(() => [0, 1, 2].map(() => sprite(1, 1, () => {})));
 // 굴 가장자리 = PixelLab Wang 시트 통째(지층마다, tiles/wang/<지층>.png, 320x256). 파일이 없으면 1x1 → 가장자리 없이 네모 칸
 export const wangTiles = LAYERS.map(() => sprite(1, 1, () => {}));
+// 단단한 블록(돌 12 · 경암 16 · 암반 7)의 가장자리 시트 (tiles/wang/stone|hard|bedrock.png)
+export const wangBlock = { 12: sprite(1, 1, () => {}), 16: sprite(1, 1, () => {}), 7: sprite(1, 1, () => {}) };
 export const caveBot = [0, 1, 2, 3, 4, 5, 6].map(() => sprite(1, 1, () => {}));
 // 지층마다 나오는 바닥 장식 (0 빛버섯 · 1 빨간 버섯 · 2 수정 · 3 돌무더기 · 4 용암 웅덩이 · 5 뼈 무더기 · 6 보라 수정, -1 = 없음)
 //  바닥 장식은 새 그림체와 안 맞아 전부 뺌(2026-11-25, 동굴엔 천장 고드름 돌만). 그림 파일·자리는 남겨 둠(다시 쓸 때 번호만 넣으면 됨)

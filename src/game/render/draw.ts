@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -46,8 +46,8 @@ const WANG_AT = (() => {
   return m;
 })();
 // solid: 이 칸이 흙인지. 흙 칸은 사방이 다 흙이면 안 그림(그냥 블록). 빈칸은 이웃 흙의 윗단이 살짝 넘어오는 1~2px 만 그림
-export function wangEdge(c, r, px, py, solid) {
-  const img = wangTiles[layerOf(r - SURF)];
+export function wangEdge(c, r, px, py, solid, sheet = null) {
+  const img = sheet || wangTiles[layerOf(r - SURF)];             // 단단한 블록은 제 시트(wangBlock)
   if (img.width < 2) return;
   const s = (cc, rr) => (cc === c && rr === r ? solid : !seenAir(cc, rr));
   if (solid && !seenAir(c, r - 1) && !seenAir(c, r + 1) && !seenAir(c - 1, r) && !seenAir(c + 1, r) &&
@@ -255,9 +255,10 @@ export function draw() {
 
   // 타일
   const drawSolid = (id, c, r, px, py, edge = false) => {
-    if (id === 7) ctx.drawImage(bedrock, px, py, T, T);
-    else if (id === 12) ctx.drawImage(stoneTiles[(c * 7 + r * 13) & 1], px, py, T, T);
-    else if (id === 16) ctx.drawImage(hardTiles[(c * 7 + r * 13) & 1], px, py, T, T);
+    if (id === 7 || id === 12 || id === 16) {                     // 단단한 블록: 제 타일셋(PixelLab) 그림 + 빈칸 쪽은 제 가장자리 무늬
+      ctx.drawImage(id === 7 ? bedrock : (id === 12 ? stoneTiles : hardTiles)[(c * 7 + r * 13) & 1], px, py, T, T);
+      if (edge) wangEdge(c, r, px, py, true, wangBlock[id]);
+    }
     else if (id === 13 && r === SURF && BUILD_COLS.some((b) => c >= b[0] && c <= b[1])) ctx.drawImage(plinthTop, px, py, T, T);   // 건물 바로 아래 한 줄만 돌 기단 (그 아래는 흙처럼)
     else {                                                         // 건물 사이 마을 땅(13)은 잔디 흙처럼 보이게
       const Ld = layerOf(r - SURF);
@@ -341,7 +342,7 @@ export function draw() {
         drawSolid(id, c, r, px, py - off);
         ctx.restore();
         ctx.fillStyle = "rgba(0,0,0," + (0.35 * (1 - k)).toFixed(2) + ")"; ctx.fillRect(px, py, T, T);
-      } else drawSolid(id, c, r, px, py, r > SURF);                 // 굴 가장자리: 블록 모양은 그대로, 빈칸 쪽 면만 타일셋 가장자리 무늬 (단단한 돌·기반암은 예전 그림, 네모 그대로)
+      } else drawSolid(id, c, r, px, py, r > SURF);                 // 굴 가장자리: 블록 모양은 그대로, 빈칸 쪽 면만 타일셋 가장자리 무늬 (단단한 블록은 제 시트)
     }
   }
   // 지표 굴 가장자리: 잔디가 옆면을 감싸고 굴 쪽으로 살짝 늘어져서 끊기지 않고 이어져 보이게

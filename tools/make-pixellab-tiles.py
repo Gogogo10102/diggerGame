@@ -11,6 +11,7 @@
 #     tiles/wang/<지층>.png          Wang 시트 통째로 2배(320x256) → 굴 가장자리(풀·윗단·테두리)를 시트 그대로 그림 (draw.ts 의 wangEdge)
 #       칸 배치(네 모서리 왼위·오른위·왼아래·오른아래, 1 = 흙)는 PixelLab 내보내기 고정 배치 = WANG_LAYOUT (draw.ts 의 WANG_AT 과 같음)
 #   원본이 없는 지층은 흙(0번)을 그 지층 색으로 바꿔 씀 (config.ts 의 LAYERS 색)
+#   단단한 블록(block_stone/hard/bedrock.png) → tiles/stone_0·1 · hard_0·1 · bedrock (속 칸) + tiles/wang/<이름>.png (가장자리)
 import os, re, glob, colorsys
 import numpy as np
 from PIL import Image
@@ -21,6 +22,11 @@ OUT = os.path.join(ROOT, "public/assets/tiles")
 N_LAYERS = 8
 INNER = (0, 3)                     # Wang 160x128 시트에서 속 칸 자리 (칸 단위)
 TS = 32
+
+# 단단한 블록: 원본 block_<이름>.png → 블록 그림 경로들 (+ tiles/wang/<이름>.png)
+BLOCKS = {"stone": ["stone_0.png", "stone_1.png"],      # 돌(12): 드릴로 못 팜, 다이너마이트로만
+          "hard": ["hard_0.png", "hard_1.png"],         # 경암(16): 희귀 광물을 감싼 단단한 암석
+          "bedrock": ["bedrock.png"]}                   # 암반(7): 절대 못 팜 (맨 아래·가장자리)
 
 def layer_cols():
     s = open(os.path.join(ROOT, "src/game/core/config.ts"), encoding="utf-8").read()
@@ -133,4 +139,12 @@ if __name__ == "__main__":
     gr = grass(files[0])
     save(x2(gr), os.path.join(OUT, "grass_0.png"))
     save(x2(gr[:, ::-1].copy()), os.path.join(OUT, "grass_1.png"))
-    print("지층:", ", ".join("%d %s" % (i, m) for i, m in enumerate(made)))
+    # 단단한 블록 3종(지층과 상관없이 어디서나 같은 그림): 속 칸 → 블록, 시트 통째 → 가장자리
+    for name, outs in BLOCKS.items():
+        p = os.path.join(SRC, "block_%s.png" % name)
+        if not os.path.exists(p): continue
+        big = x2(inner_of(p))
+        for o in outs: save(big, os.path.join(OUT, o))
+        save(x2(wang_of(p)), os.path.join(OUT, "wang", "%s.png" % name))
+        made.append(name)
+    print("지층·블록:", ", ".join("%d %s" % (i, m) if i < N_LAYERS else m for i, m in enumerate(made)))
