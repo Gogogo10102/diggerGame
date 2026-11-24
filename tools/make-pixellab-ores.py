@@ -8,6 +8,8 @@
 #   - 놓기: 네 귀퉁이(CORNER px 안)에 하나씩 → 전체 윤곽은 네모꼴, 나머지는 네모 안 아무 데나(후보 몇 개 중 가장 먼 곳)
 #     → 안쪽은 불규칙. 금속 6~7개 · 보석 7~8개, 테두리에서 4px 안쪽, 알갱이 가운데끼리 MIN_D px 이상
 #   - --no-shadow 를 주면 알갱이 아래 그림자 없이
+#   - 알갱이 자리(그림자 포함 상자)도 출력 → sprites.ts 의 ORE_FLECK_BOX. 위 칸을 파서 윗면 무늬(풀·판돌)가 생기면
+#     그 두께에 걸치는 알갱이는 통째로 안 그림(draw.ts) → 광물이 윗단 밖으로 삐져나와 보이지 않게
 #   - 반짝이는 광물(SPARK_ORES)용 반짝임 자리(알갱이 하이라이트)를 출력 → sprites.ts 의 ORE_FLECK_SPARK 에 붙여 넣기
 #   - 보석(다이아·에메랄드·루비, GEMS)은 <id>_ref.png(같은 흙 칸에 인페인팅)가 있을 때만: 그 색으로 작은 결정(2~4칸)을 7~8개.
 #     없으면 건너뜀(예전 그림 유지)
@@ -74,7 +76,7 @@ def fleck_tile(pal, seed, M=MARGIN, gem=False):
     taken = np.zeros((32, 32), bool)
     n = int(rng.integers(*(GEM_COUNT if gem else COUNT)))
     lo, top = M, 32 - M                                             # 놓을 수 있는 네모 [lo, top)
-    centers, hi = [], []
+    centers, hi, boxes = [], [], []
     for k in range(n * 3):
         if len(hi) >= n: break
         pts = gem_blob(rng) if gem else blob(rng, int(rng.integers(3, 6)))
@@ -107,13 +109,14 @@ def fleck_tile(pal, seed, M=MARGIN, gem=False):
             out[y0 + y, x0 + x] = tuple(c) + (255,)
         hx, hy = min(pts, key=lambda p: (p[0] + p[1], p[1]))
         hi.append((x0 + hx, y0 + hy))
+        boxes.append((x0, y0, w + 1, h + 1))                        # 알갱이 + 그림자 자리
         taken[y0:y0 + h + 1, x0:x0 + w + 1] = True
-    return out, hi
+    return out, hi, boxes
 
 if __name__ == "__main__":
     cols = ore_cols()
     only = [int(x) for x in sys.argv[1:] if x.isdigit()]
-    spark = {}
+    spark, boxd = {}, {}
     for oid in sorted(cols):
         if only and oid not in only: continue
         refp = os.path.join(REF, "copper_ref.png" if oid == 2 else "%d_ref.png" % oid)
@@ -124,11 +127,13 @@ if __name__ == "__main__":
         if gem and os.path.exists(refp) and max(colorsys.rgb_to_hsv(*[c / 255 for c in q])[2] for q in pal) < 0.7:
             # 원본 색이 너무 어두우면(루비) ORE_COL 의 밝은 단계를 더해 밝힘 (원본의 어두운 색은 그늘로 남김)
             pal = sorted(set(pal) | set(ramp(*cols[oid])[1:]), key=lambda c: c[0] * 3 + c[1] * 6 + c[2])
-        sp = []
+        sp, bx = [], []
         for v in range(4):
-            t, hi = fleck_tile(pal, seed=(0 if oid == 2 else oid * 10) + v, gem=gem)   # 구리 = 처음 고른 배치(0~3)
+            t, hi, boxes = fleck_tile(pal, seed=(0 if oid == 2 else oid * 10) + v, gem=gem)   # 구리 = 처음 고른 배치(0~3)
             Image.fromarray(np.kron(t, np.ones((2, 2, 1), np.uint8)), "RGBA").save(os.path.join(OUT, "%d_%d.png" % (oid, v)))
             sp.append([[round((2 * x + 1) / 4, 2), round((2 * y + 1) / 4, 2)] for x, y in hi[:3]])   # 반짝임: 하이라이트 셋 (16칸 좌표 = 화면 px / 4)
-        spark[oid] = sp
+            bx.append([[2 * x, 2 * y, 2 * w, 2 * h] for x, y, w, h in boxes])                     # 알갱이 자리 (화면 px, 64칸)
+        spark[oid] = sp; boxd[oid] = bx
         print("광물 %d: %s %s" % (oid, "PixelLab 색" if os.path.exists(refp) else "ORE_COL 색", pal))
     print("ORE_FLECK_SPARK =", json.dumps(spark).replace(" ", ""))
+    print("ORE_FLECK_BOX =", json.dumps(boxd).replace(" ", ""))
