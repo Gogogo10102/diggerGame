@@ -1290,5 +1290,28 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(!!t70.btn("구조 요청 (지상으로)"), "땅속에서 메뉴에 구조 요청 버튼");
   t70.ev("closeMenu()");
 
+  console.log("[41] 휴대폰: 지도 켜고 끄기 · 도움말 닫기");
+  const t80 = boot(path, { w: 390, h: 844 }); t80.run(5); await login(t80, "Phone"); t80.ev("S.usedTouch = true; S.showHelp = true; S.helpPinned = true"); t80.run(10);
+  ok(t80.ev("miniOn(390)") === false && !t80.ev("S.miniBtn") && !!t80.ev("S.mapToggleBtn"), "휴대폰 세로: 미니맵은 처음엔 꺼져 있고 지도 버튼만 보임");
+  const mt = t80.ev("S.mapToggleBtn");
+  t80.ptr("pointerdown", mt.x + mt.w / 2, mt.y + mt.h / 2); t80.ptr("pointerup", mt.x + mt.w / 2, mt.y + mt.h / 2); t80.run(2);
+  ok(t80.ev("S.miniOn") === true && !!t80.ev("S.miniBtn"), "지도 버튼을 누르면 미니맵이 켜짐");
+  const mnb = t80.ev("S.miniBtn"), mt2 = t80.ev("S.mapToggleBtn");
+  ok(mnb.y >= mt2.y + mt2.h, "미니맵은 지도 버튼 아래에 (겹치지 않음)");
+  ok(t80.ev("(() => { const d = snapshot(); S.miniOn = undefined; applyAccount(d); return S.miniOn === true; })()"), "켜고 끈 상태가 저장됨");
+  ok(t80.ev("(() => { const d = snapshot(); delete d.settings.miniOn; applyAccount(d); return S.miniOn === undefined; })()"), "옛 저장(설정 없음)은 화면에 맞춰 자동");
+  t80.ev("S.miniOn = true"); t80.run(2);
+  const mt3 = t80.ev("S.mapToggleBtn");
+  t80.ptr("pointerdown", mt3.x + mt3.w / 2, mt3.y + mt3.h / 2); t80.ptr("pointerup", mt3.x + mt3.w / 2, mt3.y + mt3.h / 2); t80.run(2);
+  ok(t80.ev("S.miniOn") === false && !t80.ev("S.miniBtn"), "다시 누르면 꺼짐");
+  const hr = t80.ev("S.helpRect");
+  ok(!!hr, "터치 화면 도움말 띠에 닫기 자리");
+  t80.ptr("pointerdown", hr.x + hr.w / 2, hr.y + hr.h / 2); t80.ptr("pointerup", hr.x + hr.w / 2, hr.y + hr.h / 2); t80.run(2);
+  ok(t80.ev("S.showHelp") === false && !t80.ev("S.helpRect") && !t80.ev("S.stick"), "도움말 띠를 누르면 닫히고 조작(드래그)은 시작되지 않음");
+  const t81 = boot(path, { w: 1280, h: 760 }); t81.run(5); await login(t81, "Desk"); t81.run(5);
+  ok(t81.ev("miniOn(1280)") === true && !!t81.ev("S.miniBtn"), "PC: 미니맵은 처음부터 켜짐");
+  t81.key("KeyN"); t81.run(2);
+  ok(t81.ev("S.miniOn") === false && !t81.ev("S.miniBtn"), "PC: N 키로 미니맵 끄기");
+
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });

@@ -87,6 +87,8 @@ docs/                  plan.md decisions.md
   제목 글씨는 주황 그러데이션 + 굵은 검은 테두리: 캔버스 `titleTxt`, HTML 창 `h2`(el 이 안쪽 `span.tt` 로 감쌈).
 - **버튼 = 회색 철판, 뜻은 왼쪽 작은 색 띠 + 글자**: 초록 진행·구매 / 파랑 저장·정보 / 주황 설정·메뉴 / 빨강 닫기·뒤로·삭제 / 띠 없음 = 못 누름.
   캔버스는 `uiBtn`(kind: go·plain·gold·danger·steel) 또는 `btnPx` + `btnTxt`(진한 파인 글씨), HTML 창은 `mkBtn(글, 함수, "pri"|"info"|"back"|"del"|"off")` (없으면 주황).
+- **미니맵·깊이 막대는 켜고 끌 수 있음**: 메뉴 버튼 아래 지도 버튼(누르면 토글, PC 는 N 키). `miniOn(vw)`(draw.ts) — 저장값(`S.miniOn`, settings.miniOn)이 없으면 휴대폰 세로(터치 + 폭 600 미만)는 끔.
+  터치 화면 도움말 띠는 눌러서 닫음(`S.helpRect`). 둘 다 누르면 조작(드래그)이 시작되지 않게 input.ts 에서 먼저 처리.
 - **양 표시는 칸 막대**(`segBar`): 연료·화물·경험치·단계·소리 크기. 아이콘은 막대 왼쪽 끝에 겹침.
 - **큰 화면 UI 배율**: 마을 창은 `townScale`(draw.ts)로 2배/1.5배 키워 그리고 누른 자리도 나눠 맞춤(`S.townU`). 창 함수는 나눈 화면 크기를 받으니 배치는 그대로 짜면 됨. HTML 창은 style.css 의 zoom.
 - 마을 창(상점·제작·용광로·판매)은 `render/townUI.ts` 의 공용 틀 `townFrame(…, 분류목록, 고른분류, 분류동작)` 을 씁니다.

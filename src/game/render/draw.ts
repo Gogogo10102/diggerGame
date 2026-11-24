@@ -163,6 +163,10 @@ function drawThrustFlame(x, y, k = 1) {
   }
 }
 
+// ---- 미니맵 켜고 끄기: 저장된 값이 없으면 좁은 터치 화면(휴대폰 세로)은 꺼 두고 나머지는 켬 ----
+export const miniOn = (vw) => (S.miniOn === undefined || S.miniOn === null ? !(S.usedTouch && vw < 600) : !!S.miniOn);
+export function toggleMini(vw) { S.miniOn = !miniOn(vw); return S.miniOn; }
+
 // ---- 사람 광부 그리기: 시트(make-player.py)의 칸을 상태에 맞춰 고르고, 곡괭이는 손에 붙여 코드로 돌려 휘두름 ----
 //  곡괭이질 자세 (오른쪽을 볼 때): [치켜든 자세, 각도] → [내리찍은 자세, 각도]. 각도 0 = 자루가 위, + 는 앞쪽(시계 방향)
 const SWING_POSE = {
@@ -1003,8 +1007,15 @@ export function drawHUD(vw, vh, depth) {
   }
 
   // 오른쪽 위: 가방(초록) · 업적(파랑) · 메뉴(주황) 사각 버튼 + 그 아래 미니맵 · 깊이 미터
-  S.menuBtn = null; S.bagBtn = null; S.questBtn = null;
+  S.menuBtn = null; S.bagBtn = null; S.questBtn = null; S.mapToggleBtn = null;
+  const mapOn = miniOn(vw);
   if (S.state === "play") {
+    // 지도 켜기/끄기: 메뉴 버튼 바로 아래 (켜져 있으면 눌린 모양). 지도·깊이 막대는 그 아래로
+    const tx = vw - 10 - bs, ty = by0 + bs + bg;
+    const cy = btnPx(tx, ty, bs, bs, "blue", mapOn);
+    glyph(GLYPH.map, tx + Math.floor((bs - 21) / 2), Math.round(cy - 10.5), mapOn ? "#1668b8" : "#5a6478", 3);
+    if (!mapOn) { ctx.fillStyle = "#c42a3a"; for (let k = 0; k < 6; k++) ctx.fillRect(tx + 8 + k * 5, ty + 8 + k * 4, 4, 4); }   // 꺼짐: 빨간 사선
+    S.mapToggleBtn = { x: tx - 3, y: ty - 3, w: bs + 6, h: bs + 6 };
     [["green", GLYPH.bag, "bag", "#2a8a1e"], ["blue", GLYPH.trophy, "quest", "#1668b8"], ["orange", GLYPH.menu, "menu", "#d0600a"]].forEach(([col, g, kind, tc], i) => {
       const x = bx0 + i * (bs + bg);
       const cy = btnPx(x, by0, bs, bs, col);
@@ -1014,10 +1025,10 @@ export function drawHUD(vw, vh, depth) {
     });
   }
   if (S.saveFlash > 0 && S.state !== "title") txt(S.saveFail ? "저장 실패!" : "저장됨", bx0 - 10, by0 + (wide ? bs + 6 : 15), S.saveFail ? "#ff6b6b" : "#7cff6b", 12, "right", SY.ink);
-  const mh = Math.min(260, vh - 64 - 150), mx = vw - 10 - 36, my = by0 + bs + 10;
-  drawMinimap(vw, vh, my);
+  const my = by0 + 2 * (bs + bg) + 4, mh = Math.min(260, vh - my - 150), mx = vw - 10 - 36;
+  if (mapOn) drawMinimap(vw, vh, my); else S.miniBtn = null;
   drawTutorial(vw, wide);
-  if (mh >= 70) {
+  if (mapOn && mh >= 70) {
     panel(mx, my, 36, mh);
     const bx = mx + 12, by = my + 10, bw = 12, bhh = mh - 20, total = H - SURF;
     ctx.fillStyle = SY.ink; ctx.fillRect(bx - 2, by - 2, bw + 4, bhh + 4);
@@ -1074,9 +1085,9 @@ export function drawHUD(vw, vh, depth) {
     : "←→ 이동 · ↑ 점프/사다리 · ↓ 곡괭이 · 7 사다리 · 1-6 소모품 · I 가방 · Q 업적 · M 지도 · H 도움말";
   setFont(12);
   let helpW = Math.ceil(ctx.measureText(helpStr).width) + 32;
-  if (helpW > vw - 24) {                                          // 좁은 화면: 짧은 문구로 (예전엔 화면 밖으로 잘렸음)
+  if (helpW + (S.usedTouch ? 28 : 0) > vw - 24) {                 // 좁은 화면: 짧은 문구로 (예전엔 화면 밖으로 잘렸음)
     helpStr = S.usedTouch ? "드래그 조작 · 아래 슬롯: 소모품" : P.mech ? "←→ 이동 · ↑ 추진 · ↓ 파기 · H 도움말" : "←→ · ↑ 점프 · ↓ 곡괭이 · 7 사다리 · H";
-    helpW = Math.min(vw - 24, Math.ceil(ctx.measureText(helpStr).width) + 32);
+    helpW = Math.min(vw - 24 - (S.usedTouch ? 28 : 0), Math.ceil(ctx.measureText(helpStr).width) + 32);
   }
   const helpUp = helpOn && 12 + helpW > S.hotLeft - 8;      // 슬롯과 겹치면 도움말을 슬롯 위로 올리고, 안내창도 같이 올림
   const helpLift = helpUp ? 44 : 0;
@@ -1103,12 +1114,14 @@ export function drawHUD(vw, vh, depth) {
 
   drawHotbar(vw, vh);
   // 도움말
+  S.helpRect = null;
   if (helpOn) {
-    const hy = helpUp ? vh - 100 : vh - 44;
+    const hy = helpUp ? vh - 100 : vh - 44, xw = S.usedTouch ? 28 : 0;   // 터치: 오른쪽 끝 ✕ 자리 (띠를 누르면 닫힘)
     ctx.globalAlpha = 0.85;
-    panel(12, hy, helpW, 32, SY.well);
+    panel(12, hy, helpW + xw, 32, SY.well);
     ctx.globalAlpha = 1;
     txt(helpStr, 28, hy + 10, "#c9cfe6", 12);
+    if (xw) { glyph(GLYPH.x, 12 + helpW + 4, hy + 9, "#9aa3c8", 2); S.helpRect = { x: 12, y: hy - 4, w: helpW + xw, h: 40 }; }
   }
 }
 

@@ -30,7 +30,7 @@ export function snapshot() {
     ver: SAVE_VER, id: S.acct.id, name: S.acct.name, created: S.acct.created, updated: Date.now(),
     seed: S.acct.seed, playTime: Math.floor(S.acct.playTime), stats: S.acct.stats,
     player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
-    settings: { showHelp: S.showHelp },
+    settings: { showHelp: S.showHelp, miniOn: S.miniOn === undefined ? null : S.miniOn },
     world: encodeWorld(),
     stones: 1, worldV: 2,
     seen: encodeSeen(),
@@ -118,6 +118,7 @@ export function applyAccount(d) {
   S.dig = null; parts.length = 0; floaters.length = 0;
   bombs.length = 0; flashes.length = 0; S.shakeT = 0; S.lastRevealKey = ""; S.combo = 0; S.comboT = 0; gases.length = 0; S.inGas = false;
   S.showHelp = !(d.settings && d.settings.showHelp === false);
+  S.miniOn = d.settings && typeof d.settings.miniOn === "boolean" ? d.settings.miniOn : undefined;   // 없으면 화면에 맞춰 자동
   // 처음 안내: 저장된 단계, 예전 세이브(기록 없음)는 이미 팔아 본 적이 있으면 끝난 것으로
   S.acct.tut = d.tut !== undefined ? Math.max(0, d.tut | 0) : (S.acct.stats.earned > 0 ? TUT_STEPS.length : 0);
   S.tutFlash = 0;
