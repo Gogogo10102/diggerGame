@@ -9,7 +9,7 @@
 #     [있으면] robot_dig_down_se.gif · robot_dig_up_se.gif  아래 · 위 캐기 (9장으로 맞춤. 없으면 임시 칸)
 #     [있으면] <동작>_east.gif    jump · climb · mine 등 — ANIMS 표에 줄을 더하면 시트에 들어감
 #   → public/assets/player/body.png  80x80 칸. 줄 0 = 오른쪽, 줄 1 = 왼쪽(걷기는 좌우 뒤집음)
-#                                     칸 0 서 있기, 칸 1~8 걷기, 칸 9~17 곡괭이질(mine_east.gif) (sprites.ts 의 PLAYER_ANIM 과 짝)
+#                                     칸 0 서 있기, 칸 1~8 걷기, 칸 9~17 옆 곡괭이질(mine_east.gif) · 18~26 아래 곡괭이질(mine_down_east.gif) (sprites.ts 의 PLAYER_ANIM 과 짝)
 #     public/assets/player/pick.png  손에 드는 곡괭이 1장 (자루가 위, 손잡이 (16, 29))
 #     public/assets/player/pack.png  백팩 로켓 1장 (예전 그림용, 지금 광부는 자기 배낭이 있어 안 씀)
 #     public/assets/mech/body.png    104x104 칸. 줄 0 오른쪽 · 줄 1 왼쪽, 칸 0 서 있기 · 1~8 걷기 · 9~17 점프 · 18~26 옆 캐기 · 27~35 아래 캐기 · 36~44 위 캐기 (sprites.ts 의 MECH_ANIM 과 짝)
@@ -69,7 +69,8 @@ def mech_sheet(src):
 
 # 걷기 뒤에 이어 붙이는 동작 (원본이 있을 때만, 순서대로 칸 번호가 이어짐 → sprites.ts 의 PLAYER_ANIM 과 짝)
 #   mine_east.gif: 곡괭이로 앞 블록 두들기기 9장 → 칸 9~17
-ANIMS = ["mine_east.gif"]
+#   mine_down_east.gif: 배낭에서 곡괭이를 꺼내 발 앞 바닥을 내리찍기 9장 → 칸 18~26
+ANIMS = ["mine_east.gif", "mine_down_east.gif"]
 
 def main_only(img):
     """몸에서 떨어진 작은 조각(불꽃·티끌 효과)은 지움 — 부스러기는 게임이 따로 그림"""
@@ -144,10 +145,100 @@ def ladder_tile():
         for y in (3, 11, 19, 27): box(x + 1, y, x + 3, y + 2, hx("#2a1a10")); img[y, x + 1, :3] = hx("#9aa3b8")   # 못
     return np.kron(img, np.ones((2, 2, 1), np.uint8))
 
+# ---- 백팩 로켓 착장: 로켓을 사면 이 시트로 그림 (sprites.ts 의 PLAYER_IMG.rocket) ----
+#   원본: rocket_rot8.gif(로켓 착장 8방향, east = 3번째 장) · rocket_fly_east.gif(로켓으로 날기 9장, 불꽃 없음)
+#   → player/rocket.png  body.png 와 같은 칸 배치(0 서 있기 = 로켓 착장 원본, 1~26 = 기본 동작에 로켓 통을 덧붙임) + 칸 27~35 날기
+#     player/flame.png   로봇 점화 불꽃(robot_jump_se.gif 4~6장)을 잘라 낸 3칸(점화 · 분사 A · 분사 B), 40x48 칸, 분사구 = (20, 2)
+#   덧붙이는 로켓 통은 원본 east 장의 배낭 뒤쪽(왼쪽) 통만 잘라 쓰고, 칸마다 배낭 왼쪽 끝 · 모자 꼭대기에 맞춰 붙임
+#   분사구 자리(칸 안 좌표, 오른쪽을 볼 때)는 ROCKET_NOZZLE 로 출력 → sprites.ts 에 붙여 넣기
+import colorsys
+def hsv_of(a):
+    f = a[..., :3].astype(float) / 255
+    mx, mn = f.max(-1), f.min(-1); d = mx - mn + 1e-9
+    h = np.where(mx == f[..., 0], ((f[..., 1] - f[..., 2]) / d) % 6, np.where(mx == f[..., 1], (f[..., 2] - f[..., 0]) / d + 2, (f[..., 0] - f[..., 1]) / d + 4)) / 6
+    return h, np.where(mx > 0, (mx - mn) / (mx + 1e-9), 0), mx
+def helmet_tl(a):
+    h, s, v = hsv_of(a); m = (a[..., 3] > 0) & (h > 0.5) & (h < 0.7) & (s > 0.3) & (v > 0.25)
+    ys, xs = np.nonzero(m); top = ys.min()
+    band = m[top:top + 6]; return int(np.nonzero(band)[1].min()), int(top)
+def nozzle_of(a, whole=True):
+    """로켓 통 분사구 = 빨간 띠가 있는 세로줄(통) 안에서, 빨간 띠보다 아래의 가장 아래 불투명 픽셀 줄 가운데
+       whole: 사람 전체 그림이면 모자보다 뒤쪽(왼쪽)의 빨간 띠만 봄 (신발 끈 같은 다른 빨강 제외)"""
+    h, s_, v = hsv_of(a); al = a[..., 3] > 0
+    red = al & ((h < 0.03) | (h > 0.95)) & (s_ > 0.5) & (v > 0.35)
+    if whole: red[:, helmet_tl(a)[0]:] = False
+    ys, xs = np.nonzero(red); x0, x1 = xs.min(), xs.max()
+    col = al[:, x0:x1 + 1].copy(); col[:ys.max() + 1] = False
+    yy, xx = np.nonzero(col); y = yy.max(); return [int(round((xx[yy == y] + x0).mean())), int(y)]
+def pack_left(a):
+    """배낭(갈색·올리브 덩어리 중 가장 큰 것)의 왼쪽 끝 x · 위쪽 y — 로켓 통을 여기에 붙임"""
+    ht = helmet_tl(a)[1]; h, s_, v = hsv_of(a)
+    m = (a[..., 3] > 0) & (h > 0.03) & (h < 0.17) & (s_ > 0.3) & (v > 0.2) & (v < 0.9)
+    m[:ht + 10] = False; m[ht + 36:] = False
+    lab, n = nd.label(m); k = max(range(1, n + 1), key=lambda j: (lab == j).sum())
+    ys, xs = np.nonzero(lab == k); return int(xs.min()), int(ys.min())
+def rocket_sheets(src, body):
+    base = np.array(body)
+    rot = frames_of(os.path.join(src, "rocket_rot8.gif")); re_ = rot[2]
+    fly = [main_only(f) for f in frames_of(os.path.join(src, "rocket_fly_east.gif"))]
+    ncell = base.shape[1] // F
+    out = np.zeros((F * 2, F * (ncell + len(fly)), 4), np.uint8)
+    def cellify(img, ax, ay):
+        c = Image.new("RGBA", (F, F)); c.alpha_composite(img, (CX - ax, FOOT - ay)); return np.array(c)
+    ax, ay = anchor(re_); idle = cellify(re_, ax, ay)
+    # 로켓 통 조각: 원본 east 장에서 배낭 뒤쪽(x<=16) · 곡괭이 머리 아래(y>=27) → 칸 좌표로
+    r = np.array(re_); part = np.zeros_like(r); part[27:, :17] = r[27:, :17]
+    part = cellify(Image.fromarray(part), ax, ay)
+    pys, pxs = np.nonzero(part[..., 3] > 0); pr, pt = int(pxs.max()), int(pys.min())   # 통의 오른쪽 끝 · 위
+    pn = nozzle_of(part, whole=False)
+    ref_top = helmet_tl(idle)[1]; ref_pt = pt - ref_top                # 모자 꼭대기에서 통 위까지
+    noz = []
+    east = []
+    for c in range(ncell):
+        if c == 0:
+            east.append(idle); noz.append(nozzle_of(idle)); continue
+        cell = base[0:F, c * F:(c + 1) * F]
+        # 통 오른쪽 끝이 배낭 왼쪽 끝에 2px 겹치게, 높이는 모자 꼭대기 기준 → 배낭 앞에 그림(뒤에 그리면 걷기 칸에선 배낭에 가려짐)
+        bl, _ = pack_left(cell); ht = helmet_tl(cell)[1]
+        dx, dy = (bl + 1) - pr, (ht + ref_pt) - pt
+        over = Image.fromarray(cell.copy()); sh = Image.new("RGBA", (F, F))
+        sh.paste(Image.fromarray(part), (dx, dy)); over.alpha_composite(sh); east.append(np.array(over))
+        noz.append([pn[0] + dx, pn[1] + dy])
+    # 날기: 가로는 첫 장 모자 가운데, 세로는 모자 꼭대기를 서 있기 칸과 같게(원본이 위로 떠오르는 만큼은 지움 — 오르내림은 게임이 함)
+    fx0, _ = anchor(fly[0]); top0 = helmet_tl(idle)[1]
+    for f in fly:
+        a = np.array(f); ht = helmet_tl(a)[1]
+        cell = cellify(f, fx0, FOOT - (top0 - ht)); east.append(cell); noz.append(nozzle_of(cell))
+    fn = noz[ncell:]; mx, my = int(np.median([n[0] for n in fn])), int(np.median([n[1] for n in fn]))
+    for k in range(ncell, len(noz)):                                    # 날기 칸에서 튀는 값(다리를 통으로 잘못 봄)은 가운뎃값으로
+        if abs(noz[k][0] - mx) > 3 or abs(noz[k][1] - my) > 4: noz[k] = [mx, my]
+    for i, e in enumerate(east):
+        out[0:F, i * F:(i + 1) * F] = e
+        w = np.zeros_like(e); w[:, 1:] = e[:, ::-1][:, :-1]             # 왼쪽 줄 = 좌우 뒤집기 (x' = 80 - x)
+        out[F:2 * F, i * F:(i + 1) * F] = w
+    # 불꽃: 로봇 점화 장면에서 불 색 덩어리(가장 큰 것)만
+    rj = [np.array(f) for f in frames_of(os.path.join(src, "robot_jump_se.gif"))]
+    fl = Image.new("RGBA", (40 * 3, 48))
+    for k, i in enumerate((3, 4, 5)):
+        a = rj[i]; h, sat, v = hsv_of(a); al = a[..., 3] > 0
+        seed = al & (h < 0.11) & (sat > 0.45) & (v > 0.7)
+        m = seed | (al & (v > 0.85) & ((h < 0.17) | (sat < 0.35))); m[:50] = False
+        lab, n = nd.label(m, structure=np.ones((3, 3)))
+        best = max((j for j in range(1, n + 1) if (seed & (lab == j)).any()), key=lambda j: (lab == j).sum())
+        keep = lab == best; ys, xs = np.nonzero(keep); y0 = ys.min()
+        tx = int(round(xs[ys <= y0 + 2].mean()))                       # 불꽃 꼭대기(분사구 쪽) 가운데
+        o = np.zeros_like(a); o[keep] = a[keep]
+        fl.alpha_composite(Image.fromarray(o).crop((tx - 20, y0 - 2, tx + 20, y0 + 46)), (k * 40, 0))
+    return Image.fromarray(out, "RGBA"), fl, noz
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     src = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "tools/ref/pixellab")
-    body_sheet(src).save(os.path.join(OUT, "body.png"))
+    body = body_sheet(src); body.save(os.path.join(OUT, "body.png"))
+    if os.path.exists(os.path.join(src, "rocket_rot8.gif")) and os.path.exists(os.path.join(src, "rocket_fly_east.gif")):
+        rk, fl, noz = rocket_sheets(src, body)
+        rk.save(os.path.join(OUT, "rocket.png")); fl.save(os.path.join(OUT, "flame.png"))
+        print("ROCKET_NOZZLE =", str(noz).replace(" ", ""))
     pick().save(os.path.join(OUT, "pick.png"))
     pack().save(os.path.join(OUT, "pack.png"))
     os.makedirs(os.path.join(ROOT, "public/assets/mech"), exist_ok=True)
