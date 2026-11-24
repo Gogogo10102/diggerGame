@@ -128,7 +128,8 @@ docs/                  plan.md decisions.md
 - **땅 블록 = PixelLab 타일셋(2026-11-24)**: `tools/ref/pixellab/tiles/layer<지층>_<이름>.png`(사이드뷰 32px, Wang 내보내기 160x128)를
   `python3 tools/make-pixellab-tiles.py` 가 속 칸((0,3) 칸)만 잘라 2배로 → `tiles/dirt/<지층>_<0~15>` · `tiles/back`(어둡게) · `tiles/cave/back_*` · `grass_0/1`(흙 타일셋 윗면 풀 띠) · `tiles/wang/<지층>`(시트 통째 2배, 굴 가장자리).
   예전 자갈 덧그림(`tiles/dirt/over_*`)은 그림체가 달라 비움. 원본이 없는 지층(지금 1번 점토)은 흙 무늬를 그 지층 색(`LAYERS`)으로 바꿔 씀.
-  **make-hires.py 를 다시 돌리면 이 블록 그림을 덮어쓰니**, 그 뒤에 make-pixellab-tiles.py 를 다시 돌릴 것. 단단한 돌·동굴 장식은 아직 예전(맵 스타일 A) 그림.
+  동굴 천장 고드름 돌 `tiles/cave/top_<지층>_<0~2>` 도 이 도구가 그 지층 블록 색으로 계단식으로 그림(검은 외곽선 없음). 동굴 바닥 장식 중 버섯·돌무더기는 뺐음(`CAVE_BOT_BY_LAYER` 의 -1).
+  **make-hires.py 를 다시 돌리면 이 블록 그림을 덮어쓰니**, 그 뒤에 make-pixellab-tiles.py 를 다시 돌릴 것. 단단한 돌·경암·암반·남은 동굴 바닥 장식(수정·용암 웅덩이·뼈)은 아직 예전(맵 스타일 A) 그림.
 - **땅속 광물 = 흙에 박힌 작은 알갱이(2026-11-25 확정)**: `python3 tools/make-pixellab-ores.py [광물id…]` → `ores/world/<id>_<0~3>`(투명 바탕에 알갱이만, 32px 도트 ×2).
   알갱이 6~7개(3칸 ㄱ자·2x2·2x2+1칸): 네 귀퉁이(4px 안)에 하나씩 → 윤곽은 네모꼴, 나머지는 안쪽 아무 데나(가운데끼리 6px↑) → 바둑판 아님. 테두리에서 4px 안쪽. 왼위 하이라이트·오른아래 어둡게·아래 그림자 한 칸.
   색: 구리는 PixelLab 인페인팅 결과(`tools/ref/pixellab/ores/copper_ref.png` vs 원래 흙 `dirt_base.png`)에서 뽑은 색, 나머지는 `ORE_COL`(철만 `COL_OVERRIDE`, 은과 구분).
