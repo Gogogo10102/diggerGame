@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+# 땅 블록 그림 = PixelLab 타일셋 (사이드뷰, 32px, Wang 내보내기 160x128)
+#   python3 tools/make-pixellab-tiles.py      (원본: tools/ref/pixellab/tiles/layer<번호>_<이름>.png)
+#   원본에서 '속 칸'(사방이 다 같은 재료인 칸, 시트의 (0,3) 칸)을 잘라 2배(64px)로 →
+#     tiles/dirt/<지층>_<0~15>.png   블록 (16가지 모두 같은 칸: 이음매 없이 이어지는 무늬라 블록끼리 자연스럽게 이어짐)
+#     tiles/back/<지층>_<0~3>.png    판 굴 뒷벽 (블록을 어둡게)
+#     tiles/cave/back_<지층>_<0~3>.png 자연 동굴 뒷벽 (조금 더 어둡고 푸르게)
+#     tiles/dirt/over_<지층>_<0~5>.png 예전 자갈 덧그림 → 비움 (새 무늬와 그림체가 달라서)
+#     tiles/grass_0.png · grass_1.png 지표면 풀 (흙 타일셋 윗면 칸의 풀 띠)
+#   원본이 없는 지층은 흙(0번)을 그 지층 색으로 바꿔 씀 (config.ts 의 LAYERS 색)
+import os, re, glob, colorsys
+import numpy as np
+from PIL import Image
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC = os.path.join(ROOT, "tools/ref/pixellab/tiles")
+OUT = os.path.join(ROOT, "public/assets/tiles")
+N_LAYERS = 8
+INNER = (0, 3)                     # Wang 160x128 시트에서 속 칸 자리 (칸 단위)
+TS = 32
+
+def layer_cols():
+    s = open(os.path.join(ROOT, "src/game/core/config.ts"), encoding="utf-8").read()
+    s = s[s.index("export const LAYERS"):]
+    return [m.group(1) for m in re.finditer(r'base: "(#[0-9a-fA-F]{6})"', s)][:N_LAYERS]
+
+def x2(a): return np.kron(a, np.ones((2, 2, 1), np.uint8))
+def save(a, path): os.makedirs(os.path.dirname(path), exist_ok=True); Image.fromarray(a, "RGBA").save(path)
+
+def inner_of(path):
+    a = np.array(Image.open(path).convert("RGBA"))
+    c, r = INNER
+    t = a[r * TS:(r + 1) * TS, c * TS:(c + 1) * TS]
+    assert (t[..., 3] > 0).all(), "속 칸이 꽉 차 있지 않음: " + path
+    return t.copy()
+
+# 흙 무늬를 다른 지층 색으로: 색상(hue)을 목표 색으로 돌리고 채도를 맞춤 (자갈 같은 무채색은 그대로)
+def recolor(t, target):
+    th, _, ts = colorsys.rgb_to_hsv(*[int(target[i:i + 2], 16) / 255 for i in (1, 3, 5)])
+    out = t.copy()
+    for y in range(t.shape[0]):
+        for x in range(t.shape[1]):
+            r, g, b = t[y, x, :3] / 255
+            h, s, v = colorsys.rgb_to_hsv(r, g, b)
+            if s < 0.15: continue
+            r, g, b = colorsys.hsv_to_rgb(th, min(1, s * (ts / 0.55)), v)
+            out[y, x, :3] = (int(r * 255), int(g * 255), int(b * 255))
+    return out
+
+def darken(t, k, tint=(0, 0, 0), ta=0.0):
+    o = t.copy().astype(float)
+    o[..., :3] = o[..., :3] * k * (1 - ta) + np.array(tint) * ta
+    return o.clip(0, 255).astype(np.uint8)
+
+def grass(path):
+    a = np.array(Image.open(path).convert("RGBA"))
+    t = a[0:TS, TS:2 * TS]                                          # (1,0) 칸 = 블록 윗면이 칸 가운데를 가로지름
+    rows = [y for y in range(TS) if (t[y, :, 3] > 0).all()]
+    top = rows[0]
+    g = ((t[..., 1].astype(int) > t[..., 0].astype(int) + 10) & (t[..., 1] > t[..., 2]) & (t[..., 3] > 0))
+    gy = [y for y in range(TS) if g[y].any()]
+    bot = gy[-1] + 1                                                # 풀 띠 + 그 아래 그늘 한 줄
+    band = t[top:bot + 1]
+    out = np.zeros((TS, TS, 4), np.uint8)
+    out[0:band.shape[0]] = band
+    return out
+
+if __name__ == "__main__":
+    cols = layer_cols()
+    files = {int(re.match(r"layer(\d+)", os.path.basename(p)).group(1)): p for p in glob.glob(os.path.join(SRC, "layer*.png"))}
+    base = inner_of(files[0])
+    made = []
+    for L in range(N_LAYERS):
+        t = inner_of(files[L]) if L in files else recolor(base, cols[L])
+        made.append("원본" if L in files else "흙 색바꿈")
+        big = x2(t)
+        for v in range(16): save(big, os.path.join(OUT, "dirt", "%d_%d.png" % (L, v)))
+        for v in range(6): save(np.zeros((64, 64, 4), np.uint8), os.path.join(OUT, "dirt", "over_%d_%d.png" % (L, v)))
+        for v in range(4):
+            save(x2(darken(t, 0.42)), os.path.join(OUT, "back", "%d_%d.png" % (L, v)))
+            save(x2(darken(t, 0.34, (12, 20, 44), 0.25)), os.path.join(OUT, "cave", "back_%d_%d.png" % (L, v)))
+    gr = grass(files[0])
+    save(x2(gr), os.path.join(OUT, "grass_0.png"))
+    save(x2(gr[:, ::-1].copy()), os.path.join(OUT, "grass_1.png"))
+    print("지층:", ", ".join("%d %s" % (i, m) for i, m in enumerate(made)))
