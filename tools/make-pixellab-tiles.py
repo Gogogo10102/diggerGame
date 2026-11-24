@@ -7,9 +7,11 @@
 #     tiles/cave/back_<지층>_<0~3>.png 자연 동굴 뒷벽 (조금 더 어둡고 푸르게)
 #     tiles/dirt/over_<지층>_<0~5>.png 예전 자갈 덧그림 → 비움 (새 무늬와 그림체가 달라서)
 #     tiles/grass_0.png · grass_1.png 지표면 풀 (흙 타일셋 윗면 칸의 풀 띠)
+#     tiles/cave/top_<지층>_<0~2>.png 동굴 천장 고드름 돌 (그 지층 블록 색, 계단식 1~2개)
 #     tiles/wang/<지층>.png          Wang 시트 통째로 2배(320x256) → 굴 가장자리(풀·윗단·테두리)를 시트 그대로 그림 (draw.ts 의 wangEdge)
 #       칸 배치(네 모서리 왼위·오른위·왼아래·오른아래, 1 = 흙)는 PixelLab 내보내기 고정 배치 = WANG_LAYOUT (draw.ts 의 WANG_AT 과 같음)
 #   원본이 없는 지층은 흙(0번)을 그 지층 색으로 바꿔 씀 (config.ts 의 LAYERS 색)
+#   단단한 블록(block_stone/hard/bedrock.png) → tiles/stone_0·1 · hard_0·1 · bedrock (속 칸) + tiles/wang/<이름>.png (가장자리)
 import os, re, glob, colorsys
 import numpy as np
 from PIL import Image
@@ -20,6 +22,11 @@ OUT = os.path.join(ROOT, "public/assets/tiles")
 N_LAYERS = 8
 INNER = (0, 3)                     # Wang 160x128 시트에서 속 칸 자리 (칸 단위)
 TS = 32
+
+# 단단한 블록: 원본 block_<이름>.png → 블록 그림 경로들 (+ tiles/wang/<이름>.png)
+BLOCKS = {"stone": ["stone_0.png", "stone_1.png"],      # 돌(12): 드릴로 못 팜, 다이너마이트로만
+          "hard": ["hard_0.png", "hard_1.png"],         # 경암(16): 희귀 광물을 감싼 단단한 암석
+          "bedrock": ["bedrock.png"]}                   # 암반(7): 절대 못 팜 (맨 아래·가장자리)
 
 def layer_cols():
     s = open(os.path.join(ROOT, "src/game/core/config.ts"), encoding="utf-8").read()
@@ -69,6 +76,35 @@ def wang_of(path):
             assert got == WANG_LAYOUT[r][c], "Wang 배치가 다름 %s (%d,%d) %s" % (path, c, r, got)
     return a
 
+def stalactites(t, seed):
+    """동굴 천장 고드름 돌: 그 지층 블록 색으로 (검은 외곽선 없이 타일셋처럼 어두운 테두리만). 32px 칸 위쪽에 1~2개
+       도트 계단식: 위에서 2~3줄마다 폭이 2px 씩 줄어 끝은 1px. 왼쪽 밝게 · 오른쪽·끝 어둡게"""
+    rng = np.random.default_rng(seed)
+    cols = np.unique(t[..., :3].reshape(-1, 3), axis=0)
+    cols = cols[np.argsort(cols @ np.array([3, 6, 1]))]                 # 어두운 → 밝은
+    pick = lambda q: cols[min(len(cols) - 1, int(q * (len(cols) - 1)))]
+    edge, dark, mid, light = (pick(0.0) * 0.75).astype(np.uint8), pick(0.3), pick(0.6), pick(0.9)
+    out = np.zeros((TS, TS, 4), np.uint8)
+    n = int(rng.integers(1, 3))
+    slots = [int(x) for x in rng.choice([5, 11, 17, 23], n, replace=False)]
+    for cx in slots:
+        cx += int(rng.integers(-1, 2))
+        w = int(rng.choice([5, 7])); y = 0
+        widths = [w + 2]                                            # 천장에 붙는 밑동은 조금 넓게
+        while w >= 1:
+            widths += [w] * int(rng.integers(2, 4)); w -= 2
+        for y, ww in enumerate(widths):
+            a0 = cx - ww // 2
+            for x in range(a0, a0 + ww):
+                if not (0 <= x < TS) or y >= TS: continue
+                c = mid
+                if x == a0 and ww > 2: c = light
+                if x == a0 + ww - 1 and ww > 1: c = edge if ww > 2 else dark
+                if x == a0 + ww - 2 and ww > 3: c = dark
+                out[y, x, :3] = c; out[y, x, 3] = 255
+        out[len(widths) - 1, cx, :3] = edge                          # 끝 한 점은 어둡게
+    return out
+
 def grass(path):
     a = np.array(Image.open(path).convert("RGBA"))
     t = a[0:TS, TS:2 * TS]                                          # (1,0) 칸 = 블록 윗면이 칸 가운데를 가로지름
@@ -98,7 +134,17 @@ if __name__ == "__main__":
         for v in range(4):
             save(x2(darken(t, 0.42)), os.path.join(OUT, "back", "%d_%d.png" % (L, v)))
             save(x2(darken(t, 0.34, (12, 20, 44), 0.25)), os.path.join(OUT, "cave", "back_%d_%d.png" % (L, v)))
+        for v in range(3):                                          # 동굴 천장 고드름 돌 (지층마다 3가지)
+            save(x2(stalactites(t, L * 10 + v)), os.path.join(OUT, "cave", "top_%d_%d.png" % (L, v)))
     gr = grass(files[0])
     save(x2(gr), os.path.join(OUT, "grass_0.png"))
     save(x2(gr[:, ::-1].copy()), os.path.join(OUT, "grass_1.png"))
-    print("지층:", ", ".join("%d %s" % (i, m) for i, m in enumerate(made)))
+    # 단단한 블록 3종(지층과 상관없이 어디서나 같은 그림): 속 칸 → 블록, 시트 통째 → 가장자리
+    for name, outs in BLOCKS.items():
+        p = os.path.join(SRC, "block_%s.png" % name)
+        if not os.path.exists(p): continue
+        big = x2(inner_of(p))
+        for o in outs: save(big, os.path.join(OUT, o))
+        save(x2(wang_of(p)), os.path.join(OUT, "wang", "%s.png" % name))
+        made.append(name)
+    print("지층·블록:", ", ".join("%d %s" % (i, m) if i < N_LAYERS else m for i, m in enumerate(made)))

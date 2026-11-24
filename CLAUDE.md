@@ -128,7 +128,8 @@ docs/                  plan.md decisions.md
 - **땅 블록 = PixelLab 타일셋(2026-11-24)**: `tools/ref/pixellab/tiles/layer<지층>_<이름>.png`(사이드뷰 32px, Wang 내보내기 160x128)를
   `python3 tools/make-pixellab-tiles.py` 가 속 칸((0,3) 칸)만 잘라 2배로 → `tiles/dirt/<지층>_<0~15>` · `tiles/back`(어둡게) · `tiles/cave/back_*` · `grass_0/1`(흙 타일셋 윗면 풀 띠) · `tiles/wang/<지층>`(시트 통째 2배, 굴 가장자리).
   예전 자갈 덧그림(`tiles/dirt/over_*`)은 그림체가 달라 비움. 원본이 없는 지층(지금 1번 점토)은 흙 무늬를 그 지층 색(`LAYERS`)으로 바꿔 씀.
-  **make-hires.py 를 다시 돌리면 이 블록 그림을 덮어쓰니**, 그 뒤에 make-pixellab-tiles.py 를 다시 돌릴 것. 단단한 돌·동굴 장식은 아직 예전(맵 스타일 A) 그림.
+  동굴 천장 고드름 돌 `tiles/cave/top_<지층>_<0~2>` 도 이 도구가 그 지층 블록 색으로 계단식으로 그림(검은 외곽선 없음). 동굴 바닥 장식(버섯·돌무더기·수정·용암 웅덩이·뼈)은 전부 뺐음(`CAVE_BOT_BY_LAYER` 가 모두 -1) → 동굴엔 고드름 돌만.
+  **make-hires.py 를 다시 돌리면 이 블록 그림을 덮어쓰니**, 그 뒤에 make-pixellab-tiles.py 를 다시 돌릴 것. 단단한 블록 3종(돌 12 · 경암 16 · 암반 7)도 PixelLab 타일셋(`block_stone|hard|bedrock.png`) → 이 도구가 `tiles/stone_*`·`hard_*`·`bedrock` + 가장자리 `tiles/wang/<이름>`(draw.ts `wangBlock`).
 - **땅속 광물 = 흙에 박힌 작은 알갱이(2026-11-25 확정)**: `python3 tools/make-pixellab-ores.py [광물id…]` → `ores/world/<id>_<0~3>`(투명 바탕에 알갱이만, 32px 도트 ×2).
   알갱이 6~7개(3칸 ㄱ자·2x2·2x2+1칸): 네 귀퉁이(4px 안)에 하나씩 → 윤곽은 네모꼴, 나머지는 안쪽 아무 데나(가운데끼리 6px↑) → 바둑판 아님. 테두리에서 4px 안쪽. 왼위 하이라이트·오른아래 어둡게·아래 그림자 한 칸.
   색: 구리는 PixelLab 인페인팅 결과(`tools/ref/pixellab/ores/copper_ref.png` vs 원래 흙 `dirt_base.png`)에서 뽑은 색, 나머지는 `ORE_COL`(철만 `COL_OVERRIDE`, 은과 구분).
@@ -145,7 +146,9 @@ docs/                  plan.md decisions.md
   캐기는 팔 내지르기(`dig_in`, 캔 지 0.24초까지 `S.digHoldT`) → 톱니바퀴 회전(`dig` 반복). 아래·위는 `dig_down*`·`dig_up*`(시트 27~35·36~44칸):
   원본 `robot_dig_down_se.gif`(있음)·`robot_dig_up_se.gif`(아직 없음 → 임시 칸)를 9장으로 맞춰 넣음. 캐는 동안 파는 쪽으로 몸을 붙이고 ±2px 갈리는 떨림(톱니바퀴가 암석에 닿게).
   로봇은 그림 속 불꽃을 쓰고 코드 불꽃은 안 그림. 단 **날면서 캘 때**는 캐기 그림(불꽃 없음)을 쓰고 등 아래 분사구에 코드 불꽃을 덧그림.
-  칸 고르기는 `sprites.ts` 의 `PLAYER_ANIM`(칸 번호 목록), 손 자리는 `PGRIP`. **점프·사다리·곡괭이질 원본은 아직 없어서** 서 있기/걷기 칸을 빌려 쓰고 곡괭이는 손에 붙여 코드로 돌림(`SWING_POSE`·`humanPose()`).
+  칸 고르기는 `sprites.ts` 의 `PLAYER_ANIM`(칸 번호 목록), 손 자리는 `PGRIP`. **옆 곡괭이질은 PixelLab 원본** `mine_east.gif`(9장 → 시트 칸 9~17, 몸에서 떨어진 효과 조각은 지움):
+  한 번 휘두를 동안(0.4초) 내리찍는 장부터 한 바퀴(`PLAYER_ANIM.mine`), 곡괭이 끝(몸 가운데 +26px, `MINE_REACH`)이 블록 면에 닿게 몸을 붙임. 이 그림의 곡괭이는 단계 색을 칠하지 않음(옷과 색이 겹쳐서).
+  **점프·사다리·위아래 곡괭이질 원본은 아직 없어서** 서 있기/걷기 칸을 빌려 쓰고 곡괭이는 손에 붙여 코드로 돌림(`SWING_POSE`·`humanPose()`).
   새 동작 원본(예: `mine_east.gif`)을 받으면 make-player.py 의 시트에 칸을 더하고 `PLAYER_ANIM` 만 고치면 됨. 걷기 칸은 걸은 거리(`S.walkD`)로 넘김(미끄러져 보이지 않게).
   박자는 `update.ts` 의 `PICK_SWING`(0.4초): 내리찍는 순간에만 소리·부스러기·캐기 진행. 곡괭이 날은 회색이라 단계 색(`PICK_TIER`)으로 칠함.
   로봇은 사서 마을 차고(`GARAGE` 7~8칸)에서 타는 탈것: `P.mech` 가 참일 때만 로봇 그림·드릴·추진. 로봇 시트가 있으면 그것으로(팔 때는 서 있기 칸으로 파는 쪽에 들이밀며 덜덜), 없으면 아래 예전 코드 로봇.

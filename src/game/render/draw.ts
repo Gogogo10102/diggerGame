@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PLAYER_MINE_CELLS, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -46,8 +46,8 @@ const WANG_AT = (() => {
   return m;
 })();
 // solid: 이 칸이 흙인지. 흙 칸은 사방이 다 흙이면 안 그림(그냥 블록). 빈칸은 이웃 흙의 윗단이 살짝 넘어오는 1~2px 만 그림
-export function wangEdge(c, r, px, py, solid) {
-  const img = wangTiles[layerOf(r - SURF)];
+export function wangEdge(c, r, px, py, solid, sheet = null) {
+  const img = sheet || wangTiles[layerOf(r - SURF)];             // 단단한 블록은 제 시트(wangBlock)
   if (img.width < 2) return;
   const s = (cc, rr) => (cc === c && rr === r ? solid : !seenAir(cc, rr));
   if (solid && !seenAir(c, r - 1) && !seenAir(c, r + 1) && !seenAir(c - 1, r) && !seenAir(c + 1, r) &&
@@ -95,8 +95,10 @@ const smooth = (t) => t * t * (3 - 2 * t);
 export function humanPose() {
   if (P.climbing) return { anim: "climb", i: Math.floor(P.y / 18), pick: null };   // 오르내린 거리만큼 다리를 번갈아
   if (P.digging) {
-    const [W0, W1] = SWING_POSE[P.mode] || SWING_POSE.side;
     const p = Math.max(0, Math.min(1, 1 - (S.digPT || 0) / PICK_SWING));   // 0 = 막 내리찍음
+    // 옆으로 캘 때: PixelLab 곡괭이질 그림(곡괭이 포함)을 한 번 휘두를 동안 한 바퀴 → 곡괭이를 따로 그리지 않음
+    if (P.mode === "side" && PLAYER_IMG.body.width >= PSZ * PLAYER_MINE_CELLS) return { anim: "mine", i: Math.min(8, Math.floor(p * 9)), pick: null };
+    const [W0, W1] = SWING_POSE[P.mode] || SWING_POSE.side;
     let k, rec = 0;                                                  // k: 0 내리찍은 자세 ~ 1 치켜든 자세
     if (p < 0.15) { k = 0; rec = Math.sin((p / 0.15) * Math.PI) * 10; }   // 맞은 뒤 살짝 튕김
     else if (p < 0.8) k = smooth((p - 0.15) / 0.65);                // 천천히 치켜들고
@@ -134,6 +136,7 @@ export function humanAnim() {
   const ps = humanPose();
   return [P.digging ? "mine_" + P.mode : ps.anim, ps.i];
 }
+const MINE_REACH = 26;                                               // 곡괭이질 그림에서 내리찍을 때 곡괭이 끝이 몸 가운데보다 앞선 거리(px, make-player 시트 칸 13~15)
 export const PCX = 40, PFT = 68;                                     // 칸 안의 모자 가운데 x · 발바닥 y (make-player.py 와 짝)
 //  (fx, fy) = 발밑 가운데 화면 자리, k = 배율(정수). 몸은 시트의 왼쪽/오른쪽 줄을 그대로, 곡괭이만 좌우로 뒤집어 그림
 function drawHumanAt(fx, fy, facing, ps, k = 1, pack = false) {
@@ -163,7 +166,13 @@ function drawHuman(px, py) {
   const ps = humanPose();
   if (S.thrustOn) drawThrustFlame(px - P.facing * 11, py + HH - 12, 0.55);   // 배낭 아래에서 불꽃
   const hit = S.pickHitT > 0 ? 1 : 0;                                // 내리찍는 순간 몸이 1px 눌림
-  drawHumanAt(px, py + HH + hit, P.facing, ps, 1, STAT.rocket > 0);
+  // 옆 곡괭이질 그림: 곡괭이 끝(몸 가운데에서 MINE_REACH px 앞)이 블록 면에 4px 박히도록 몸을 블록 쪽으로 붙임
+  let lean = 0;
+  if (ps.anim === "mine" && S.dig) {
+    const dist = P.facing > 0 ? S.dig.c * T - P.x : P.x - (S.dig.c + 1) * T;   // 몸 가운데 ~ 블록 면
+    lean = P.facing * Math.max(-6, Math.min(T / 2, Math.round(dist - (MINE_REACH - 4))));
+  }
+  drawHumanAt(px + lean, py + HH + hit, P.facing, ps, 1, STAT.rocket > 0);
 }
 // ---- 마을 차고 ----
 function drawGarage(camX, camY, vw) {
@@ -255,9 +264,10 @@ export function draw() {
 
   // 타일
   const drawSolid = (id, c, r, px, py, edge = false) => {
-    if (id === 7) ctx.drawImage(bedrock, px, py, T, T);
-    else if (id === 12) ctx.drawImage(stoneTiles[(c * 7 + r * 13) & 1], px, py, T, T);
-    else if (id === 16) ctx.drawImage(hardTiles[(c * 7 + r * 13) & 1], px, py, T, T);
+    if (id === 7 || id === 12 || id === 16) {                     // 단단한 블록: 제 타일셋(PixelLab) 그림 + 빈칸 쪽은 제 가장자리 무늬
+      ctx.drawImage(id === 7 ? bedrock : (id === 12 ? stoneTiles : hardTiles)[(c * 7 + r * 13) & 1], px, py, T, T);
+      if (edge) wangEdge(c, r, px, py, true, wangBlock[id]);
+    }
     else if (id === 13 && r === SURF && BUILD_COLS.some((b) => c >= b[0] && c <= b[1])) ctx.drawImage(plinthTop, px, py, T, T);   // 건물 바로 아래 한 줄만 돌 기단 (그 아래는 흙처럼)
     else {                                                         // 건물 사이 마을 땅(13)은 잔디 흙처럼 보이게
       const Ld = layerOf(r - SURF);
@@ -303,12 +313,12 @@ export function draw() {
         if (r >= SURF) {
           const L = layerOf(r - SURF), nat = id === 0 && r > SURF && baseTiles[r * W + c] === 0;   // 처음부터 빈 칸 = 자연 동굴
           ctx.drawImage((nat ? caveBack : backTiles)[L][(c * 5 + r * 3) & 3], px, py, T, T);
-          if (nat) {                                              // 동굴 장식: 천장 고드름 돌 · 바닥 버섯/수정/돌 (칸마다 정해진 모양)
+          if (nat) {                                              // 동굴 장식: 천장 고드름 돌 (칸마다 정해진 모양). 바닥 장식은 지금 다 뺌(CAVE_BOT_BY_LAYER)
             const h = hv(c, r + 7);
             const ct = caveTop[L][(h >>> 3) % 3];
             if ((h & 3) < 2 && ct.width > 1 && solidTile(tiles[(r - 1) * W + c])) ctx.drawImage(ct, px, py, T, T);
-            const bi = CAVE_BOT_BY_LAYER[L][(h >> 6) & 3], cb = caveBot[bi];
-            if (((h >> 9) & 3) === 0 && cb.width > 1 && solidTile(tiles[(r + 1) * W + c])) {
+            const bi = CAVE_BOT_BY_LAYER[L][(h >> 6) & 3], cb = bi >= 0 ? caveBot[bi] : null;
+            if (cb && ((h >> 9) & 3) === 0 && cb.width > 1 && solidTile(tiles[(r + 1) * W + c])) {
               ctx.drawImage(cb, px, py, T, T);
               if (CAVE_BOT_GLOW[bi] && seen[r * W + c]) decoGlows.push([px + T / 2 + camX, py + T - 12 + camY, CAVE_BOT_GLOW[bi]]);   // 빛나는 장식은 어둠 속에서도 은은하게
             }
@@ -341,7 +351,7 @@ export function draw() {
         drawSolid(id, c, r, px, py - off);
         ctx.restore();
         ctx.fillStyle = "rgba(0,0,0," + (0.35 * (1 - k)).toFixed(2) + ")"; ctx.fillRect(px, py, T, T);
-      } else drawSolid(id, c, r, px, py, r > SURF);                 // 굴 가장자리: 블록 모양은 그대로, 빈칸 쪽 면만 타일셋 가장자리 무늬 (단단한 돌·기반암은 예전 그림, 네모 그대로)
+      } else drawSolid(id, c, r, px, py, r > SURF);                 // 굴 가장자리: 블록 모양은 그대로, 빈칸 쪽 면만 타일셋 가장자리 무늬 (단단한 블록은 제 시트)
     }
   }
   // 지표 굴 가장자리: 잔디가 옆면을 감싸고 굴 쪽으로 살짝 늘어져서 끊기지 않고 이어져 보이게
