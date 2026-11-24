@@ -68,6 +68,8 @@ export const backTiles = LAYERS.map((L, li) => Array.from({ length: 4 }, () => s
 //  고해상도 그림 tiles/cave/*.png (tools/mapart.py). 파일이 없으면 뒷벽은 판 굴 뒷벽을 어둡게, 장식은 안 그림(1x1)
 export const caveBack = LAYERS.map((L, li) => [0, 1, 2, 3].map((v) => sprite(16, 16, (p, g) => { g.drawImage(backTiles[li][v], 0, 0); p(0, 0, 16, 16, "rgba(12,20,44,0.35)"); })));
 export const caveTop = LAYERS.map(() => [0, 1, 2].map(() => sprite(1, 1, () => {})));
+// 굴 가장자리 = PixelLab Wang 시트 통째(지층마다, tiles/wang/<지층>.png, 320x256). 파일이 없으면 1x1 → 가장자리 없이 네모 칸
+export const wangTiles = LAYERS.map(() => sprite(1, 1, () => {}));
 export const caveBot = [0, 1, 2, 3, 4, 5, 6].map(() => sprite(1, 1, () => {}));
 // 지층마다 나오는 바닥 장식 (0 빛버섯 · 1 빨간 버섯 · 2 수정 · 3 돌무더기 · 4 용암 웅덩이 · 5 뼈 무더기 · 6 보라 수정)
 export const CAVE_BOT_BY_LAYER = [[0, 1, 3, 1], [1, 3, 0, 3], [3, 0, 2, 3], [6, 0, 3, 6], [4, 4, 3, 4], [2, 2, 6, 0], [5, 3, 5, 0], [0, 6, 2, 6]];

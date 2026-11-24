@@ -7,6 +7,8 @@
 #     tiles/cave/back_<지층>_<0~3>.png 자연 동굴 뒷벽 (조금 더 어둡고 푸르게)
 #     tiles/dirt/over_<지층>_<0~5>.png 예전 자갈 덧그림 → 비움 (새 무늬와 그림체가 달라서)
 #     tiles/grass_0.png · grass_1.png 지표면 풀 (흙 타일셋 윗면 칸의 풀 띠)
+#     tiles/wang/<지층>.png          Wang 시트 통째로 2배(320x256) → 굴 가장자리(풀·윗단·테두리)를 시트 그대로 그림 (draw.ts 의 wangEdge)
+#       칸 배치(네 모서리 왼위·오른위·왼아래·오른아래, 1 = 흙)는 PixelLab 내보내기 고정 배치 = WANG_LAYOUT (draw.ts 의 WANG_AT 과 같음)
 #   원본이 없는 지층은 흙(0번)을 그 지층 색으로 바꿔 씀 (config.ts 의 LAYERS 색)
 import os, re, glob, colorsys
 import numpy as np
@@ -52,6 +54,21 @@ def darken(t, k, tint=(0, 0, 0), ta=0.0):
     o[..., :3] = o[..., :3] * k * (1 - ta) + np.array(tint) * ta
     return o.clip(0, 255).astype(np.uint8)
 
+WANG_LAYOUT = [["0001", "0011", "0010", "1110", "1101"],
+               ["0101", "1111", "1010", "1011", "0111"],
+               ["0100", "1100", "1000", "1001", "0110"],
+               ["1111", "0000", "0000", "0000", "0000"]]
+
+def wang_of(path):
+    a = np.array(Image.open(path).convert("RGBA"))
+    assert a.shape[:2] == (4 * TS, 5 * TS), "Wang 160x128 이 아님: " + path
+    for r in range(4):                                              # 배치가 다르면 가장자리가 엉뚱하게 그려지니 확인
+        for c in range(5):
+            t = a[r * TS:(r + 1) * TS, c * TS:(c + 1) * TS, 3]
+            got = "".join("1" if t[y, x] > 0 else "0" for y, x in ((8, 8), (8, 24), (24, 8), (24, 24)))
+            assert got == WANG_LAYOUT[r][c], "Wang 배치가 다름 %s (%d,%d) %s" % (path, c, r, got)
+    return a
+
 def grass(path):
     a = np.array(Image.open(path).convert("RGBA"))
     t = a[0:TS, TS:2 * TS]                                          # (1,0) 칸 = 블록 윗면이 칸 가운데를 가로지름
@@ -73,6 +90,8 @@ if __name__ == "__main__":
     for L in range(N_LAYERS):
         t = inner_of(files[L]) if L in files else recolor(base, cols[L])
         made.append("원본" if L in files else "흙 색바꿈")
+        w = wang_of(files[L]) if L in files else recolor(wang_of(files[0]), cols[L])
+        save(x2(w), os.path.join(OUT, "wang", "%d.png" % L))
         big = x2(t)
         for v in range(16): save(big, os.path.join(OUT, "dirt", "%d_%d.png" % (L, v)))
         for v in range(6): save(np.zeros((64, 64, 4), np.uint8), os.path.join(OUT, "dirt", "over_%d_%d.png" % (L, v)))

@@ -229,6 +229,12 @@ def ladder():
     return [L(U_(rect(3.0, 0.4, 5.0, 15.6), rect(11.0, 0.4, 13.0, 15.6)), "wood", "flat", 2),
             L(U_(*[rect(5.0, y, 11.0, y + 1.6) for y in (2.0, 6.0, 10.0, 14.0)]), "wood", "flat", 3)]
 
+def recall():                                                     # 마을 귀환서: 둘둘 만 양피지 + 빨간 봉인
+    return [L(U_(rrect(1.0, 2.0, 4.2, 14.0, 1.4), rrect(11.8, 2.0, 15.0, 14.0, 1.4)), "scroll", "dome", 2.4, rr=1.6),
+            L(rect(3.2, 3.2, 12.8, 12.8), "scroll", "flat", 3, spec=[(4.6, 4.2)]),
+            L(U_(rect(5.0, 5.6, 11.0, 6.4), rect(5.0, 7.6, 9.6, 8.4)), "wood", "fix", 2, sep=False),
+            L(ell(10.6, 10.6, 2.2, 2.2), "redcan", "dome", 2.4, rr=1.2, spec=[(10.0, 10.0)])]
+
 # ---------------- 소모품 · 화면 아이콘 ----------------
 def jerry(mat="redcan", s=1.0, gold_x=False):
     o = lambda v: 8 + (v - 8) * s
@@ -313,7 +319,7 @@ if __name__ == "__main__":
         save(pick(t), os.path.join(OUT_ITEMS, id_ + ".png")); n += 1
     for t in range(4):
         save(rocket(t), os.path.join(OUT_ITEMS, "rocket%d.png" % (t + 1))); n += 1
-    save(robot(), os.path.join(OUT_ITEMS, "robot.png")); save(ladder(), os.path.join(OUT_ITEMS, "ladder.png")); n += 2
+    save(robot(), os.path.join(OUT_ITEMS, "robot.png")); save(ladder(), os.path.join(OUT_ITEMS, "ladder.png")); save(recall(), os.path.join(OUT_ITEMS, "recall.png")); n += 3
     for id_, (shape, t) in CRAFT.items():
         if id_ in DRILL_IDS: continue
         save(SHAPES[shape](t), os.path.join(OUT_ITEMS, id_ + ".png")); n += 1
@@ -321,7 +327,7 @@ if __name__ == "__main__":
           "fuel_s": jerry(s=0.72), "fuel_m": jerry(s=0.86), "fuel_l": jerry("gold"),
           "dyn_s": dyn_s(), "dyn_l": dyn_l(), "dyn_x": dyn_x(), "sup_w": sup_w(), "sup_s": sup_s(),
           "engine": engine(1), "tracks": tracks(1), "lamp": lamp(1), "special": goggles(2), "trophy": trophy(), "order": order(),
-          "pick": pick(0), "rocket": rocket(0), "robot": robot(), "ladder": ladder()}
+          "pick": pick(0), "rocket": rocket(0), "robot": robot(), "ladder": ladder(), "recall": recall()}
     for k, lay in ui.items():
         save(lay, os.path.join(OUT_UI, k + ".png")); n += 1
     print("아이콘", n, "개 저장")

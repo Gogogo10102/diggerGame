@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -28,123 +28,36 @@ import { ov } from "../ui/overlay.ts";
 //  렌더링
 // =====================================================================
 // =====================================================================
-//  부드러운 굴 가장자리 (Chipmatic 느낌)
-//  - 흙 칸에서 '보이는 빈칸'(판 굴·발견한 동굴) 쪽 면(옆벽·천장)을 화면 8~20px(2px 격자) 깎아 내고, 깎인 자리에 굴 배경을 그림.
-//    바닥(흙 칸의 윗면)은 캐릭터가 딛는 곳이라 평평하게 둠(모서리만 둥글게).
-//    그래서 한 칸을 파면 옆 흙들이 같이 작아지면서 통로가 블록보다 넓고 둥글어 보임. (충돌은 그대로 칸 단위)
-//  - 깎는 깊이는 '세상 좌표'로 정해서 이웃 칸끼리 굴 벽이 끊김 없이 이어짐. 볼록한 모서리는 둥글게.
-//  - 파는 중인 칸은 드릴 쪽부터 진행도만큼 더 깎여 들어감.
-//  - 아직 못 본 동굴 쪽은 깎지 않음(동굴 위치가 새면 안 됨).
+//  굴 가장자리 = PixelLab Wang 시트를 그대로 (2026-11-25, 예전 '깎는 가장자리 + 검은 윤곽선' 대신)
+//  - 블록 모양은 바뀌지 않음: 판 칸 옆 흙도 네모 그대로, 가장자리 무늬(윗면 풀·돌 윗단·옆 테두리·천장 그늘)만 시트 칸으로 바꿔 그림.
+//  - 시트는 '꼭짓점 기준'(dual grid): 한 칸을 4조각으로 나눠, 조각마다 그 꼭짓점에 붙은 네 칸(흙/빈칸)으로 시트 칸을 고르고
+//    그 시트 칸의 맞은편 1/4을 그림. 흙 경계가 정확히 칸 경계에 옴.
+//  - 빈칸은 '보이는 빈칸'(판 굴·발견한 동굴)만. 아직 못 본 동굴 쪽은 흙처럼 둠(동굴 위치가 새면 안 됨).
 // =====================================================================
-const EDGE_CACHE = new Map();
-function edgeHash(a, b) {
-  let h = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) | 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return (h >>> 16) & 3;
-}
-// 깎는 모양의 격자: 한 칸을 EDGE_G x EDGE_G 로 나눔 (32 → 화면 2px 단위. 고해상도 타일에 맞춰 촘촘하게)
-const EDGE_G = 32;
-// 경계선 line 위, 격자 좌표 along 에서 깎는 깊이 (2~6칸 = 화면 4~12px). 12칸마다 정한 값을 부드럽게 이어서 이빨처럼 들쭉날쭉하지 않고 물결처럼
-function edgeDepth(along, line) {
-  const k = Math.floor(along / 12), f = (along - k * 12) / 12, s2 = f * f * (3 - 2 * f);
-  const v = edgeHash(k, line) * (1 - s2) + edgeHash(k + 1, line) * s2;    // 0~3
-  return 2 + Math.round(v * 1.34);                                  // 2~6칸 = 화면 4~12px (맵 스타일 A: 덩이 무늬가 덜 잘려 보이게 얕게)
-}
 const seenAir = (c, r) => isAir(c, r) && seen[r * W + c] === 1;
-function edgePaths(c, r, bits, dig, digSide) {
-  const key = c + "," + r + "," + bits + "," + dig + "," + digSide;
-  let e = EDGE_CACHE.get(key);
-  if (e) return e;
-  const G = EDGE_G, G1 = G - 1;
-  const aT = bits & 1, aB = bits & 2, aL = bits & 4, aR = bits & 8, dTL = bits & 16, dTR = bits & 32, dBL = bits & 64, dBR = bits & 128;
-  const cut = new Uint8Array(G * G), X0 = c * G, Y0 = r * G, RC = 7;     // 볼록한 모서리 둥글기 (7칸 = 14px)
-  const extra = (side) => (side === digSide ? dig : 0);
-  for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
-    const X = X0 + x, Y = Y0 + y;
-    let k = 0;
-    if (digSide === 1 && y < extra(1)) k = 1;            // 윗면 = 위 굴의 바닥: 캐릭터가 딛고 서는 곳이라 깎지 않음(뜬 것처럼 보이지 않게)
-    if ((aB || digSide === 2) && G1 - y < (aB ? edgeDepth(X, r * 2 + 2) : 0) + extra(2)) k = 1;
-    if ((aL || digSide === 4) && x < (aL ? edgeDepth(Y, 100003 + c * 2) : 0) + extra(4)) k = 1;
-    if ((aR || digSide === 8) && G1 - x < (aR ? edgeDepth(Y, 100003 + c * 2 + 2) : 0) + extra(8)) k = 1;
-    // 볼록한 모서리(두 면이 빈칸)는 둥글게
-    const rnd = (cx, cy) => (cx - x - 0.5) * (cx - x - 0.5) + (cy - y - 0.5) * (cy - y - 0.5) > RC * RC;
-    if (aT && aL && x < RC && y < RC && rnd(RC, RC)) k = 1;
-    if (aT && aR && x >= G - RC && y < RC && rnd(G - RC, RC)) k = 1;
-    if (aB && aL && x < RC && y >= G - RC && rnd(RC, G - RC)) k = 1;
-    if (aB && aR && x >= G - RC && y >= G - RC && rnd(G - RC, G - RC)) k = 1;
-    // 대각선만 빈칸인 안쪽 모서리: 이웃 칸들이 깎인 만큼 이어서 깎되 꼭짓점 쪽은 남겨 살짝 둥글게
-    //   (xx, yy) = 그 모서리에서 잰 거리, dx/dy = 이웃 칸들이 깎인 깊이
-    const notch = (xx, yy, dx, dy) => xx < dx && yy < dy && !((xx - dx + 1) * (xx - dx + 1) + (yy - dy + 1) * (yy - dy + 1) < 4 && xx > dx - 3 && yy > dy - 3);
-    const dL = () => edgeDepth(Y, 100003 + c * 2), dR = () => edgeDepth(Y, 100003 + c * 2 + 2);
-    const dB = () => edgeDepth(X, r * 2 + 2);
-    if (dTL && !aT && !aL && notch(x, y, dL(), 2)) k = 1;
-    if (dTR && !aT && !aR && notch(G1 - x, y, dR(), 2)) k = 1;
-    if (dBL && !aB && !aL && notch(x, G1 - y, dL(), dB())) k = 1;
-    if (dBR && !aB && !aR && notch(G1 - x, G1 - y, dR(), dB())) k = 1;
-    cut[y * G + x] = k;
+// 네 모서리(왼위 8 · 오른위 4 · 왼아래 2 · 오른아래 1, 켜짐 = 흙) → 시트 칸 [x, y]. PixelLab 내보내기 고정 배치
+//  (tools/make-pixellab-tiles.py 의 WANG_LAYOUT 과 같음, 그 도구가 원본 배치를 확인함). 0 = 다 빈칸 → 안 그림
+const WANG_AT = (() => {
+  const lay = [["0001", "0011", "0010", "1110", "1101"], ["0101", "1111", "1010", "1011", "0111"], ["0100", "1100", "1000", "1001", "0110"]];
+  const m = [];
+  lay.forEach((row, y) => row.forEach((k, x) => { m[parseInt(k, 2)] = [x, y]; }));
+  return m;
+})();
+// solid: 이 칸이 흙인지. 흙 칸은 사방이 다 흙이면 안 그림(그냥 블록). 빈칸은 이웃 흙의 윗단이 살짝 넘어오는 1~2px 만 그림
+export function wangEdge(c, r, px, py, solid) {
+  const img = wangTiles[layerOf(r - SURF)];
+  if (img.width < 2) return;
+  const s = (cc, rr) => (cc === c && rr === r ? solid : !seenAir(cc, rr));
+  if (solid && !seenAir(c, r - 1) && !seenAir(c, r + 1) && !seenAir(c - 1, r) && !seenAir(c + 1, r) &&
+      !seenAir(c - 1, r - 1) && !seenAir(c + 1, r - 1) && !seenAir(c - 1, r + 1) && !seenAir(c + 1, r + 1)) return;
+  const u = img.width / 5, h = T / 2;                               // 시트 칸 크기(그림 px) · 화면 조각 크기
+  for (let q = 0; q < 4; q++) {
+    const dx = q & 1, dy = q >> 1, x0 = c + dx - 1, y0 = r + dy - 1;
+    const k = (s(x0, y0) ? 8 : 0) | (s(x0 + 1, y0) ? 4 : 0) | (s(x0, y0 + 1) ? 2 : 0) | (s(x0 + 1, y0 + 1) ? 1 : 0);
+    if (k === 15 || k === 0) continue;                                // 꽉 찬 흙(블록 그림 그대로) · 다 빈칸
+    const at = WANG_AT[k], qi = 3 - q;                                // 이 칸은 그 시트 칸의 맞은편 1/4
+    ctx.drawImage(img, at[0] * u + (qi & 1) * u / 2, at[1] * u + (qi >> 1) * u / 2, u / 2, u / 2, px + dx * h, py + dy * h, h, h);
   }
-  const cutP = new Path2D(), line = new Path2D(), lit = new Path2D(), shade = new Path2D(), u = T / G;
-  for (let y = 0; y < G; y++) {
-    let x0 = -1;
-    for (let x = 0; x <= G; x++) {
-      const on = x < G && cut[y * G + x];
-      if (on && x0 < 0) x0 = x;
-      if (!on && x0 >= 0) { cutP.rect(x0 * u, y * u, (x - x0) * u, u); x0 = -1; }
-    }
-  }
-  const isCut = (x, y) => x >= 0 && x < G && y >= 0 && y < G && cut[y * G + x] === 1;
-  // 윤곽선 굵기 4px (맵 스타일 A: 아이콘 같은 굵은 외곽선), 바닥 면엔 위에서 오는 빛
-  const LW = 4;
-  if (aT) for (let x = 0; x < G; x++) if (!cut[x]) { line.rect(x * u, 0, u, LW); lit.rect(x * u, LW, u, 2); }   // 깎지 않은 바닥에도 윤곽 + 빛
-  for (let y = 0; y < G; y++) for (let x = 0; x < G; x++) {
-    if (cut[y * G + x]) continue;
-    const px = x * u, py = y * u;
-    if (isCut(x, y - 1)) { line.rect(px, py, u, LW); lit.rect(px, py + LW, u, 2); }      // 바닥 면
-    if (isCut(x, y + 1)) { line.rect(px, py + u - LW, u, LW); shade.rect(px, py - 4, u, 4); }   // 천장 면: 윤곽 + 그늘
-    if (isCut(x - 1, y)) line.rect(px, py, LW, u);
-    if (isCut(x + 1, y)) { line.rect(px + u - LW, py, LW, u); shade.rect(px - 4, py, 4, u); }
-    if (isCut(x - 1, y - 1) && !isCut(x - 1, y) && !isCut(x, y - 1)) line.rect(px, py, LW, LW);   // 대각선 틈 메우기
-    if (isCut(x + 1, y - 1) && !isCut(x + 1, y) && !isCut(x, y - 1)) line.rect(px + u - LW, py, LW, LW);
-    if (isCut(x - 1, y + 1) && !isCut(x - 1, y) && !isCut(x, y + 1)) line.rect(px, py + u - LW, LW, LW);
-    if (isCut(x + 1, y + 1) && !isCut(x + 1, y) && !isCut(x, y + 1)) line.rect(px + u - LW, py + u - LW, LW, LW);
-  }
-  e = { cut: cutP, line, lit, shade, any: cut.some((v) => v) || !!aT };   // 깎인 곳이 없어도 바닥(위가 빈칸)이면 윤곽선·빛은 그림
-  if (EDGE_CACHE.size > 6000) EDGE_CACHE.clear();
-  EDGE_CACHE.set(key, e);
-  return e;
-}
-function softEdge(c, r, px, py, id) {
-  if (typeof Path2D === "undefined") return;
-  let bits = 0;
-  if (seenAir(c, r - 1)) bits |= 1;
-  if (seenAir(c, r + 1)) bits |= 2;
-  if (seenAir(c - 1, r)) bits |= 4;
-  if (seenAir(c + 1, r)) bits |= 8;
-  if (seenAir(c - 1, r - 1)) bits |= 16;
-  if (seenAir(c + 1, r - 1)) bits |= 32;
-  if (seenAir(c - 1, r + 1)) bits |= 64;
-  if (seenAir(c + 1, r + 1)) bits |= 128;
-  // 파는 중인 칸: 드릴이 닿은 쪽(플레이어 쪽)부터 진행도만큼 더 깎음 (0~16칸 = 화면 0~32px)
-  let dig = 0, side = 0;
-  if (S.dig && S.dig.c === c && S.dig.r === r) {
-    const need = Math.max(0.01, hardOf(id, r) / drillMult());
-    dig = Math.min(16, Math.round(Math.min(1, S.dig.t / need) * 16));
-    const pc = P.x / T, pr = P.y / T;
-    side = Math.abs(pc - (c + 0.5)) > Math.abs(pr - (r + 0.5)) ? (pc < c + 0.5 ? 4 : 8) : (pr < r + 0.5 ? 1 : 2);
-  }
-  if (!bits && !dig) return;
-  const e = edgePaths(c, r, bits, dig, side);
-  if (!e.any) return;
-  ctx.save();
-  ctx.translate(px, py);
-  ctx.save(); ctx.clip(e.cut);
-  const natN = ((bits & 1) && natAir((r - 1) * W + c)) || ((bits & 2) && natAir((r + 1) * W + c)) || ((bits & 4) && natAir(r * W + c - 1)) || ((bits & 8) && natAir(r * W + c + 1));
-  ctx.drawImage((natN ? caveBack : backTiles)[layerOf(r - SURF)][(c * 5 + r * 3) & 3], 0, 0, T, T);   // 자연 동굴 쪽은 동굴 뒷벽 (예전엔 더 어둡게 덮어서 굴 안과 띠가 져 보였음)
-  ctx.restore();
-  ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.fill(e.shade);
-  ctx.fillStyle = "rgba(255,230,190,0.16)"; ctx.fill(e.lit);
-  ctx.fillStyle = "#1a0f0a"; ctx.fill(e.line);
-  ctx.restore();
 }
 
 // 추진 불꽃: 움직이는 반대쪽으로 기울어짐 (Chipmatic 처럼). 4px 도트 덩어리를 방향을 따라 이어 그림
@@ -339,7 +252,7 @@ export function draw() {
   if (wr < vw) ctx.fillRect(wr, sy0, vw - wr, vh - sy0);
 
   // 타일
-  const drawSolid = (id, c, r, px, py) => {
+  const drawSolid = (id, c, r, px, py, edge = false) => {
     if (id === 7) ctx.drawImage(bedrock, px, py, T, T);
     else if (id === 12) ctx.drawImage(stoneTiles[(c * 7 + r * 13) & 1], px, py, T, T);
     else if (id === 16) ctx.drawImage(hardTiles[(c * 7 + r * 13) & 1], px, py, T, T);
@@ -349,6 +262,7 @@ export function draw() {
       ctx.drawImage(dirtTiles[Ld][((c & 3) | ((r & 3) << 2)) % DIRT_VAR], px, py, T, T);   // 4x4칸마다 무늬가 이어짐
       const hd = hv(c, r);
       if ((hd >>> 4) % 5 < 2) { const ov = dirtOver[Ld][(hd >>> 9) % DIRT_OVER]; if (ov.width > 1) ctx.drawImage(ov, px, py, T, T); }   // 칸마다 자갈 등 (5칸에 2칸)
+      if (edge) wangEdge(c, r, px, py, true);                      // 굴 가장자리 무늬는 광물·상자보다 먼저(가리지 않게)
       if (id === 17) {                                             // 보물 상자: 흙 위에 상자, 금테가 가끔 반짝
         ctx.drawImage(chestTile, px, py, T, T);
         const k = (S.animT * 1.2 + (c * 3 + r * 7) * 0.31) % 2.4;
@@ -401,8 +315,7 @@ export function draw() {
             ctx.fillStyle = "#3a6b2e";
             for (let k = 0; k < 4; k++) { const hh = 2 + ((hv(c * 4 + k, 51) >> 2) % 3) * 2; ctx.fillRect(px + k * (T / 4) + 2, py - hh, 2, hh); }
           }
-          // 천장 쪽은 살짝 어둡게 (굴 벽 모양은 흙 칸 쪽에서 깎아서 그림 → softEdge)
-          if (r > SURF && solidTile(tiles[(r - 1) * W + c])) { ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.fillRect(px, py, T, 12); }
+          if (r > SURF) wangEdge(c, r, px, py, false);           // 이웃 흙의 윗단(풀·돌판)이 살짝 넘어오는 부분
         } else if (r === SURF - 1 && id === 0 && tiles[SURF * W + c] !== 13 && solidTile(tiles[SURF * W + c])) {
           const tr = c >= MINE_COL + 3 && hv(c, 101) % 9 === 0 ? treeImgs[hv(c, 103) % 3] : null;   // 광산 터에 드문드문 나무
           if (tr && tr.width > 1) ctx.drawImage(tr, px + Math.floor((T - tr.width) / 2), py + T - tr.height);
@@ -422,9 +335,7 @@ export function draw() {
         drawSolid(id, c, r, px, py - off);
         ctx.restore();
         ctx.fillStyle = "rgba(0,0,0," + (0.35 * (1 - k)).toFixed(2) + ")"; ctx.fillRect(px, py, T, T);
-      } else drawSolid(id, c, r, px, py);
-      // 굴 가장자리: 빈칸 쪽 면을 2~3칸(그림 기준) 깎고 모서리를 둥글게 → 블록이 사라지는 게 아니라 굴이 넓어지는 느낌
-      if (r > SURF && id !== 7 && id !== 13) softEdge(c, r, px, py, id);
+      } else drawSolid(id, c, r, px, py, r > SURF);                 // 굴 가장자리: 블록 모양은 그대로, 빈칸 쪽 면만 타일셋 가장자리 무늬 (단단한 돌·기반암은 예전 그림, 네모 그대로)
     }
   }
   // 지표 굴 가장자리: 잔디가 옆면을 감싸고 굴 쪽으로 살짝 늘어져서 끊기지 않고 이어져 보이게
@@ -852,7 +763,7 @@ export function townScale(SW, SH) {
   return 1;
 }
 
-// 소모품 단축 슬롯 (1~7 키 / 터치로 탭)
+// 소모품 단축 슬롯 (1~8 키 / 터치로 탭)
 export function drawHotbar(vw, vh) {
   S.hotBtns = []; S.hotLeft = 1e9;
   if (S.state !== "play") return;
@@ -1081,8 +992,8 @@ export function drawHUD(vw, vh, depth) {
   const helpOn = S.showHelp && S.state === "play" && (S.helpPinned || S.playT < 30);
   let helpStr = S.usedTouch
     ? "드래그로 조작 · 아래 슬롯: 소모품 · 오른쪽 위: 가방/업적/메뉴"
-    : P.mech ? "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-7 소모품 · E 차고 · I 가방 · Q 업적 · M 지도 · H 도움말"
-    : "←→ 이동 · ↑ 점프/사다리 · ↓ 곡괭이 · 7 사다리 · 1-6 소모품 · I 가방 · Q 업적 · M 지도 · H 도움말";
+    : P.mech ? "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-8 소모품 · E 차고 · I 가방 · Q 업적 · M 지도 · H 도움말"
+    : "←→ 이동 · ↑ 점프/사다리 · ↓ 곡괭이 · 7 사다리 · 8 귀환서 · 1-6 소모품 · I 가방 · Q 업적 · M 지도 · H 도움말";
   setFont(12);
   let helpW = Math.ceil(ctx.measureText(helpStr).width) + 32;
   if (helpW + (S.usedTouch ? 28 : 0) > vw - 24) {                 // 좁은 화면: 짧은 문구로 (예전엔 화면 밖으로 잘렸음)

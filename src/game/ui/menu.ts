@@ -101,7 +101,7 @@ export function renderRescue() {
 export function rescuePlayer() {
   respawn(); P.climbing = false; S.rocketOn = false;
   sfx("ignite");
-  say("구조됐어요! 다음엔 사다리(7)를 챙겨 가세요");
+  say("구조됐어요! 다음엔 사다리(7)나 마을 귀환서(8)를 챙겨 가세요");
   saveNow(true, true);
 }
 export function renderNewMine() {
