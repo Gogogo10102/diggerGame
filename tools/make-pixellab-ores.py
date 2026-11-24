@@ -44,7 +44,7 @@ def ref_palette(path, gem=False):
         for x in range(2, 30):
             r, g, bb = a[y, x, :3]
             h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, bb / 255)
-            if gem: ok = d[y, x] > 20 and v > 0.6 and not (0.03 < h < 0.14 and s > 0.25)
+            if gem: ok = d[y, x] > 20 and (s > 0.3 or v > 0.85) and not (0.03 < h < 0.14)   # 흙빛(갈색)·회색 그림자 빼고
             else: ok = d[y, x] > 20 and s > 0.6 and v > 0.62           # 흙빛으로 바뀐 픽셀은 빼고 광물 색만
             if ok: cols.add((int(r), int(g), int(bb)))
     return sorted(cols, key=lambda c: c[0] * 3 + c[1] * 6 + c[2])
@@ -114,6 +114,9 @@ if __name__ == "__main__":
             print("광물 %d: 보석이라 건너뜀 (PixelLab 원본 필요)" % oid); continue
         gem = oid in GEMS
         pal = ref_palette(refp, gem) if os.path.exists(refp) else ramp(*COL_OVERRIDE.get(oid, cols[oid]))
+        if gem and os.path.exists(refp) and max(colorsys.rgb_to_hsv(*[c / 255 for c in q])[2] for q in pal) < 0.7:
+            # 원본 색이 너무 어두우면(루비) ORE_COL 의 밝은 단계를 더해 밝힘 (원본의 어두운 색은 그늘로 남김)
+            pal = sorted(set(pal) | set(ramp(*cols[oid])[1:]), key=lambda c: c[0] * 3 + c[1] * 6 + c[2])
         sp = []
         for v in range(4):
             t, hi = fleck_tile(pal, seed=(0 if oid == 2 else oid * 10) + v, gem=gem)   # 구리 = 처음 고른 배치(0~3)
