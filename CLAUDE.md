@@ -34,7 +34,7 @@ src/
     ui/     dom inventory overlay menu
 public/assets/         게임 그림 PNG + manifest.json
 tests/                 harness.cjs(가짜 DOM/캔버스) smoke.cjs(테스트)
-tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-player.py  make-pixellab-tiles.py  make-icons.py(+pixicon.py)  make-drill-icons.py(+drillart/)  make-buildings.py  make-signs.py
+tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-player.py  make-pixellab-tiles.py  make-pixellab-ores.py  make-icons.py(+pixicon.py)  make-drill-icons.py(+drillart/)  make-buildings.py  make-signs.py
 docs/                  plan.md decisions.md
 ```
 
@@ -128,7 +128,14 @@ docs/                  plan.md decisions.md
 - **땅 블록 = PixelLab 타일셋(2026-11-24)**: `tools/ref/pixellab/tiles/layer<지층>_<이름>.png`(사이드뷰 32px, Wang 내보내기 160x128)를
   `python3 tools/make-pixellab-tiles.py` 가 속 칸((0,3) 칸)만 잘라 2배로 → `tiles/dirt/<지층>_<0~15>` · `tiles/back`(어둡게) · `tiles/cave/back_*` · `grass_0/1`(흙 타일셋 윗면 풀 띠) · `tiles/wang/<지층>`(시트 통째 2배, 굴 가장자리).
   예전 자갈 덧그림(`tiles/dirt/over_*`)은 그림체가 달라 비움. 원본이 없는 지층(지금 1번 점토)은 흙 무늬를 그 지층 색(`LAYERS`)으로 바꿔 씀.
-  **make-hires.py 를 다시 돌리면 이 블록 그림을 덮어쓰니**, 그 뒤에 make-pixellab-tiles.py 를 다시 돌릴 것. 광물·단단한 돌·동굴 장식은 아직 예전(맵 스타일 A) 그림.
+  **make-hires.py 를 다시 돌리면 이 블록 그림을 덮어쓰니**, 그 뒤에 make-pixellab-tiles.py 를 다시 돌릴 것. 단단한 돌·동굴 장식은 아직 예전(맵 스타일 A) 그림.
+- **땅속 광물 = 흙에 박힌 작은 알갱이(2026-11-25 확정)**: `python3 tools/make-pixellab-ores.py [광물id…]` → `ores/world/<id>_<0~3>`(투명 바탕에 알갱이만, 32px 도트 ×2).
+  알갱이 6~7개(3칸 ㄱ자·2x2·2x2+1칸): 네 귀퉁이(4px 안)에 하나씩 → 윤곽은 네모꼴, 나머지는 안쪽 아무 데나(가운데끼리 6px↑) → 바둑판 아님. 테두리에서 4px 안쪽. 왼위 하이라이트·오른아래 어둡게·아래 그림자 한 칸.
+  색: 구리는 PixelLab 인페인팅 결과(`tools/ref/pixellab/ores/copper_ref.png` vs 원래 흙 `dirt_base.png`)에서 뽑은 색, 나머지는 `ORE_COL`(철만 `COL_OVERRIDE`, 은과 구분).
+  **보석(다이아·에메랄드·루비)**은 `ores/<id>_ref.png`(같은 흙 칸에 인페인팅)가 있을 때만 그 색으로 작은 결정(2~4칸) 7~8개(같은 배치). 원본 색이 너무 어두우면(루비) ORE_COL 밝은 단계를 더해 밝힘. 다이아·에메랄드·루비 모두 있음.
+  반짝이는 광물의 반짝임 자리(`ORE_FLECK_SPARK`)와 알갱이 자리(`ORE_FLECK_BOX`)는 도구가 출력하는 값을 `sprites.ts` 에 붙여 넣음(배치를 바꾸면 다시).
+  위 칸을 파서 윗면 무늬(풀·판돌, 두께 `WANG_TOP`)가 생기면 그 두께에 걸치는 알갱이는 통째로 안 그림(draw.ts) → 광물이 윗단 밖으로 삐져나오지 않음. 광물 아이콘·떨어진 광물은 아직 예전 그림.
+  make-hires.py 를 다시 돌리면 덮어쓰니 그 뒤에 이 도구를 다시 돌릴 것.
 - **사람 광부 · 로봇 그림 = PixelLab 원본**(`tools/ref/pixellab/`): `east.png`·`west.png`(서 있기 56x56) · `walk_east.gif`(걷기 8장 80x80) · `robot_se.png`·`robot_sw.png`(로봇 72x72)
   · `robot_walk_se.gif`(로봇 걷기 8장) · `robot_jump_se.gif`(로봇 점프 9장: 웅크림 → 백팩 로켓 점화 → 착지, 불꽃이 그림에 들어 있음)
   · `robot_dig_se.gif`(로봇 캐기 9장: 오른팔 톱니바퀴를 앞으로 내질러 돌림).

@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -37,6 +37,8 @@ import { ov } from "../ui/overlay.ts";
 const seenAir = (c, r) => isAir(c, r) && seen[r * W + c] === 1;
 // 네 모서리(왼위 8 · 오른위 4 · 왼아래 2 · 오른아래 1, 켜짐 = 흙) → 시트 칸 [x, y]. PixelLab 내보내기 고정 배치
 //  (tools/make-pixellab-tiles.py 의 WANG_LAYOUT 과 같음, 그 도구가 원본 배치를 확인함). 0 = 다 빈칸 → 안 그림
+// 지층마다 타일셋 윗면 무늬(흙 = 풀, 돌 = 판돌 윗단 …)의 두께(원본 px). 시트의 윗면 칸을 속 칸과 줄마다 견줘 잰 값 (점토 = 흙 색바꿈)
+const WANG_TOP = [5, 5, 7, 3, 2, 2, 8, 2];
 const WANG_AT = (() => {
   const lay = [["0001", "0011", "0010", "1110", "1101"], ["0101", "1111", "1010", "1011", "0111"], ["0100", "1100", "1000", "1001", "0110"]];
   const m = [];
@@ -274,12 +276,16 @@ export function draw() {
         if (k < 1) { ctx.globalAlpha = Math.sin(k * Math.PI) * 0.6; ctx.fillStyle = "#b4f07a"; ctx.fillRect(px + 28, py + 10 - Math.round(k * 8), 6, 6); ctx.globalAlpha = 1; }
       }
       if (id > 1 && ORE_SPR[id]) {
-        const ov = ORE_SPR[id][hv(c, r) & 3];
-        ctx.drawImage(ov.img, px, py, T, T);
-        const sp = SPARK_ORES[id] ? (ov.img.width > 16 ? ORE_HI_SPARK[hv(c, r) & 3] : ov.spark) : null;
+        const vi = hv(c, r) & 3, ov = ORE_SPR[id][vi];
+        // 위 칸이 빈칸이면 윗면 무늬(풀·판돌)가 덮는 두께(capY)까지 걸치는 알갱이는 통째로 뺌 → 광물이 윗단 밖으로 삐져나와 보이지 않게
+        const boxes = ov.img.width === T ? ORE_FLECK_BOX[id]?.[vi] : null;
+        const capY = edge && boxes && seenAir(c, r - 1) && wangTiles[layerOf(r - SURF)].width > 1 ? WANG_TOP[layerOf(r - SURF)] * 2 : 0;
+        if (capY) { for (const [bx, by, bw, bh] of boxes) if (by >= capY) ctx.drawImage(ov.img, bx, by, bw, bh, px + bx, py + by, bw, bh); }
+        else ctx.drawImage(ov.img, px, py, T, T);
+        const sp = SPARK_ORES[id] ? (ov.img.width > 16 ? (ORE_FLECK_SPARK[id] || ORE_HI_SPARK)[vi] : ov.spark) : null;
         if (sp) {
           const k = (S.animT * 1.6 + (c * 5 + r * 3) * 0.37) % 3;
-          if (k < 0.5) { const q = sp[(c + r) % sp.length], a = Math.sin(k / 0.5 * Math.PI); ctx.globalAlpha = a; ctx.fillStyle = "#fff"; ctx.fillRect(px + q[0] * AS, py + q[1] * AS - 2, 2, 6); ctx.fillRect(px + q[0] * AS - 2, py + q[1] * AS, 6, 2); ctx.globalAlpha = 1; }
+          if (k < 0.5 && !(capY && sp[(c + r) % sp.length][1] * AS < capY)) { const q = sp[(c + r) % sp.length], a = Math.sin(k / 0.5 * Math.PI); ctx.globalAlpha = a; ctx.fillStyle = "#fff"; ctx.fillRect(px + q[0] * AS, py + q[1] * AS - 2, 2, 6); ctx.fillRect(px + q[0] * AS - 2, py + q[1] * AS, 6, 2); ctx.globalAlpha = 1; }
         }
       }
       if (r === SURF) ctx.drawImage(grassTiles[hv(c, 9) & 1], px, py, T, T);
@@ -763,7 +769,7 @@ export function townScale(SW, SH) {
   return 1;
 }
 
-// 소모품 단축 슬롯 (1~7 키 / 터치로 탭)
+// 소모품 단축 슬롯 (1~8 키 / 터치로 탭)
 export function drawHotbar(vw, vh) {
   S.hotBtns = []; S.hotLeft = 1e9;
   if (S.state !== "play") return;
@@ -992,8 +998,8 @@ export function drawHUD(vw, vh, depth) {
   const helpOn = S.showHelp && S.state === "play" && (S.helpPinned || S.playT < 30);
   let helpStr = S.usedTouch
     ? "드래그로 조작 · 아래 슬롯: 소모품 · 오른쪽 위: 가방/업적/메뉴"
-    : P.mech ? "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-7 소모품 · E 차고 · I 가방 · Q 업적 · M 지도 · H 도움말"
-    : "←→ 이동 · ↑ 점프/사다리 · ↓ 곡괭이 · 7 사다리 · 1-6 소모품 · I 가방 · Q 업적 · M 지도 · H 도움말";
+    : P.mech ? "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-8 소모품 · E 차고 · I 가방 · Q 업적 · M 지도 · H 도움말"
+    : "←→ 이동 · ↑ 점프/사다리 · ↓ 곡괭이 · 7 사다리 · 8 귀환서 · 1-6 소모품 · I 가방 · Q 업적 · M 지도 · H 도움말";
   setFont(12);
   let helpW = Math.ceil(ctx.measureText(helpStr).width) + 32;
   if (helpW + (S.usedTouch ? 28 : 0) > vw - 24) {                 // 좁은 화면: 짧은 문구로 (예전엔 화면 밖으로 잘렸음)

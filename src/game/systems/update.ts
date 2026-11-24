@@ -217,6 +217,7 @@ export function useConsumable(id) {
   if (c.kind === "support") return placeSupport(id);
   if (!((P.inv[id] || 0) > 0)) return say(c.name + "이(가) 없어요! 아이템 상점에서 구매하세요");
   if (c.kind === "ladder") return placeLadder(id);
+  if (c.kind === "recall") return useRecall(id);
   if (c.kind === "fuel") {
     if (P.fuel >= maxFuel() - 0.5) return say("연료가 이미 가득해요");
     P.fuel = Math.min(maxFuel(), P.fuel + maxFuel() * c.frac);
@@ -575,6 +576,20 @@ export function update(dt) {
   }
 }
 
+// 마을 귀환서: 땅속 어디서든 곧바로 마을(상점 앞)로. 구조 요청과 달리 화물·연료는 그대로
+export function useRecall(id) {
+  if (Math.floor(P.y / T) < SURF) return say("이미 마을이에요");
+  P.inv[id]--;
+  const fx = P.x, fy = P.y;
+  for (let i = 0; i < 18; i++) floaters.push({ x: fx + (Math.random() - 0.5) * 40, y: fy - Math.random() * 40, text: "*", color: i % 2 ? "#fff6b4" : "#9fd8ff", life: 0.6 + Math.random() * 0.5 });
+  P.x = 6 * T + T / 2; P.y = SURF * T - HH - 1;
+  P.vx = P.vy = 0; P.climbing = false; S.rocketOn = false; S.dig = null; S.inShop = true; S.lastRevealKey = ""; S.graceT = 1;
+  ladderQ.length = 0;
+  sfx("levelup");
+  floaters.push({ x: P.x, y: P.y - 40, text: "마을 도착!", color: "#ffd34d", life: 1.4 });
+  say("마을 귀환서를 읽었어요! (남은 " + P.inv[id] + "개)");
+  saveNow(true, true);
+}
 export function respawn() {
   P.x = 6 * T + T / 2; P.y = SURF * T - HH - 1;
   P.vx = P.vy = 0; P.cargo = {}; P.fuel = maxFuel(); S.dig = null; S.inShop = true;
