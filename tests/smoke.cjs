@@ -465,6 +465,12 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t20.ev("P.x = 15 * T + 16 + 6 * T"); t20.ev("bombs[0].t = 0.001"); t20.run(5);
   ok(t20.ev("tiles[(SURF+20)*W+15]") === 0, "폭발이 옛 지지대를 치움");
 
+  console.log("[20b] 굴 가장자리 = Wang 시트 (블록 모양은 그대로)");
+  t20.ev("wangTiles.forEach((cv) => { cv.width = 320; cv.height = 256; }); for (let r = SURF + 30; r <= SURF + 34; r++) for (let c = 20; c <= 30; c++) { tiles[r*W+c] = (r === SURF + 32 && c > 21 && c < 29) ? 0 : 1; seen[r*W+c] = 1; } P.x = 25 * T + T / 2; P.y = (SURF + 32) * T + T / 2; P.vx = P.vy = 0");
+  t20.run(3);
+  ok(t20.ev("state") === "play" && typeof t20.ev("wangEdge") === "function" && typeof t20.ev("typeof softEdge") === "string" && t20.ev("typeof softEdge") === "undefined", "가장자리 시트가 있어도 그리기 오류 없음 · 예전 깎는 가장자리 없음");
+  t20.ev("wangTiles.forEach((cv) => { cv.width = 1; cv.height = 1; })");
+
   console.log("[21] 공중 흙 낙하 / 새 광산");
   const t23 = boot(path, { w: 1000, h: 640 }); t23.run(5); await login(t23, "Float"); t23.run(10);
   // 깊은 곳에 빈 방을 만들고 그 안에 떠 있는 2x2 덩어리를 둠
