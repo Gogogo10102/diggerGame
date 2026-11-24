@@ -666,8 +666,12 @@ export const PLAYER_ANIM = {
   crouch: { f: [4], fps: 0 },                                       // 곡괭이 내리찍은 자세 (팔이 앞으로 나간 칸)
   // 옆 곡괭이질 (PixelLab mine_east.gif 9장 = 칸 9~17). 내리찍는 순간(원본 5번째 장)부터 한 바퀴: 맞음 → 버팀 → 거둠 → 치켜듦 → 휘두름
   mine: { f: [13, 14, 15, 16, 17, 9, 10, 11, 12], fps: 0 },
+  // 아래 곡괭이질 (PixelLab mine_down_east.gif 9장 = 칸 18~26). 원본은 꺼내기(0~2) + 두 번 내리찍기라, 한 번 치는 바퀴만 씀:
+  //  내리찍음(원본 3) → 버팀(4) → 들어올림(5) → 뒤로 젖힘(6) → 머리 위(7) → 다시 내리찍음
+  mine_down: { f: [21, 22, 23, 24, 25], fps: 0 },
 };
-export const PLAYER_MINE_CELLS = 18;                                  // 시트에 곡괭이질 칸까지 있으면 칸 수가 이만큼 (없으면 예전처럼 코드로 휘두름)
+export const PLAYER_MINE_CELLS = 18;                                  // 시트에 옆 곡괭이질 칸까지 있으면 칸 수가 이만큼 (없으면 예전처럼 코드로 휘두름)
+export const PLAYER_MINE_DOWN_CELLS = 27;                             // 아래 곡괭이질 칸까지
 //  칸 안의 손(곡괭이 손잡이) 자리 — 오른쪽을 볼 때. 왼쪽은 draw.ts 가 좌우로 뒤집어 씀
 export const PGRIP = { raise: [42, 46], crouch: [51, 50], back: [30, 50] };
 export const PLAYER_IMG = { body: sprite(1, 1, () => {}), pick: sprite(1, 1, () => {}), pack: sprite(1, 1, () => {}) };

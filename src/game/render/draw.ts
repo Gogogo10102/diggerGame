@@ -2,7 +2,7 @@
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
-import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PLAYER_MINE_CELLS, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
+import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PLAYER_MINE_CELLS, PLAYER_MINE_DOWN_CELLS, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -98,6 +98,7 @@ export function humanPose() {
     const p = Math.max(0, Math.min(1, 1 - (S.digPT || 0) / PICK_SWING));   // 0 = 막 내리찍음
     // 옆으로 캘 때: PixelLab 곡괭이질 그림(곡괭이 포함)을 한 번 휘두를 동안 한 바퀴 → 곡괭이를 따로 그리지 않음
     if (P.mode === "side" && PLAYER_IMG.body.width >= PSZ * PLAYER_MINE_CELLS) return { anim: "mine", i: Math.min(8, Math.floor(p * 9)), pick: null };
+    if (P.mode === "down" && PLAYER_IMG.body.width >= PSZ * PLAYER_MINE_DOWN_CELLS) return { anim: "mine_down", i: Math.min(4, Math.floor(p * 5)), pick: null };
     const [W0, W1] = SWING_POSE[P.mode] || SWING_POSE.side;
     let k, rec = 0;                                                  // k: 0 내리찍은 자세 ~ 1 치켜든 자세
     if (p < 0.15) { k = 0; rec = Math.sin((p / 0.15) * Math.PI) * 10; }   // 맞은 뒤 살짝 튕김
