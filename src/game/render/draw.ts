@@ -408,8 +408,7 @@ export function draw() {
       };
       // 마을 건물 한 채 (PixelLab town.png, 이미 2배로 키운 고해상도 → 1:1). 건물 칸 가운데, 그림 아래 끝 = 땅 표면
       const img = S.townImg, has = img && img.width > 16, cw = (BUILD_COLS[0][1] - BUILD_COLS[0][0] + 1) * T;
-      const sink = has && img.width === TOWN_FX.w && img.height === TOWN_FX.h ? TOWN_FX.sink : 0;
-      const q = { x: BUILD_COLS[0][0] * T - camX + Math.floor((cw - (has ? img.width : 0)) / 2), y: base - (has ? img.height : 0) + sink, w: has ? img.width : 0, h: has ? img.height : 0 };
+      const q = { x: BUILD_COLS[0][0] * T - camX + Math.floor((cw - (has ? img.width : 0)) / 2), y: base - (has ? img.height : 0), w: has ? img.width : 0, h: has ? img.height : 0 };   // 돌 기단째 땅 위에
       const busy = !!(S.acct && S.acct.furnace && S.acct.furnace.q.length);   // 용광로가 재련 중이면 화덕이 더 밝고 연기가 짙음
       if (has) {
         ctx.drawImage(img, q.x, q.y);
@@ -1078,8 +1077,7 @@ const hexA = (hex, a) => { const v = parseInt(hex.slice(1), 16); return "rgba(" 
 // 건물 그림에서 창문(주황·노란빛 픽셀, 그림 아래쪽 60%)만 골라 밝은 불빛 그림으로. 고해상도 그림일 때만, 한 번 만들어 둠
 const WIN_MASK = new Map();
 // 마을 건물 그림(buildings/town.png 308x202)에서 잰 자리: 화덕 아궁이 [x, y, 폭, 높이] · 굴뚝 꼭대기 [x, y]
-//  sink: 그림 아래 돌 기단 두께 — 기단 윗면(풀 줄)이 땅 표면과 맞게 그만큼 땅속으로 내려 그림 (광부가 문 앞 높이에 서도록)
-const TOWN_FX = { w: 308, h: 202, forge: [250, 128, 36, 20], smoke: [261, 28], sink: 28 };
+const TOWN_FX = { w: 308, h: 202, forge: [250, 128, 36, 20], smoke: [261, 28] };
 function windowMask(img) {
   if (!img || img.width <= 160) return null;
   const hit = WIN_MASK.get(img);

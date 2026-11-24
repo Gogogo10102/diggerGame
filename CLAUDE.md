@@ -118,7 +118,7 @@ docs/                  plan.md decisions.md
 - **마을 건물은 한 채**(2026-11-25): 상점·제작소·용광로·판매를 합침(`BUILD_COLS = [[2, 6]]`, `B_SHOP = B_CRAFT = B_FURN = 0`, 광산 터 `MINE_COL = 22` 는 예전 자리 그대로).
   들어가면(E·버튼, `openTown()`) 광물을 싣고 왔으면 판매 탭, 아니면 상점 탭 → 마을 창 4탭으로 오감. 차고(`GARAGE` 7~8칸)는 따로.
   그림 = PixelLab 원본 `tools/ref/pixellab/town_building.png` → `python3 tools/make-pixellab-building.py` 가 잘라 2배로 → `buildings/town.png`(1:1).
-  아래 돌 기단 두께만큼(`TOWN_FX.sink`) 땅속으로 내려 그려 기단 윗면 = 땅 표면. 화덕 불빛·굴뚝 연기 자리는 `TOWN_FX`(그림 크기가 같을 때만), 창문 불빛은 `windowMask`.
+  그림 아래 끝(돌 기단 밑)이 땅 표면 → 건물은 기단째 땅 위에 섬. 화덕 불빛·굴뚝 연기 자리는 `TOWN_FX`(그림 크기가 같을 때만), 창문 불빛은 `windowMask`.
   예전 세 건물 그림(`make-buildings.py`, `BLD_FX`)은 쓰지 않음. 표지판·탭은 `tools/make-signs.py`.
 - 광물 id: 2 구리, 3 철, 4 금, 5 다이아, 6 석탄, 8 은, 9 에메랄드, 10 루비, 11 미스릴.
 - **드릴 아이콘**(`items/<드릴 id>.png` 15개 + `ui/icon/drill.png`)은 `python3 tools/make-drill-icons.py` (확정 도안 v2, 등급 4 × 진화 4 중 고른 표는 파일 안 MAP).
