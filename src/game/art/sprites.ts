@@ -652,7 +652,7 @@ export function getMiner(mode, leg, dig, part = "all") {
 // =====================================================================
 export const PSZ = 80;
 //  사람 광부 시트(make-player.py 가 PixelLab 원본으로 만듦): 80x80 칸, 줄 0 = 오른쪽 · 줄 1 = 왼쪽
-//   칸 0 서 있기, 칸 1~8 걷기. 점프·오르기·곡괭이질은 아직 원본이 없어서 이 칸들을 빌려 씀 (원본이 생기면 칸을 더하고 여기만 고치면 됨)
+//   칸 0 서 있기, 칸 1~8 걷기, 칸 9~17 옆 곡괭이질. 점프·오르기·위아래 곡괭이질은 아직 원본이 없어서 이 칸들을 빌려 씀 (원본이 생기면 칸을 더하고 여기만 고치면 됨)
 //  애니메이션 = 칸 번호 목록 + 초당 프레임(걷기는 속도에 맞춰 draw.ts 가 정함)
 export const PLAYER_ANIM = {
   idle: { f: [0], fps: 0 },
@@ -664,7 +664,10 @@ export const PLAYER_ANIM = {
   fly: { f: [2], fps: 0 },
   raise: { f: [0], fps: 0 },                                        // 곡괭이 치켜든 자세
   crouch: { f: [4], fps: 0 },                                       // 곡괭이 내리찍은 자세 (팔이 앞으로 나간 칸)
+  // 옆 곡괭이질 (PixelLab mine_east.gif 9장 = 칸 9~17). 내리찍는 순간(원본 5번째 장)부터 한 바퀴: 맞음 → 버팀 → 거둠 → 치켜듦 → 휘두름
+  mine: { f: [13, 14, 15, 16, 17, 9, 10, 11, 12], fps: 0 },
 };
+export const PLAYER_MINE_CELLS = 18;                                  // 시트에 곡괭이질 칸까지 있으면 칸 수가 이만큼 (없으면 예전처럼 코드로 휘두름)
 //  칸 안의 손(곡괭이 손잡이) 자리 — 오른쪽을 볼 때. 왼쪽은 draw.ts 가 좌우로 뒤집어 씀
 export const PGRIP = { raise: [42, 46], crouch: [51, 50], back: [30, 50] };
 export const PLAYER_IMG = { body: sprite(1, 1, () => {}), pick: sprite(1, 1, () => {}), pack: sprite(1, 1, () => {}) };

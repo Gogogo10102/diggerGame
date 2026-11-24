@@ -9,7 +9,7 @@
 #     [있으면] robot_dig_down_se.gif · robot_dig_up_se.gif  아래 · 위 캐기 (9장으로 맞춤. 없으면 임시 칸)
 #     [있으면] <동작>_east.gif    jump · climb · mine 등 — ANIMS 표에 줄을 더하면 시트에 들어감
 #   → public/assets/player/body.png  80x80 칸. 줄 0 = 오른쪽, 줄 1 = 왼쪽(걷기는 좌우 뒤집음)
-#                                     칸 0 서 있기, 칸 1~8 걷기 (sprites.ts 의 PLAYER_ANIM 과 짝)
+#                                     칸 0 서 있기, 칸 1~8 걷기, 칸 9~17 곡괭이질(mine_east.gif) (sprites.ts 의 PLAYER_ANIM 과 짝)
 #     public/assets/player/pick.png  손에 드는 곡괭이 1장 (자루가 위, 손잡이 (16, 29))
 #     public/assets/player/pack.png  백팩 로켓 1장 (예전 그림용, 지금 광부는 자기 배낭이 있어 안 씀)
 #     public/assets/mech/body.png    104x104 칸. 줄 0 오른쪽 · 줄 1 왼쪽, 칸 0 서 있기 · 1~8 걷기 · 9~17 점프 · 18~26 옆 캐기 · 27~35 아래 캐기 · 36~44 위 캐기 (sprites.ts 의 MECH_ANIM 과 짝)
@@ -67,21 +67,38 @@ def mech_sheet(src):
             put(f, c, 0, ax, ay); put(ImageOps.mirror(f), c, 1, f.width - 1 - ax, ay); c += 1
     return out
 
+# 걷기 뒤에 이어 붙이는 동작 (원본이 있을 때만, 순서대로 칸 번호가 이어짐 → sprites.ts 의 PLAYER_ANIM 과 짝)
+#   mine_east.gif: 곡괭이로 앞 블록 두들기기 9장 → 칸 9~17
+ANIMS = ["mine_east.gif"]
+
+def main_only(img):
+    """몸에서 떨어진 작은 조각(불꽃·티끌 효과)은 지움 — 부스러기는 게임이 따로 그림"""
+    a = np.array(img); al = a[..., 3] > 0
+    lab, n = nd.label(al, structure=np.ones((3, 3)))
+    if n > 1:
+        big = max(range(1, n + 1), key=lambda k: (lab == k).sum())
+        a[(lab != big) & al] = 0
+    return Image.fromarray(a, "RGBA")
+
 def body_sheet(src):
     east = frames_of(os.path.join(src, "east.png"))[0]
     west = frames_of(os.path.join(src, "west.png"))[0]
     walk = frames_of(os.path.join(src, "walk_east.gif"))
-    # 걷기 프레임은 원본끼리의 흔들림을 살리려고 첫 장 기준 한 번만 맞춤
-    wx, wy = anchor(walk[0])
-    cols = 1 + len(walk)
+    extra = [[main_only(f) for f in frames_of(os.path.join(src, n))] for n in ANIMS if os.path.exists(os.path.join(src, n))]
+    cols = 1 + len(walk) + sum(len(a) for a in extra)
     out = Image.new("RGBA", (F * cols, F * 2))
     def put(img, c, r, ax=None, ay=None):
         if ax is None: ax, ay = anchor(img)
         out.alpha_composite(img, (c * F + CX - ax, r * F + FOOT - ay))
     put(east, 0, 0); put(west, 0, 1)
-    for i, f in enumerate(walk):
-        put(f, 1 + i, 0, wx, wy)
-        m = ImageOps.mirror(f); put(m, 1 + i, 1, f.width - 1 - wx, wy)
+    c = 1
+    # 동작 프레임은 원본끼리의 흔들림을 살리려고 동작마다 첫 장 기준 한 번만 맞춤
+    for fr in [walk] + extra:
+        wx, wy = anchor(fr[0])
+        for f in fr:
+            put(f, c, 0, wx, wy)
+            m = ImageOps.mirror(f); put(m, c, 1, f.width - 1 - wx, wy)
+            c += 1
     return out
 
 # ---- 외곽선 붙이기 (1px, 4방향) ----
