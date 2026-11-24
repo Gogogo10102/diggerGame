@@ -6,6 +6,7 @@
 #     2) 겹치거나 GAP 보다 가까운 두 덩어리를 서로 반대쪽(무게중심 방향)으로 조금씩 밀어냄 (반복)
 #     3) 남의 덩어리에 가려져 잘린 면은 테두리 색으로 닫아 줌 → 32x32 가운데에 놓음(떨어진 광물만 바닥에 붙임)
 #   → ores/world/<id>_<0~3>.png (64x64, 2배. 원본이 4개보다 적으면 돌려 씀)
+#       땅속 칸은 더미 모양 그대로가 아니라 덩어리를 칸 전체에 고르게 흩어 놓음(3x3 격자 자리 + 흔들기, 가장자리 1px 띄움)
 #     ores/icon/<id>.png (32x32, 첫 번째 더미 1:1) · ores/drop/<id>.png (24x24, 첫 번째 더미에서 큰 덩어리 3개)
 #   원본 중 4개만 쓰고 싶으면 파일 이름 번호로 순서를 정함(앞 4개가 땅속 변형).
 import os, re, glob, sys
@@ -129,6 +130,58 @@ def compose(parts, size, bottom=None):
                 if 0 <= X < size and 0 <= Y < size: out[Y, X] = p["px"][yy, xx]
     return out
 
+def fits_all(parts, gap, size, M):
+    for i, p in enumerate(parts):
+        x, y = round(p["x"]), round(p["y"])
+        if x < M or y < M or x + p["m"].shape[1] > size - M or y + p["m"].shape[0] > size - M: return False
+        for q in parts[i + 1:]:
+            if overlap(p, q, gap): return False
+    return True
+
+def scatter(parts, size=32, seed=0, gap=GAP, M=1):
+    """땅속 칸용: 덩어리를 네모 칸 전체에 고르게(3x3 격자 + 흔들기) 흩어 놓음. 이웃 칸과도 붙지 않게 가장자리 M px 띄움"""
+    rng = np.random.default_rng(seed)
+    for tries in range(200):
+        ps = sorted(parts, key=lambda p: -p["m"].sum())[:9]
+        cells = [(cx, cy) for cy in range(3) for cx in range(3)]
+        while True:                                                 # 빈 자리끼리 붙지 않게(한쪽이 휑하지 않게)
+            rng.shuffle(cells)
+            empty = cells[len(ps):]
+            if all(abs(a[0] - b[0]) + abs(a[1] - b[1]) > 1 for i, a in enumerate(empty) for b in empty[i + 1:]): break
+        cw = (size - 2 * M) / 3
+        for p, (cx, cy) in zip(ps, cells):
+            h, w = p["m"].shape
+            jx, jy = rng.uniform(-2.2, 2.2, 2)
+            p["x"] = M + (cx + 0.5) * cw - w / 2 + jx
+            p["y"] = M + (cy + 0.5) * cw - h / 2 + jy
+        for _ in range(300):                                        # 겹친 것 밀어내기 + 칸 밖으로 나간 것 끌어들이기
+            moved = False
+            for i in range(len(ps)):
+                for j in range(i + 1, len(ps)):
+                    p, q = ps[i], ps[j]
+                    if not overlap(p, q, gap): continue
+                    d = centroid(p) - centroid(q); d = d / (np.linalg.norm(d) or 1)
+                    p["x"] += d[0] * 0.5; p["y"] += d[1] * 0.5; q["x"] -= d[0] * 0.5; q["y"] -= d[1] * 0.5
+                    moved = True
+            for p in ps:
+                h, w = p["m"].shape
+                nx = min(max(p["x"], M), size - M - w); ny = min(max(p["y"], M), size - M - h)
+                if abs(nx - p["x"]) > 1e-6 or abs(ny - p["y"]) > 1e-6: p["x"], p["y"] = nx, ny; moved = True
+            if not moved: break
+        if fits_all(ps, gap, size, M): return ps
+    print("  ! 칸에 고르게 못 넣음 (덩어리가 너무 큼)")
+    return ps
+
+def place(parts, size):
+    """정해 둔 자리 그대로 size 칸에 찍음"""
+    out = np.zeros((size, size, 4), np.uint8)
+    for p in parts:
+        x, y = round(p["x"]), round(p["y"])
+        for yy, xx in zip(*np.nonzero(p["m"])):
+            X, Y = x + xx, y + yy
+            if 0 <= X < size and 0 <= Y < size: out[Y, X] = p["px"][yy, xx]
+    return out
+
 def x2(a): return np.kron(a, np.ones((2, 2, 1), np.uint8))
 def save(a, path): os.makedirs(os.path.dirname(path), exist_ok=True); Image.fromarray(a, "RGBA").save(path)
 
@@ -149,8 +202,8 @@ if __name__ == "__main__":
         fs = [f for _, f in sorted(files[oid])]
         piles = [pile(f) for f in fs[:4]]
         print("광물 %d: 원본 %d개, 덩어리 %s" % (oid, len(fs), [len(p) for p in piles]))
-        for v in range(4):
-            save(x2(compose(piles[v % len(piles)], 32)), os.path.join(OUT, "world", "%d_%d.png" % (oid, v)))
+        for v in range(4):                                          # 땅속: 칸 전체에 고르게 흩어 놓음(불규칙하지만 빈 곳 없이)
+            save(x2(place(scatter(pile(fs[v % len(fs)]), 32, seed=oid * 10 + v), 32)), os.path.join(OUT, "world", "%d_%d.png" % (oid, v)))
         save(compose(piles[0], 32), os.path.join(OUT, "icon", "%d.png" % oid))
         # 떨어진 광물(24칸): 첫 더미에서 가운데 크기 덩어리 3개를 골라 작은 더미로 (큰 것만 고르면 24칸을 넘음)
         ps = sorted(pile(fs[0]), key=lambda p: p["m"].sum())

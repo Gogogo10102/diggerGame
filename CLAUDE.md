@@ -131,7 +131,7 @@ docs/                  plan.md decisions.md
   **make-hires.py 를 다시 돌리면 이 블록 그림을 덮어쓰니**, 그 뒤에 make-pixellab-tiles.py 를 다시 돌릴 것. 단단한 돌·동굴 장식은 아직 예전(맵 스타일 A) 그림.
 - **광물 = PixelLab 더미 그림(2026-11-25, 지금 구리만)**: `tools/ref/pixellab/ores/<광물id>_<번호>.png`(32px, 덩어리 여러 개가 모인 더미)를
   `python3 tools/make-pixellab-ores.py [광물id…]` 가 덩어리를 하나씩 떼어 1px 씩 벌려(겹치지 않게, 가려져 잘린 면은 테두리 색으로 닫음) 다시 놓음 →
-  `ores/world/<id>_<0~3>`(앞 4개, 2배 64px) · `ores/icon/<id>`(첫 더미 1:1) · `ores/drop/<id>`(첫 더미의 덩어리 3개, 24px). 원본이 없는 광물은 예전 그림.
+  `ores/world/<id>_<0~3>`(앞 4개, 덩어리를 칸 전체에 고르게 흩어 놓음 = 3x3 자리 + 흔들기, 2배 64px) · `ores/icon/<id>`(첫 더미 1:1) · `ores/drop/<id>`(첫 더미의 덩어리 3개, 24px). 원본이 없는 광물은 예전 그림.
   이 역시 make-hires.py 를 다시 돌리면 덮어쓰니 그 뒤에 다시 돌릴 것.
 - **사람 광부 · 로봇 그림 = PixelLab 원본**(`tools/ref/pixellab/`): `east.png`·`west.png`(서 있기 56x56) · `walk_east.gif`(걷기 8장 80x80) · `robot_se.png`·`robot_sw.png`(로봇 72x72)
   · `robot_walk_se.gif`(로봇 걷기 8장) · `robot_jump_se.gif`(로봇 점프 9장: 웅크림 → 백팩 로켓 점화 → 착지, 불꽃이 그림에 들어 있음)
