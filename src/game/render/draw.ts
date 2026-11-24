@@ -280,7 +280,7 @@ export function draw() {
       ctx.drawImage(id === 7 ? bedrock : (id === 12 ? stoneTiles : hardTiles)[(c * 7 + r * 13) & 1], px, py, T, T);
       if (edge) wangEdge(c, r, px, py, true, wangBlock[id]);
     }
-    else if (id === 13 && r === SURF && BUILD_COLS.some((b) => c >= b[0] && c <= b[1])) ctx.drawImage(plinthTop, px, py, T, T);   // 건물 바로 아래 한 줄만 돌 기단 (그 아래는 흙처럼)
+    else if (id === 13 && r === SURF && BUILD_COLS.some((b) => c >= b[0] && c <= b[1]) && !(S.townImg && S.townImg.width > 16)) ctx.drawImage(plinthTop, px, py, T, T);   // 건물 바로 아래 돌 기단 (새 건물 그림은 제 돌 기단이 있어서 안 그림)
     else {                                                         // 건물 사이 마을 땅(13)은 잔디 흙처럼 보이게
       const Ld = layerOf(r - SURF);
       ctx.drawImage(dirtTiles[Ld][((c & 3) | ((r & 3) << 2)) % DIRT_VAR], px, py, T, T);   // 4x4칸마다 무늬가 이어짐
@@ -394,7 +394,7 @@ export function draw() {
   // 떨어지는 덩어리
   for (const ch of chunks) for (const k of ch.cells) drawSolid(k.id, k.c, k.r, k.c * T - camX, (k.r + ch.off) * T + Math.round(ch.frac) - camY);
 
-  // 건물 (상점 / 제작소 / 용광로). 그림 아래 끝 = 땅 표면, 그림 1픽셀 = 화면 2픽셀. 이름 대신 그림 속 로고
+  // 마을 건물 (상점·제작소·용광로를 합친 한 채). 그림 아래 끝 = 땅 표면. 이름 대신 그림 속 로고
   {
     const base = SURF * T - camY;
     if ((MINE_COL + 3) * T - camX > 0 && BUILD_COLS[0][0] * T - camX < vw) {
@@ -406,67 +406,35 @@ export function draw() {
         }
         ctx.globalAlpha = 1;
       };
-      // 건물 칸 가운데에 맞춰 놓을 자리 (그림 크기가 바뀌어도 땅에 붙음)
-      //  건물 그림: 폭 160px 이하 = 도트 원본(AS배로 키움) / 그보다 크면 고해상도(이미 AS배로 그린 것, 1:1)
-      const bk = (img) => (img.width > 160 ? 1 : AS);
-      const spot = (img, k) => {
-        const w = img.width * bk(img), h = img.height * bk(img), cw = (BUILD_COLS[k][1] - BUILD_COLS[k][0] + 1) * T;
-        return { x: BUILD_COLS[k][0] * T - camX + Math.floor((cw - w) / 2), y: base - h, w, h, fx: BLD_FX[["shop", "craft", "furnace"][k]] };
-      };
-      const fit = (q) => q.fx && q.w === q.fx.w * AS && q.h === q.fx.h * AS;   // 새 그림일 때만 불빛 위치가 맞음 (BLD_FX 는 도트 원본 좌표)
-      const at = (q, a) => [q.x + a[0] * AS, q.y + a[1] * AS];
-
-      const sh = spot(S.itemShopImg, B_SHOP), cr = spot(S.craftShopImg, B_CRAFT), fu = spot(furnaceImg, B_FURN);
-      // 용광로 불·쇳물은 건물 그림 '뒤'에 먼저 그림 → 그림에 뚫린 아궁이·홈 사이로 보임 (창살은 그림 위에 남음)
-      const busy = !!(S.acct && S.acct.furnace && S.acct.furnace.q.length);
-      if (fit(fu, furnaceImg)) {
-        const m = fu.fx.mouth, [mx, my] = at(fu, m), mw = m[2] * AS, mh = m[3] * AS;
-        const fl = (k) => Math.round((Math.sin(S.animT * (7 + k) + k * 1.7) * 0.5 + 0.5) * 4) * 2;
-        ctx.fillStyle = "#1c0d0a"; ctx.fillRect(mx, my, mw, mh);
-        ctx.fillStyle = busy ? "#d8401a" : "#4a1a0e"; ctx.fillRect(mx, my + mh * 0.38 - fl(1), mw, mh * 0.62 + fl(1));
-        ctx.fillStyle = busy ? "#ff8a1f" : "#6e2812"; ctx.fillRect(mx + 6, my + mh * 0.5 - fl(2), mw - 12, mh * 0.5 + fl(2));
-        ctx.fillStyle = busy ? "#ffd34d" : "#94391a"; ctx.fillRect(mx + 14, my + mh * 0.62 - fl(3), mw - 28, mh * 0.38 + fl(3));
-        if (busy) { ctx.fillStyle = "#fff3a8"; ctx.fillRect(mx + 22, my + mh * 0.74 - fl(4), mw - 44, mh * 0.26 + fl(4)); }
-        const tr = fu.fx.trough;                                     // 쇳물 홈 (그림에 있을 때만)
-        if (tr) {
-          const [tx, ty] = at(fu, tr);
-          ctx.fillStyle = busy ? "#ff8a1f" : "#2a1a14"; ctx.fillRect(tx, ty, tr[2] * AS, tr[3] * AS);
-          if (busy) { ctx.fillStyle = "#fff3a8"; ctx.fillRect(tx + (((S.animT * 30) | 0) % (tr[2] * AS - 2)), ty, 2, tr[3] * AS); }
+      // 마을 건물 한 채 (PixelLab town.png, 이미 2배로 키운 고해상도 → 1:1). 건물 칸 가운데, 그림 아래 끝 = 땅 표면
+      const img = S.townImg, has = img && img.width > 16, cw = (BUILD_COLS[0][1] - BUILD_COLS[0][0] + 1) * T;
+      const sink = has && img.width === TOWN_FX.w && img.height === TOWN_FX.h ? TOWN_FX.sink : 0;
+      const q = { x: BUILD_COLS[0][0] * T - camX + Math.floor((cw - (has ? img.width : 0)) / 2), y: base - (has ? img.height : 0) + sink, w: has ? img.width : 0, h: has ? img.height : 0 };
+      const busy = !!(S.acct && S.acct.furnace && S.acct.furnace.q.length);   // 용광로가 재련 중이면 화덕이 더 밝고 연기가 짙음
+      if (has) {
+        ctx.drawImage(img, q.x, q.y);
+        const m = windowMask(img);                                   // 창문 불빛: 따뜻하게 살짝 일렁임 (주황빛 픽셀을 골라 한 번만 만들어 둠)
+        if (m) {
+          ctx.globalCompositeOperation = "screen";
+          ctx.globalAlpha = 0.16 + 0.07 * Math.sin(S.animT * 2.3) + 0.04 * Math.sin(S.animT * 7.7);
+          ctx.drawImage(m, q.x, q.y);
+          ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+        }
+        if (img.width === TOWN_FX.w && img.height === TOWN_FX.h) {   // 그림 크기가 같을 때만 (자리를 그림에서 잰 값)
+          const [gx, gy, gw, gh] = TOWN_FX.forge;                     // 화덕 불빛 깜빡임
+          ctx.globalAlpha = (busy ? 0.32 : 0.12) + 0.08 * Math.sin(S.animT * 9) + 0.05 * Math.sin(S.animT * 23);
+          ctx.fillStyle = "#ffb040"; ctx.fillRect(q.x + gx, q.y + gy, gw, gh);
+          ctx.globalAlpha = 1;
+          smoke(q.x + TOWN_FX.smoke[0], q.y + TOWN_FX.smoke[1], busy ? "#8a90a0" : "#c9ced8");
         }
       }
-      ctx.drawImage(S.itemShopImg, sh.x, sh.y, sh.w, sh.h);
-      ctx.drawImage(S.craftShopImg, cr.x, cr.y, cr.w, cr.h);
-      ctx.drawImage(furnaceImg, fu.x, fu.y, fu.w, fu.h);
-      // 창문 불빛: 따뜻하게 살짝 일렁임 (창문 칸은 그림에서 주황빛 픽셀을 골라 한 번만 만들어 둠)
-      for (const [img, q, ph] of [[S.itemShopImg, sh, 0], [S.craftShopImg, cr, 2.1]]) {
-        const m = windowMask(img);
-        if (!m) continue;
-        ctx.globalCompositeOperation = "screen";
-        ctx.globalAlpha = 0.16 + 0.07 * Math.sin(S.animT * 2.3 + ph) + 0.04 * Math.sin(S.animT * 7.7 + ph * 3);
-        ctx.drawImage(m, q.x, q.y, q.w, q.h);
-        ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
-      }
-      // 가까이 가면 그 건물 위에 노란 화살표가 통통 (E 로 들어갈 수 있다는 표시)
-      const near = S.state === "play" ? (S.nearItems ? sh : S.nearCraft ? cr : S.nearFurnace ? fu : null) : null;
-      if (near) {
-        const ax = Math.round(near.x + near.w / 2), ay = Math.round(near.y - 18 + Math.abs(Math.sin(S.animT * 4)) * -8);
+      // 가까이 가면 건물 위에 노란 화살표가 통통 (E 로 들어갈 수 있다는 표시)
+      if (S.state === "play" && S.nearItems && has) {
+        const ax = Math.round(q.x + q.w / 2), ay = Math.round(q.y - 18 + Math.abs(Math.sin(S.animT * 4)) * -8);
         for (const [col, g] of [["#14151f", 2], [SY.y, 0]]) {
           ctx.fillStyle = col;
           for (let k = 0; k < 5; k++) ctx.fillRect(ax - (10 - k * 2) - g, ay + k * 4 - g, (10 - k * 2) * 2 + g * 2, 4 + g * 2);
         }
-      }
-      if (fit(sh, S.itemShopImg) && sh.fx.smoke) smoke(...at(sh, sh.fx.smoke), "#c9ced8");
-      if (fit(cr, S.craftShopImg)) {
-        if (cr.fx.smoke) smoke(...at(cr, cr.fx.smoke), "#9aa0b4");
-        const g = cr.fx.forge, [gx, gy] = at(cr, g);                 // 대장간 불빛 깜빡임
-        ctx.globalAlpha = 0.14 + 0.08 * Math.sin(S.animT * 9) + 0.05 * Math.sin(S.animT * 23);
-        ctx.fillStyle = "#ffb040"; ctx.fillRect(gx, gy, g[2] * AS, g[3] * AS);
-        ctx.globalAlpha = 1;
-      }
-      if (fit(fu, furnaceImg)) {
-        if (fu.fx.smoke) smoke(...at(fu, fu.fx.smoke), busy ? "#8a90a0" : "#c9ced8");
-        ctx.fillStyle = busy ? "rgba(255,138,31,0.22)" : "rgba(255,90,31,0.07)";   // 아궁이 앞 땅에 비친 불빛
-        ctx.fillRect(fu.x + 40, base - 4, fu.w - 80, 4);
       }
       drawButterflies(camX, camY);
       // 광산 입구 표지판 (글자 없이 로고만)
@@ -1032,7 +1000,7 @@ export function drawHUD(vw, vh, depth) {
   const helpLift = helpUp ? 44 : 0;
   const garageHere = !S.nearItems && !S.nearCraft && !S.nearFurnace && atGarage();
   if ((S.nearItems || S.nearCraft || S.nearFurnace || garageHere) && S.state === "play" && P.dead <= 0) {
-    const nm = S.nearItems ? "상점 열기" : S.nearCraft ? "제작소 열기" : S.nearFurnace ? "용광로 열기" : P.mech ? "로봇에서 내리기" : P.items.robot ? "로봇 타기" : "차고 (로봇 없음)";
+    const nm = S.nearItems ? (cargoCount() > 0 ? "가게 들어가기 · 광물 팔기" : "가게 들어가기") : P.mech ? "로봇에서 내리기" : P.items.robot ? "로봇 타기" : "차고 (로봇 없음)";
     const label = S.usedTouch ? nm : "[E] " + nm;
     setFont(16);
     const pw = Math.ceil(ctx.measureText(label).width) + 56, ph = 48;
@@ -1109,6 +1077,9 @@ const hexA = (hex, a) => { const v = parseInt(hex.slice(1), 16); return "rgba(" 
 
 // 건물 그림에서 창문(주황·노란빛 픽셀, 그림 아래쪽 60%)만 골라 밝은 불빛 그림으로. 고해상도 그림일 때만, 한 번 만들어 둠
 const WIN_MASK = new Map();
+// 마을 건물 그림(buildings/town.png 308x202)에서 잰 자리: 화덕 아궁이 [x, y, 폭, 높이] · 굴뚝 꼭대기 [x, y]
+//  sink: 그림 아래 돌 기단 두께 — 기단 윗면(풀 줄)이 땅 표면과 맞게 그만큼 땅속으로 내려 그림 (광부가 문 앞 높이에 서도록)
+const TOWN_FX = { w: 308, h: 202, forge: [250, 128, 36, 20], smoke: [261, 28], sink: 28 };
 function windowMask(img) {
   if (!img || img.width <= 160) return null;
   const hit = WIN_MASK.get(img);

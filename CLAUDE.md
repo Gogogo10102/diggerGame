@@ -115,9 +115,11 @@ docs/                  plan.md decisions.md
   `ui/icon/<이름>.png`, `tiles/...`, `buildings/...`, `sky/...`,
   `signs/mine.png`(광산 입구 표지판), `signs/tab_<탭>_<on|off>.png`(마을 창 탭 이름).
 - **건물에는 이름 글자를 쓰지 않고 그림 속 로고(아이콘 배지)만 넣습니다.** 탭 이름도 글꼴 대신 그림.
-- 건물 그림(`buildings/item_shop|workshop|furnace.png`)은 `tools/make-buildings.py`, 표지판·탭은 `tools/make-signs.py` 로
-  처음 만들었고, 이후엔 PNG를 직접 고쳐도 됩니다. 그림 아래 끝이 땅 표면이고, 크기를 바꿔도 건물 칸 가운데에 붙습니다.
-  불빛·연기 위치는 `art/buildings.ts` 의 `BLD_FX` (그림 크기가 같을 때만 그림). 용광로 아궁이·쇳물 홈은 그림에 구멍을 뚫어 두고 그 뒤에 불을 그립니다.
+- **마을 건물은 한 채**(2026-11-25): 상점·제작소·용광로·판매를 합침(`BUILD_COLS = [[2, 6]]`, `B_SHOP = B_CRAFT = B_FURN = 0`, 광산 터 `MINE_COL = 22` 는 예전 자리 그대로).
+  들어가면(E·버튼, `openTown()`) 광물을 싣고 왔으면 판매 탭, 아니면 상점 탭 → 마을 창 4탭으로 오감. 차고(`GARAGE` 7~8칸)는 따로.
+  그림 = PixelLab 원본 `tools/ref/pixellab/town_building.png` → `python3 tools/make-pixellab-building.py` 가 잘라 2배로 → `buildings/town.png`(1:1).
+  아래 돌 기단 두께만큼(`TOWN_FX.sink`) 땅속으로 내려 그려 기단 윗면 = 땅 표면. 화덕 불빛·굴뚝 연기 자리는 `TOWN_FX`(그림 크기가 같을 때만), 창문 불빛은 `windowMask`.
+  예전 세 건물 그림(`make-buildings.py`, `BLD_FX`)은 쓰지 않음. 표지판·탭은 `tools/make-signs.py`.
 - 광물 id: 2 구리, 3 철, 4 금, 5 다이아, 6 석탄, 8 은, 9 에메랄드, 10 루비, 11 미스릴.
 - **드릴 아이콘**(`items/<드릴 id>.png` 15개 + `ui/icon/drill.png`)은 `python3 tools/make-drill-icons.py` (확정 도안 v2, 등급 4 × 진화 4 중 고른 표는 파일 안 MAP).
 - 현재 원석·주괴 그림은 **임시 확정(v1)** 입니다. 나중에 다시 작업 예정.

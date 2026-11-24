@@ -157,10 +157,10 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t.ev("STAT.cargo") === 18, "복원된 아이템으로 능력치 재계산");
 
   console.log("[8] 기존 기능 회귀: 상점/판매/죽음");
-  t.ev("P.money = 100000; P.x = 4 * T + 16; P.y = 4 * T; P.vx = 0; P.vy = 0; nearItems = false");
+  t.ev("P.money = 100000; P.cargo = {}; P.x = 4 * T + 16; P.y = 4 * T; P.vx = 0; P.vy = 0; nearItems = false");
   t.run(20);
   t.key("KeyE");
-  ok(t.ev("state") === "shop", "아이템 상점 열림");
+  ok(t.ev("state") === "shop", "화물 없이 들어가면 상점 탭");
   t.key("Digit1"); t.key("Escape");
   ok(t.ev("state") === "play", "상점 닫힘");
   t.ev("P.cargo = { 11: 2, 6: 5 }; P.x = 5 * T; P.y = 3 * T; inShop = false; P.money = 0");
@@ -224,11 +224,11 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
 
   console.log("[12] 제작소");
   const t6 = boot(path); t6.run(5); await login(t6, "Crafter"); t6.run(10);
-  t6.ev("P.x = 11 * T + 16; P.y = (SURF - 1) * T - 20"); t6.run(10);
-  ok(t6.ev("nearCraft") === true, "제작소 앞 감지");
+  t6.ev("P.x = 4 * T + 16; P.y = (SURF - 1) * T - 20"); t6.run(10);
+  ok(t6.ev("nearCraft") === true && t6.ev("nearItems") === true, "마을 건물(한 채) 앞 감지");
   t6.ev("P.cargo = { 6: 20, 3: 5 }; P.money = 500");
   t6.key("KeyE"); await t6.tick();
-  ok(t6.ev("state") === "craft", "E로 제작소 열림");
+  ok(t6.ev("state") === "craft" && t6.ev("craftTab") === t6.ev("RECIPE_CATS.length"), "광물을 싣고 E → 마을 창 판매 탭");
   ok(t6.ev("P.stash[6]") === 20 && t6.ev("cargoCount()") === 0, "화물이 창고로 이동");
   t6.run(5);
   const oldFuel = t6.ev("STAT.fuel");
@@ -380,8 +380,8 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   const t11 = boot(path); t11.run(5); await login(t11, "Found"); t11.run(10);
   ok(t11.ev("BUILD_COLS.every((b) => { for (let c = b[0]; c <= b[1]; c++) for (let r = SURF; r <= SURF + 1; r++) if (tiles[r*W+c] !== 13) return false; return true; })"), "건물 아래 2줄은 전부 기초석");
   ok(t11.ev("(() => { for (let c = MINE_COL; c < W - 1; c++) if (tiles[SURF*W+c] === 13) return false; return true; })()"), "광산 터(마을 오른쪽)는 그대로 팔 수 있음");
-  ok(t11.ev("BUILD_COLS[1][0] >= BUILD_COLS[0][1] + 2 && BUILD_COLS[2][0] >= BUILD_COLS[1][1] + 2 && MINE_COL >= BUILD_COLS[2][1] + 2 && W - MINE_COL >= 20"), "건물 세 개가 왼쪽에 한 칸 이상씩 띄워져 있고 오른쪽에 넓은 광산 터");
-  ok(t11.ev("tiles[SURF*W + BUILD_COLS[0][1] + 1] === 13 && tiles[(SURF+1)*W + BUILD_COLS[1][1] + 1] === 13"), "건물 사이 마을 땅도 못 팜(기초석)");
+  ok(t11.ev("BUILD_COLS.length === 1 && MINE_COL === 22 && MINE_COL >= BUILD_COLS[0][1] + 2 && W - MINE_COL >= 20"), "마을 건물 한 채 + 광산 터는 예전 자리(22칸)부터 넓게");
+  ok(t11.ev("tiles[SURF*W + BUILD_COLS[0][1] + 1] === 13 && tiles[(SURF+1)*W + BUILD_COLS[0][1] + 6] === 13"), "건물 옆 마을 땅도 못 팜(기초석)");
   ok(t11.ev("tiles[(SURF+2)*W+5] !== 13"), "기초석 아래 땅은 일반 지형");
   t11.ev("P.x = 5 * T + 16; P.y = SURF * T - 14; P.vx = P.vy = 0"); t11.run(10);
   t11.key("ArrowDown"); t11.run(600); t11.keyup("ArrowDown");
@@ -616,8 +616,8 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t29.ev("!!P.items.iron_bit && !!P.items.laser_drill && !!P.items.dia_bit"), "순서대로 제작하면 가능");
   ok(t29.ev("RECIPE_CATS.every((c) => c.ids.every((id) => itemIcon(id) && itemIcon(id).width === 16))"), "새 장비 아이콘 모두 존재");
   // 트리 키 이동
-  t29.ev("P.x = 11 * T + 16; P.y = (SURF - 1) * T - 20"); t29.run(10);
-  t29.key("KeyE"); await t29.tick();
+  t29.ev("P.x = 4 * T + 16; P.y = (SURF - 1) * T - 20"); t29.run(10);
+  t29.key("KeyE"); await t29.tick(); t29.ev("switchTown('craft')"); await t29.tick();
   t29.ev("craftTab = 0; craftSel = RECIPE_CATS[0].ids.indexOf('iron_bit')");
   t29.key("ArrowRight"); ok(t29.ev("RECIPE_CATS[0].ids[craftSel]") !== "iron_bit", "→ 키로 다음 단계로 이동");
   t29.key("ArrowLeft"); ok(t29.ev("RECIPE_CATS[0].ids[craftSel]") === "iron_bit", "← 키로 선행 장비로 이동");
@@ -680,17 +680,18 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
 
   console.log("[25] 용광로 / 주괴");
   const t31 = boot(path, { w: 1000, h: 640 }); t31.run(5); await login(t31, "Smelter"); t31.run(10);
-  ok(t31.ev("BUILD_COLS.length") === 3 && t31.ev("BUILD_COLS[B_FURN][0]") > t31.ev("BUILD_COLS[B_CRAFT][1]") && t31.ev("tiles[SURF*W + BUILD_COLS[B_FURN][0]]") === 13, "제작소 옆에 용광로 건물(기초석 포함), 정비소 없음");
-  ok(t31.ev("MINE_COL") > t31.ev("BUILD_COLS[B_FURN][1]") && t31.ev("W - MINE_COL") >= 18, "광산 터는 용광로 오른쪽");
+  ok(t31.ev("B_FURN === B_SHOP && B_CRAFT === B_SHOP") && t31.ev("tiles[SURF*W + BUILD_COLS[B_FURN][0]]") === 13, "용광로·제작소·상점은 한 건물(기초석 포함), 정비소 없음");
+  ok(t31.ev("MINE_COL") > t31.ev("BUILD_COLS[B_FURN][1]") && t31.ev("W - MINE_COL") >= 18, "광산 터는 건물 오른쪽");
   ok(t31.ev("RECIPE_CATS.every((c) => c.ids.every((id) => Object.keys(ITEMS[id].mats).every((m) => !BAR_OF[m])))"), "제작 재료에 금속 원석 대신 주괴 사용");
   ok(t31.ev("ITEMS.coal_boiler.mats.fe") === 3 && t31.ev("ITEMS.coal_boiler.mats[6]") === 20, "석탄 보일러: 철 주괴 3 + 석탄 20");
   // 용광로 열기
-  t31.ev("P.x = 17 * T + 16; P.y = (SURF - 1) * T - 20; P.vx = P.vy = 0"); t31.run(10);
-  ok(t31.ev("nearFurnace") === true, "용광로 앞 감지");
+  t31.ev("P.x = 4 * T + 16; P.y = (SURF - 1) * T - 20; P.vx = P.vy = 0"); t31.run(10);
+  ok(t31.ev("nearFurnace") === true, "용광로(마을 건물) 앞 감지");
   t31.ev("P.cargo = { 2: 10, 3: 5, 6: 12 }; P.stash = { 4: 4 }; P.money = 5000");
   t31.key("KeyE"); await t31.tick();
+  t31.ev("switchTown('furnace')"); await t31.tick();
   t31.run(1);
-  ok(t31.ev("state") === "furnace" && t31.canvasTexts().some((x) => x.includes("용광로")) && t31.ev("cargoCount()") === 0 && t31.ev("P.stash[2]") === 10, "E로 용광로 열림, 화물은 창고로");
+  ok(t31.ev("state") === "furnace" && t31.canvasTexts().some((x) => x.includes("용광로")) && t31.ev("cargoCount()") === 0 && t31.ev("P.stash[2]") === 10, "E로 들어가서 용광로 탭, 화물은 창고로");
   ok(t31.canvasTexts().some((x) => x.includes("구리 주괴")) && t31.canvasTexts().some((x) => x.includes("미스릴 주괴")), "재련 목록 표시");
   // 창 안에서 조작: 키보드 1개 넣기 → 버튼으로 비우기 → 다른 주괴 고르고 '최대'
   t31.key("Digit1"); t31.run(1);
@@ -751,7 +752,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t32.ev("applyAccount(" + JSON.stringify(bad32) + ")");
   ok(t32.ev("acct.furnace.lv") === 4 && t32.ev("acct.furnace.q.length") === 1 && t32.ev("acct.furnace.q[0].left") === 0 && t32.ev("JSON.stringify(P.bars)") === '{"fe":2}', "잘못된 용광로/주괴 값 정리");
   // 그리기 오류 없음
-  t32.ev("P.x = 17 * T + 16; P.y = (SURF - 1) * T - 20"); t32.run(30);
+  t32.ev("P.x = 4 * T + 16; P.y = (SURF - 1) * T - 20"); t32.run(30);
   ok(t32.ev("state") === "play" && t32.ev("nearFurnace") === true, "용광로 앞에서 그리기 정상");
 
   console.log("[26] 주괴 판매 / 마을 창 통합");
@@ -772,9 +773,8 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t33.ev("P.x = 4 * T + 16; P.y = (SURF - 1) * T - 20"); t33.run(10);
   t33.ev("P.cargo = { 3: 2 }");
   t33.key("KeyE"); await t33.tick();
-  ok(t33.ev("state") === "shop" && t33.ev("typeof nearGarage") === "undefined", "상점 앞 E: 상점 (정비소 없음)");
-  t33.ev("switchTown('sell')");
-  ok(t33.ev("state") === "craft" && t33.ev("craftTab") === t33.ev("RECIPE_CATS.length") && t33.ev("P.stash[3]") === 2, "판매 탭으로 가면 화물 보관");
+  ok(t33.ev("state") === "craft" && t33.ev("craftTab") === t33.ev("RECIPE_CATS.length") && t33.ev("typeof nearGarage") === "undefined", "광물을 싣고 건물 앞 E: 판매 탭 (정비소 없음)");
+  ok(t33.ev("P.stash[3]") === 2 && t33.ev("cargoCount()") === 0, "판매 탭으로 들어가면 화물 보관");
   // 공용 탭 이동: 판매 → 상점 → 제작 → 용광로 → 판매
   t33.ev("switchTown('shop')"); ok(t33.ev("townActive()") === "shop" && t33.ev("state") === "shop", "공용 탭: 상점");
   t33.ev("switchTown('craft')"); ok(t33.ev("townActive()") === "craft" && t33.ev("craftTab") < t33.ev("RECIPE_CATS.length"), "공용 탭: 제작");
@@ -796,7 +796,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t33.key("Escape"); await t33.tick();
   ok(t33.ev("BAR_KEYS.every((k) => barIcon[k].width === 16) && Object.keys(oreDrop).every((k) => oreDrop[k].width === 12)"), "주괴 아이콘/떨어진 아이템 스프라이트");
   ok(t33.ev("Object.keys(assetTable()).filter((k) => k.startsWith('signs/')).length") === 9, "광산 표지판 + 탭 이름 8개를 그림 파일로 연결");
-  ok(t33.ev("Object.keys(assetTable()).filter((k) => k.startsWith('buildings/')).sort().join()") === "buildings/furnace.png,buildings/item_shop.png,buildings/workshop.png", "건물 그림은 상점·제작소·용광로 3개");
+  ok(t33.ev("Object.keys(assetTable()).filter((k) => k.startsWith('buildings/')).sort().join()") === "buildings/town.png", "건물 그림은 마을 건물 한 채");
   // 옛 배치(정비소 있던 때) 저장: 광산 터에 남은 기초석은 흙으로
   t33.ev("for (let c = 20; c <= 26; c++) tiles[SURF*W + c] = 13; fixFoundation()");
   ok(t33.ev("(() => { for (let c = MINE_COL; c <= 26; c++) if (tiles[SURF*W + c] === 13) return false; return true; })()") && t33.ev("tiles[SURF*W + 3]") === 13, "옛 기초석 정리, 건물 아래는 유지");
