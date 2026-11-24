@@ -132,7 +132,7 @@ docs/                  plan.md decisions.md
 - **땅속 광물 = 흙에 박힌 작은 알갱이(2026-11-25 확정)**: `python3 tools/make-pixellab-ores.py [광물id…]` → `ores/world/<id>_<0~3>`(투명 바탕에 알갱이만, 32px 도트 ×2).
   알갱이 7~8개(3칸 ㄱ자·2x2·2x2+1칸)를 3x3 자리에 하나씩 흔들어 놓고 테두리에서 4px 안쪽. 왼위 하이라이트·오른아래 어둡게·아래 그림자 한 칸.
   색: 구리는 PixelLab 인페인팅 결과(`tools/ref/pixellab/ores/copper_ref.png` vs 원래 흙 `dirt_base.png`)에서 뽑은 색, 나머지는 `ORE_COL`(철만 `COL_OVERRIDE`, 은과 구분).
-  **보석(다이아·에메랄드·루비)은 결정 모양이 필요해 아직 예전 그림** → `ores/<id>_ref.png`(같은 흙 칸에 인페인팅)를 받으면 따로.
+  **보석(다이아·에메랄드·루비)**은 `ores/<id>_ref.png`(같은 흙 칸에 인페인팅)가 있을 때만 그 색으로 작은 결정(2~4칸) 9~10개(4x4 자리). 지금 다이아만 있음, 나머지는 예전 그림.
   반짝이는 광물의 반짝임 자리는 도구가 출력하는 값을 `sprites.ts` 의 `ORE_FLECK_SPARK` 에 붙여 넣음(배치를 바꾸면 다시). 광물 아이콘·떨어진 광물은 아직 예전 그림.
   make-hires.py 를 다시 돌리면 덮어쓰니 그 뒤에 이 도구를 다시 돌릴 것.
 - **사람 광부 · 로봇 그림 = PixelLab 원본**(`tools/ref/pixellab/`): `east.png`·`west.png`(서 있기 56x56) · `walk_east.gif`(걷기 8장 80x80) · `robot_se.png`·`robot_sw.png`(로봇 72x72)
