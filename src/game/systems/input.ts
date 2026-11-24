@@ -15,6 +15,7 @@ import { closeMenu, openInventory, openMenu } from "../ui/menu.ts";
 import { hideOv, openAccountScreen } from "../ui/overlay.ts";
 import { sfx } from "../core/sound.ts";
 import { mapKey, mapPointerDown, mapPointerMove, mapPointerUp, mapZoom, openMap } from "../render/minimap.ts";
+import { toggleMini } from "../render/draw.ts";
 
 // =====================================================================
 //  입력
@@ -100,6 +101,7 @@ addEventListener("keydown", (e) => {
   if (e.code === "KeyI") { if (!e.repeat) openInventory(); return; }
   if (e.code === "KeyQ") { if (!e.repeat) openQuests(); return; }
   if (e.code === "KeyM") { if (!e.repeat) openMap(); return; }
+  if (e.code === "KeyN") { if (!e.repeat) { toggleMini(innerWidth); saveNow(true, true); } return; }   // 미니맵 켜기/끄기
   keys[e.code] = true;
   if (e.code === "KeyH") { S.showHelp = !S.showHelp; S.helpPinned = S.showHelp; }
   if (e.code === "KeyE" && !e.repeat && P.dead <= 0) { if (S.nearItems) openShop(); else if (S.nearCraft) openCraft(); else if (S.nearFurnace) openFurnace(); else if (atGarage()) toggleMech(); }
@@ -220,6 +222,8 @@ stage.addEventListener("pointerdown", (e) => {
   if (S.menuBtn && hit(S.menuBtn)) { sfx("click"); openMenu(); return; }
   if (S.bagBtn && hit(S.bagBtn)) { sfx("click"); openInventory(); return; }
   if (S.questBtn && hit(S.questBtn)) { sfx("click"); openQuests(); return; }                      // 메뉴 버튼
+  if (S.mapToggleBtn && hit(S.mapToggleBtn)) { sfx("click"); toggleMini(innerWidth); saveNow(true, true); return; }   // 지도 켜기/끄기
+  if (S.helpRect && hit(S.helpRect)) { sfx("click"); S.showHelp = false; S.helpPinned = false; say("도움말은 메뉴 → 설정에서 다시 켤 수 있어요"); saveNow(true, true); return; }
   if (S.miniBtn && hit(S.miniBtn)) { sfx("click"); openMap(); return; }                            // 미니맵 → 큰 지도
   for (const b of S.hotBtns) if (hit(b)) { if (P.dead <= 0) useConsumable(b.id); return; }   // 소모품 슬롯
   if (S.stick) return;
