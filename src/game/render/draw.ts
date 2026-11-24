@@ -303,7 +303,7 @@ export function draw() {
         if (r >= SURF) {
           const L = layerOf(r - SURF), nat = id === 0 && r > SURF && baseTiles[r * W + c] === 0;   // 처음부터 빈 칸 = 자연 동굴
           ctx.drawImage((nat ? caveBack : backTiles)[L][(c * 5 + r * 3) & 3], px, py, T, T);
-          if (nat) {                                              // 동굴 장식: 천장 고드름 돌 · 바닥 수정/용암/뼈 (칸마다 정해진 모양, 버섯·돌무더기는 뺌)
+          if (nat) {                                              // 동굴 장식: 천장 고드름 돌 (칸마다 정해진 모양). 바닥 장식은 지금 다 뺌(CAVE_BOT_BY_LAYER)
             const h = hv(c, r + 7);
             const ct = caveTop[L][(h >>> 3) % 3];
             if ((h & 3) < 2 && ct.width > 1 && solidTile(tiles[(r - 1) * W + c])) ctx.drawImage(ct, px, py, T, T);
