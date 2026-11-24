@@ -153,6 +153,14 @@ ICON.pick = sprite(16, 16, (p) => B.pick(p, 0, PAL[0]));
 ICON.rocket = sprite(16, 16, (p) => B.rocket(p, 0, PAL[0]));
 ICON.robot = sprite(16, 16, (p) => B.robot(p));
 ICON.ladder = sprite(16, 16, (p) => B.ladder(p));
+// 마을 귀환서: 둘둘 만 양피지 + 빨간 봉인
+B.recall = (p) => {
+  p(2, 3, 12, 10, "#14151f"); p(3, 4, 10, 8, "#f6e6bc"); p(3, 4, 10, 1, "#fffaf0"); p(3, 11, 10, 1, "#a07a40");
+  p(1, 2, 3, 12, "#14151f"); p(2, 3, 1, 10, "#a07a40"); p(12, 2, 3, 12, "#14151f"); p(13, 3, 1, 10, "#a07a40");
+  p(5, 6, 6, 1, "#a07a40"); p(5, 8, 4, 1, "#a07a40");
+  p(9, 9, 4, 4, "#14151f"); p(10, 10, 2, 2, "#d43226");
+};
+ICON.recall = sprite(16, 16, (p) => B.recall(p));
 
 // 제작 장비 아이콘: id -> [도안, 단계]
 export const CRAFT_ICON = {

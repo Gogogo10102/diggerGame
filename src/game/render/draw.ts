@@ -763,7 +763,7 @@ export function townScale(SW, SH) {
   return 1;
 }
 
-// 소모품 단축 슬롯 (1~7 키 / 터치로 탭)
+// 소모품 단축 슬롯 (1~8 키 / 터치로 탭)
 export function drawHotbar(vw, vh) {
   S.hotBtns = []; S.hotLeft = 1e9;
   if (S.state !== "play") return;
@@ -992,8 +992,8 @@ export function drawHUD(vw, vh, depth) {
   const helpOn = S.showHelp && S.state === "play" && (S.helpPinned || S.playT < 30);
   let helpStr = S.usedTouch
     ? "드래그로 조작 · 아래 슬롯: 소모품 · 오른쪽 위: 가방/업적/메뉴"
-    : P.mech ? "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-7 소모품 · E 차고 · I 가방 · Q 업적 · M 지도 · H 도움말"
-    : "←→ 이동 · ↑ 점프/사다리 · ↓ 곡괭이 · 7 사다리 · 1-6 소모품 · I 가방 · Q 업적 · M 지도 · H 도움말";
+    : P.mech ? "←→ 이동 · ↑ 추진 · ↓ 파기 · 1-8 소모품 · E 차고 · I 가방 · Q 업적 · M 지도 · H 도움말"
+    : "←→ 이동 · ↑ 점프/사다리 · ↓ 곡괭이 · 7 사다리 · 8 귀환서 · 1-6 소모품 · I 가방 · Q 업적 · M 지도 · H 도움말";
   setFont(12);
   let helpW = Math.ceil(ctx.measureText(helpStr).width) + 32;
   if (helpW + (S.usedTouch ? 28 : 0) > vw - 24) {                 // 좁은 화면: 짧은 문구로 (예전엔 화면 밖으로 잘렸음)
