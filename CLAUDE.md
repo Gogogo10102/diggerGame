@@ -34,7 +34,7 @@ src/
     ui/     dom inventory overlay menu
 public/assets/         게임 그림 PNG + manifest.json
 tests/                 harness.cjs(가짜 DOM/캔버스) smoke.cjs(테스트)
-tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-player.py  make-pixellab-tiles.py  make-icons.py(+pixicon.py)  make-drill-icons.py(+drillart/)  make-buildings.py  make-signs.py
+tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-player.py  make-pixellab-tiles.py  make-pixellab-ores.py  make-icons.py(+pixicon.py)  make-drill-icons.py(+drillart/)  make-buildings.py  make-signs.py
 docs/                  plan.md decisions.md
 ```
 
@@ -127,7 +127,11 @@ docs/                  plan.md decisions.md
 - **땅 블록 = PixelLab 타일셋(2026-11-24)**: `tools/ref/pixellab/tiles/layer<지층>_<이름>.png`(사이드뷰 32px, Wang 내보내기 160x128)를
   `python3 tools/make-pixellab-tiles.py` 가 속 칸((0,3) 칸)만 잘라 2배로 → `tiles/dirt/<지층>_<0~15>` · `tiles/back`(어둡게) · `tiles/cave/back_*` · `grass_0/1`(흙 타일셋 윗면 풀 띠).
   예전 자갈 덧그림(`tiles/dirt/over_*`)은 그림체가 달라 비움. 원본이 없는 지층(지금 1번 점토)은 흙 무늬를 그 지층 색(`LAYERS`)으로 바꿔 씀.
-  **make-hires.py 를 다시 돌리면 이 블록 그림을 덮어쓰니**, 그 뒤에 make-pixellab-tiles.py 를 다시 돌릴 것. 광물·단단한 돌·동굴 장식은 아직 예전(맵 스타일 A) 그림.
+  **make-hires.py 를 다시 돌리면 이 블록 그림을 덮어쓰니**, 그 뒤에 make-pixellab-tiles.py 를 다시 돌릴 것. 단단한 돌·동굴 장식은 아직 예전(맵 스타일 A) 그림.
+- **광물 = PixelLab 더미 그림(2026-11-25, 지금 구리만)**: `tools/ref/pixellab/ores/<광물id>_<번호>.png`(32px, 덩어리 여러 개가 모인 더미)를
+  `python3 tools/make-pixellab-ores.py [광물id…]` 가 덩어리를 하나씩 떼어 1px 씩 벌려(겹치지 않게, 가려져 잘린 면은 테두리 색으로 닫음) 다시 놓음 →
+  `ores/world/<id>_<0~3>`(앞 4개, 2배 64px) · `ores/icon/<id>`(첫 더미 1:1) · `ores/drop/<id>`(첫 더미의 덩어리 3개, 24px). 원본이 없는 광물은 예전 그림.
+  이 역시 make-hires.py 를 다시 돌리면 덮어쓰니 그 뒤에 다시 돌릴 것.
 - **사람 광부 · 로봇 그림 = PixelLab 원본**(`tools/ref/pixellab/`): `east.png`·`west.png`(서 있기 56x56) · `walk_east.gif`(걷기 8장 80x80) · `robot_se.png`·`robot_sw.png`(로봇 72x72)
   · `robot_walk_se.gif`(로봇 걷기 8장) · `robot_jump_se.gif`(로봇 점프 9장: 웅크림 → 백팩 로켓 점화 → 착지, 불꽃이 그림에 들어 있음)
   · `robot_dig_se.gif`(로봇 캐기 9장: 오른팔 톱니바퀴를 앞으로 내질러 돌림).
