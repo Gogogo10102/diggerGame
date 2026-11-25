@@ -147,6 +147,7 @@ docs/                  plan.md decisions.md
   · `robot_dig_se.gif`(로봇 캐기 9장: 오른팔 톱니바퀴를 앞으로 내질러 돌림).
   `python3 tools/make-player.py` 가 → `player/body.png`(80x80 칸, 줄 0 오른쪽 · 줄 1 왼쪽, 칸 0 서 있기 · 1~8 걷기, 왼쪽 걷기는 뒤집음) + `mech/body.png`(104x104 칸, 같은 줄 규칙) +
   `player/pick.png`(손에 드는 곡괭이, 손잡이 (16,29)) · `tiles/ladder.png`. 광부 칸은 모자 가운데 x 40 · 발바닥 y 68 (`draw.ts` 의 `PCX`·`PFT`), 로봇 칸은 몸 가운데 x 52 · 발바닥 y 96 (`sprites.ts` 의 `MCX`·`MFT`).
+  로봇 원본은 3/4 각도라 뒷발이 3~9px 떠 있음 → make-player.py 의 `plant_feet` 가 서 있기(칸 0)·캐기(18~44) 칸의 뒷발을 발바닥 줄까지 내림(정강이를 늘려 채움). 걷기·점프는 발 들기가 동작이라 그대로.
   로봇 동작은 `sprites.ts` 의 `MECH_ANIM` + `draw.ts` 의 `mechAnim()`: 점화(한 번, `S.thrustT` < 0.16초) → 비행(누르는 동안 반복) → 낙하(뗌) → 착지(`S.landT`) → 서 있기 / 걷기(걸은 거리).
   캐기는 팔 내지르기(`dig_in`, 캔 지 0.24초까지 `S.digHoldT`) → 톱니바퀴 회전(`dig` 반복). 아래·위는 `dig_down*`·`dig_up*`(시트 27~35·36~44칸):
   원본 `robot_dig_down_se.gif`(있음)·`robot_dig_up_se.gif`(아직 없음 → 임시 칸)를 9장으로 맞춰 넣음. 캐는 동안 파는 쪽으로 몸을 붙이고 ±2px 갈리는 떨림(톱니바퀴가 암석에 닿게).
