@@ -22,6 +22,7 @@ import { toggleMini } from "../render/draw.ts";
 // =====================================================================
 export const keys = {};
 addEventListener("keydown", (e) => {
+  if (e.code === "Backquote" && !e.repeat && S.toggleTune) { S.toggleTune(); return; }   // 움직임 조절판 (ui/tune.ts)
   if (S.state === "account") return;                  // 계정 화면: 입력칸에 타이핑
   if (S.state === "menu") { if ((e.code === "Escape" || (e.code === "KeyI" && S.invOpen)) && !e.repeat) closeMenu(); return; }
   if (S.state === "map") { if (/^Arrow|Space/.test(e.code)) e.preventDefault(); mapKey(e); return; }   // 큰 지도

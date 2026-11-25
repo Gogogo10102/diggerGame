@@ -19,7 +19,7 @@ import { chunks, floatT, solidTile } from "../systems/floating.ts";
 import { BARS, furnaceImg, matHave, matIcon, matName } from "../systems/furnace.ts";
 import { STICK_R, U_, shopBtn, touch } from "../systems/input.ts";
 import { drawCraftModal, drawFurnaceModal, drawShopModal, fitText } from "./townUI.ts";
-import { GARAGE, PICK_SWING, TUT_STEPS, atGarage, garageLv, gasR, gases, onLadder } from "../systems/update.ts";
+import { GARAGE, MOVE, PICK_SWING, TUT_STEPS, atGarage, garageLv, gasR, gases, onLadder } from "../systems/update.ts";
 import { drawMapModal, drawMinimap } from "./minimap.ts";
 import { SELL_KEYS, stashValue, unitPrice } from "../systems/town.ts";
 import { ov } from "../ui/overlay.ts";
@@ -115,8 +115,8 @@ export function humanPose() {
   }
   if (S.landT > 0) return { anim: "land", i: 0, pick: null };
   const sp = Math.abs(P.vx);
-  // 걷기 그림 한 바퀴(8칸)에 약 1.1칸을 가게 → 빠를수록 다리도 빨리 (미끄러져 보이지 않게)
-  if (sp > 20) return { anim: "walk", i: Math.floor((S.walkD || 0) / (T * 1.1 / 8)), pick: null };
+  // 걷기 그림 한 바퀴(8칸)에 MOVE.hStride px 를 가게 → 빠를수록 다리도 빨리 (미끄러져 보이지 않게, 발소리도 같은 칸 기준 → update.ts footsteps)
+  if (sp > 20) return { anim: "walk", i: Math.floor((S.walkD || 0) / (MOVE.hStride / 8)), pick: null };
   return { anim: "idle", i: 0, pick: null };
 }
 //  로봇 동작: [이름, 칸 번호] — 점화(한 번) → 비행(반복) → 낙하 → 착지(한 번) → 서 있기 / 걷기
@@ -130,7 +130,7 @@ export function mechAnim() {
     return ["fall", 0];
   }
   if (S.landT > 0) return ["land", S.landT > 0.06 ? 0 : 1];
-  if (Math.abs(P.vx) > 20) return ["walk", Math.floor((S.walkD || 0) / (T * 2.4 / 8))];   // 한 바퀴(8칸)에 약 2.4칸
+  if (Math.abs(P.vx) > 20) return ["walk", Math.floor((S.walkD || 0) / (MOVE.mStride / 8))];   // 한 바퀴(8칸)에 MOVE.mStride px (약 2.4칸)
   return ["idle", 0];
 }
 //  테스트·디버그용: [동작 이름, 칸 번호] (곡괭이질은 mine_<방향>)
@@ -257,6 +257,7 @@ export function draw() {
     const k = Math.min(1, S.shakeT * 3) * 10;
     camX += Math.round((Math.random() - 0.5) * k / 2) * 2; camY += Math.round((Math.random() - 0.5) * k / 2) * 2;
   }
+  else if (S.stepBumpT > 0 && S.state === "play") camY += Math.round(MOVE.mShake / 2) * 2;   // 로봇 발걸음: 화면이 아래로 살짝 쿵
   else if (P.digging && S.state === "play" && P.dead <= 0) {          // 파는 동안 화면도 잔잔하게 덜덜 (단단한 땅이면 더 세게)
     const hardD = S.dig && hardOf(tiles[S.dig.r * W + S.dig.c], S.dig.r) >= 1.2 ? 2 : 1;
     camX += (((S.animT * 50) | 0) % 2 ? 2 : -2) * (Math.random() < 0.5 ? 0 : 1);

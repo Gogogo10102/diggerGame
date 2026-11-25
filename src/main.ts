@@ -1,7 +1,7 @@
 // @ts-nocheck
 // 진입점: 스타일을 불러오고, 마지막 모듈부터 거꾸로 이어진 import 사슬로 모든 모듈을 원래 순서대로 실행한 뒤 메인 루프를 돕니다.
 import "./style.css";
-import "./game/ui/menu.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
+import "./game/ui/tune.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { S } from "./game/core/state.ts";
 import { draw } from "./game/render/draw.ts";
 import { update } from "./game/systems/update.ts";

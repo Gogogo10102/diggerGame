@@ -121,6 +121,20 @@ import { sfx, sfxLoop } from "../core/sound.ts";
 // =====================================================================
 // ---- 사람 움직임 숫자 (타일 32px 시절 값 × PX) ----
 export const HUMAN_SPEED = 150, JUMP_V = 300, CLIMB_SPEED = 110;     // 점프 300 → 약 1.5칸 높이 (한 칸 턱을 뛰어오름)
+//  걷기·비행 손맛 숫자 (조절판 ui/tune.ts 로 게임 안에서 바꿔 볼 수 있음. 속도·가속은 타일 32px 시절 값 × PX)
+//  출발·멈춤은 '최고 속도까지 걸리는 시간(초)'으로 적음 → 속도를 바꿔도 느낌이 유지됨. 사람은 가볍게, 로봇은 묵직하게
+export const MOVE = {
+  hSpeed: HUMAN_SPEED, hAccT: 0.2, hStopT: 0.12,   // 사람: 걷기 속도 · 출발 시간 · 멈춤 시간
+  mSpeed: 170, mAccT: 0.35, mStopT: 0.25,          // 로봇: 기본 속도(× 궤도) · 출발 · 멈춤
+  airCtl: 1,                                       // 공중 좌우 조작 (1 = 땅과 같음, 작을수록 관성이 큼)
+  hStride: 70, mStride: 154,                       // 걷기 그림 한 바퀴(8장)에 가는 거리(화면 px). 작을수록 다리가 빨리 움직임
+  grav: 900, fallMax: 520,                         // 중력 · 최대 낙하 속도
+  rAcc: 1500, rMax: 200, rCap: 380,                // 사람 백팩 로켓: 가속(× 로켓) · 최고 상승(× 로켓) · 상한
+  mAcc: 1800, mMax: 260, mCap: 480,                // 로봇 추진: 가속(× 엔진) · 최고 상승 · 상한
+  mShake: 2,                                       // 로봇 발걸음 화면 흔들림(px)
+};
+export const MOVE_DEF = { ...MOVE };
+const STEP_AT = { human: [0, 4], mech: [2, 6] };   // 걷기 그림에서 발이 땅에 닿는 장 (PLAYER_ANIM·MECH_ANIM walk 목록의 순서)
 
 // 곡괭이 한 번 휘두르는 시간(초). 내리찍을 때마다 이만큼 캔 것으로 침 → 흙(0.35)은 기본 곡괭이(0.5)로 두 번
 export const PICK_SWING = 0.4;
@@ -202,6 +216,30 @@ export function garageLv() {
   let n = 0;
   for (const cat of CATS) if (cat.icon === "drill" || cat.icon === "engine" || cat.icon === "tracks") for (const id of cat.ids) if (P.items[id]) n++;
   return n >= GARAGE_UP_N ? 1 : 0;
+}
+//  발소리·흙먼지는 걷기 그림에서 발이 땅에 닿는 장에 맞춰 (일정 간격이 아니라 → 발과 소리가 맞음). 로봇은 쿵 + 화면 살짝
+export function footsteps(on) {
+  const sp = Math.abs(P.vx);
+  if (!on || sp <= 20) { S.stepIdx = -1; return; }
+  const n = Math.floor((S.walkD || 0) / ((P.mech ? MOVE.mStride : MOVE.hStride) / 8)) % 8;
+  if (n === S.stepIdx) return;
+  const prev = S.stepIdx; S.stepIdx = n;
+  if (prev < 0 || !STEP_AT[P.mech ? "mech" : "human"].includes(n)) return;
+  const fast = Math.min(1, sp / ((P.mech ? MOVE.mSpeed : MOVE.hSpeed) * PX));
+  if (P.mech) { sfx("step", { pitch: 0.55, vol: 1.2 }); S.stepBumpT = 0.07; }
+  else sfx("step", { pitch: 0.85 + fast * 0.25, vol: 0.5 + fast * 0.5 });
+  const col = dustCol(Math.floor((P.y + HH + 2) / T)), back = P.vx > 0 ? -1 : 1;
+  for (let k = 0; k < (P.mech ? 3 : 1 + (fast > 0.7 ? 1 : 0)); k++)
+    puff(P.x + back * (P.mech ? 6 : 2) + (Math.random() - 0.5) * 10, P.y + HH - 2, back * (8 + Math.random() * 16) * PX, -(4 + Math.random() * 8) * PX, (P.mech ? 3 : 2) + Math.random() * 2, col, 0.35 + Math.random() * 0.2);
+}
+//  방향을 확 틀 때 발밑 먼지 (0.12초에 한 번까지)
+function skidDust() {
+  const now = S.animT || 0;
+  if (now - (S.skidT || -1) < 0.12) return;
+  S.skidT = now;
+  const col = dustCol(Math.floor((P.y + HH + 2) / T)), fwd = P.vx > 0 ? 1 : -1;
+  for (let k = 0; k < 3; k++) puff(P.x + fwd * 6, P.y + HH - 2, fwd * (20 + Math.random() * 30) * PX, -(6 + Math.random() * 12) * PX, 2 + Math.random() * 2, col, 0.3 + Math.random() * 0.2);
+  sfx("dig", { pitch: 1.6 });
 }
 //  셔터: 로봇을 샀고 지상에서 차고 가까이(가운데에서 2.5칸 안) 오면 위로 말려 열림, 멀어지면 내려옴. S.garDoor 0 닫힘 ~ 1 열림
 export function updateGarageDoor(dt) {
@@ -342,6 +380,7 @@ export function update(dt) {
   updateGarageDoor(dt);
   if (S.shakeT > 0) S.shakeT -= dt;
   if (S.landT > 0) S.landT -= dt;
+  if (S.stepBumpT > 0) S.stepBumpT -= dt;
   if (P.grounded) S.walkD = ((S.walkD || 0) + Math.abs(P.vx) * dt) % 1e6;   // 걸은 거리 → 걷기 그림 칸 (draw.ts)
   if (S.pickHitT > 0) S.pickHitT -= dt;
   if (S.stoneHintT > 0) S.stoneHintT -= dt;
@@ -361,8 +400,12 @@ export function update(dt) {
   const dir = (R_() ? 1 : 0) - (L_() ? 1 : 0);
   if (dir !== 0) P.facing = dir;
   // 사람은 로봇보다 조금 느리고(궤도 강화 없음), 로봇은 궤도 단계만큼 빨라짐
-  const target = dir * (P.mech ? 170 * STAT.speed : HUMAN_SPEED) * PX;
-  const acc = 1400 * PX * dt;
+  //  출발은 accT 초, 멈춤·방향 바꾸기는 stopT 초에 걸쳐 (곧바로 최고 속도가 되지 않게). 공중은 airCtl 배
+  const spd = (P.mech ? MOVE.mSpeed * STAT.speed : MOVE.hSpeed) * PX, target = dir * spd;
+  const braking = dir === 0 || (P.vx !== 0 && Math.sign(P.vx) !== dir);
+  const accT = braking ? (P.mech ? MOVE.mStopT : MOVE.hStopT) : (P.mech ? MOVE.mAccT : MOVE.hAccT);
+  const acc = spd / Math.max(0.02, accT) * (P.grounded ? 1 : MOVE.airCtl) * dt;
+  if (dir !== 0 && P.grounded && P.vx * dir < -spd * 0.6) skidDust();    // 빠르게 가다가 반대로 틀면 발밑 흙먼지
   if (P.vx < target) P.vx = Math.min(target, P.vx + acc);
   else if (P.vx > target) P.vx = Math.max(target, P.vx - acc);
 
@@ -374,8 +417,8 @@ export function update(dt) {
   if (P.mech) {
     thrusting = upNow && P.fuel > 0;
     P.climbing = false;
-    if (thrusting) P.vy = Math.max(-Math.min(480, 260 * (1 + (STAT.thrust - 1) * 0.5)) * PX, P.vy - 1800 * PX * STAT.thrust * dt);
-    P.vy = Math.min(520 * PX, P.vy + 900 * PX * dt);
+    if (thrusting) P.vy = Math.max(-Math.min(MOVE.mCap, MOVE.mMax * (1 + (STAT.thrust - 1) * 0.5)) * PX, P.vy - MOVE.mAcc * PX * STAT.thrust * dt);
+    P.vy = Math.min(MOVE.fallMax * PX, P.vy + MOVE.grav * PX * dt);
   } else {
     // 사람: 사다리 · 점프 · (백팩 로켓이 있으면) 비행
     const lad = onLadder();
@@ -390,8 +433,8 @@ export function update(dt) {
       if (!upNow || wasGrounded || !(STAT.rocket > 0) || P.fuel <= 0) S.rocketOn = false;
       else if (S.rocketOn || P.vy > -JUMP_V * PX * 0.6) S.rocketOn = true;
       thrusting = !!S.rocketOn;
-      if (thrusting) P.vy = Math.max(-Math.min(380, 200 * STAT.rocket) * PX, P.vy - 1500 * PX * STAT.rocket * dt);
-      P.vy = Math.min(520 * PX, P.vy + 900 * PX * dt);
+      if (thrusting) P.vy = Math.max(-Math.min(MOVE.rCap, MOVE.rMax * STAT.rocket) * PX, P.vy - MOVE.rAcc * PX * STAT.rocket * dt);
+      P.vy = Math.min(MOVE.fallMax * PX, P.vy + MOVE.grav * PX * dt);
       if (lad && P.vy > 0 && !D_()) { P.vy = 0; P.climbing = true; }  // 떨어지다 사다리를 만나면 붙잡음
     }
   }
@@ -523,15 +566,7 @@ export function update(dt) {
   S.thrustT = thrusting ? (S.thrustT || 0) + dt : 0;                 // 점화한 지 얼마나 됐나 (로봇 점화 그림)
   sfxLoop("thrust", !!thrusting, { pitch: P.vy < 0 ? 1.4 : 1 });
   sfxLoop("drill", !!P.digging && P.mech, { hard: !!(S.dig && hardOf(tiles[S.dig.r * W + S.dig.c], S.dig.r) >= 1.2) });
-  if (!thrusting && grounded && !digging && Math.abs(P.vx) > 40 * PX) {
-    sfx("step", { pitch: 0.8 + Math.abs(P.vx) / (340 * PX) });
-    S.trackDustT = (S.trackDustT || 0) - dt;                         // 궤도 뒤로 흙먼지가 조금씩
-    if (S.trackDustT <= 0) {
-      S.trackDustT = 0.09 + Math.random() * 0.06;
-      const back = P.vx > 0 ? -1 : 1;
-      puff(P.x + back * (HW + 2), P.y + HH - 3, back * (12 + Math.random() * 20) * PX, -(4 + Math.random() * 10) * PX, 2 + Math.random() * 2, dustCol(Math.floor((P.y + HH + 2) / T)), 0.4 + Math.random() * 0.2);
-    }
-  }
+  footsteps(grounded && !thrusting && !digging);
   // 연료가 1/4 아래로 떨어지면 1.5초마다 경고음
   if (!(Math.floor(P.y / T) < SURF) && (P.mech || STAT.rocket > 0) && P.fuel / maxFuel() < 0.25) { S.lowBeepT = (S.lowBeepT || 0) - dt; if (S.lowBeepT <= 0) { S.lowBeepT = 1.5; sfx("warn"); } }
   else S.lowBeepT = 0;
