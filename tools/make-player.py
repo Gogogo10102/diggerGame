@@ -65,7 +65,32 @@ def mech_sheet(src):
         ax, ay = anchor_mech(fr[0])
         for f in fr:
             put(f, c, 0, ax, ay); put(ImageOps.mirror(f), c, 1, f.width - 1 - ax, ay); c += 1
-    return out
+    # 제자리에 선 칸(서 있기 · 캐기)은 먼 쪽 발도 땅에 붙임 (걷기·점프는 발을 드는 동작이라 그대로)
+    a = np.array(out)
+    for cc in [0] + list(range(18, cols)):
+        for r in (0, 1):
+            a[r * MF:(r + 1) * MF, cc * MF:(cc + 1) * MF] = plant_feet(a[r * MF:(r + 1) * MF, cc * MF:(cc + 1) * MF])
+    return Image.fromarray(a, "RGBA")
+
+def plant_feet(cell, foot=MFOOT, gap=(3, 9), shin=6):
+    """PixelLab 로봇은 살짝 비껴 본(3/4) 그림이라 먼 쪽 발이 바닥보다 몇 px 떠 있음 → 그 발을 바닥까지 내림.
+       맨 아래 픽셀이 바닥보다 gap(3~9)px 위인 세로줄 묶음(폭 5↑ = 발. 집게팔은 더 위라 빠짐)을 찾아
+       발목 위 shin 줄부터 아래로 옮기고 벌어진 틈은 발목 줄을 되풀이해 메움(정강이가 살짝 길어짐)"""
+    a = cell.copy(); al = a[..., 3] > 0; n = a.shape[1]
+    low = np.array([np.nonzero(al[:, x])[0].max() if al[:, x].any() else -1 for x in range(n)])
+    cand = (low >= foot - gap[1]) & (low <= foot - gap[0])
+    x = 0
+    while x < n:
+        if not cand[x]: x += 1; continue
+        s = x
+        while x < n and cand[x]: x += 1
+        if x - s < 5: continue
+        d = foot - 1 - int(low[s:x].max()); top = int(low[s:x].min()) - shin
+        if d <= 0 or top < 0: continue
+        for xx in range(s, x):
+            seg = cell[top:low[xx] + 1, xx]
+            a[top:low[xx] + 1 + d, xx] = np.concatenate([np.repeat(seg[:1], d, 0), seg], 0)
+    return a
 
 # 걷기 뒤에 이어 붙이는 동작 (원본이 있을 때만, 순서대로 칸 번호가 이어짐 → sprites.ts 의 PLAYER_ANIM 과 짝)
 #   mine_east.gif: 곡괭이로 앞 블록 두들기기 9장 → 칸 9~17
