@@ -31,7 +31,7 @@ src/
     systems/furnace cave floating(떠 있는 흙) collapseFx drops input town update
     render/ util(글꼴·기본 그리기) draw(월드·HUD) townUI(마을 창 4탭) minimap(미니맵·큰 지도)
     save/   config worldSave account transfer
-    ui/     dom inventory overlay menu
+    ui/     dom inventory overlay menu tune(움직임 조절판)
 public/assets/         게임 그림 PNG + manifest.json
 tests/                 harness.cjs(가짜 DOM/캔버스) smoke.cjs(테스트)
 tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-player.py  make-pixellab-tiles.py  make-pixellab-ores.py  make-icons.py(+pixicon.py)  make-drill-icons.py(+drillart/)  make-buildings.py  make-signs.py
@@ -46,7 +46,7 @@ docs/                  plan.md decisions.md
    순서: config → world → sprites → player → items → recipes → furnace → cave → floating →
    collapseFx → drops → itemIcons → consumables → buildings → stats → input → town → update →
    util → draw → townUI → minimap → save/config → progress → dom → inventory → worldSave → account → transfer →
-   overlay → menu → main.
+   overlay → menu → tune → main.
    - 새 모듈을 넣을 때: 들어갈 자리 앞 모듈을 import 하고, 뒤 모듈의 사슬 import 를 새 모듈로 바꿉니다.
    - `state.ts`, `assets.ts`, `sound.ts`(효과음) 는 사슬 밖(누구나 import 가능).
    - 증상: `Cannot access 'X' before initialization` 가 나면 순서 문제입니다.
@@ -94,6 +94,9 @@ docs/                  plan.md decisions.md
 - **큰 화면 UI 배율**: 마을 창은 `townScale`(draw.ts)로 2배/1.5배 키워 그리고 누른 자리도 나눠 맞춤(`S.townU`). 창 함수는 나눈 화면 크기를 받으니 배치는 그대로 짜면 됨. HTML 창은 style.css 의 zoom.
 - 마을 창(상점·제작·용광로·판매)은 `render/townUI.ts` 의 공용 틀 `townFrame(…, 분류목록, 고른분류, 분류동작)` 을 씁니다.
   "왼쪽 분류 → 오른쪽 목록(줄마다 버튼)" 흐름을 지켜 주세요. 상세 칸이 필요하면 `townFooter`.
+- **움직임 숫자 = `update.ts` 의 `MOVE`**(걷기 속도·출발/멈춤 시간·걷기 한 바퀴 거리·공중 조작·중력·로켓/추진). 출발·멈춤은 '최고 속도까지 걸리는 초'로 적음(사람 0.2/0.12, 로봇 0.35/0.25).
+  **조절판**(`ui/tune.ts`): 주소 끝 `?tune` 또는 ` 키 → 슬라이더로 바로 바꿔 봄, 바꾼 값은 그 브라우저에만(조절판을 열 때만 적용), [값 복사]로 받아 `MOVE` 기본값에 확정.
+  발소리·발먼지는 걷기 그림에서 발이 닿는 장(`STEP_AT`)에 맞춰 `footsteps()`, 로봇은 쿵 + 화면 아래로 살짝(`S.stepBumpT`, `MOVE.mShake`). 빠르게 가다 반대로 틀면 `skidDust()`.
 - **효과음**: 새 동작을 넣으면 `sfx("이름")` 도 같이 (`core/sound.ts` 의 목록에서 고르거나 추가). 테스트 환경에선 소리 없이 지나감.
 
 ## 그림(에셋) 다루는 법

@@ -55,7 +55,7 @@ function hiss(a: AudioContext, kind: BiquadFilterType, f0: number, f1: number, d
 }
 
 // 같은 소리가 너무 촘촘히 겹치지 않게 하는 최소 간격(초)
-const SND_GAP: Record<string, number> = { ignite: 0.25, shutter: 0.3, dig: 0.08, step: 0.12, thrust: 0.07, tick: 0.03, click: 0.04, pickup: 0.05, land: 0.12, warn: 0.5, error: 0.15 };
+const SND_GAP: Record<string, number> = { ignite: 0.25, shutter: 0.3, dig: 0.08, step: 0.07, thrust: 0.07, tick: 0.03, click: 0.04, pickup: 0.05, land: 0.12, warn: 0.5, error: 0.15 };
 
 export type SfxOpt = { pitch?: number; vol?: number; hard?: boolean };
 export function sfx(name: string, o: SfxOpt = {}) {
