@@ -193,7 +193,7 @@ export function ladderTopAt(x, feetY) {
 }
 
 // ---- 로봇 차고: 마을의 차고 칸에서만 타고 내림 (로봇을 사야 탈 수 있음) ----
-export const GARAGE = [8, 11];                                      // 마을 건물 오른쪽 (차고 그림 폭 234px ≈ 4칸)
+export const GARAGE = [7, 10];                                      // 마을 건물 바로 오른쪽 (차고 그림 폭 234px ≈ 4칸, 가게와 약 16px 띄움)
 export const atGarage = () => Math.floor(P.y / T) < SURF && Math.floor(P.x / T) >= GARAGE[0] && Math.floor(P.x / T) <= GARAGE[1];
 //  차고 단계: 로봇 장비(드릴·엔진·궤도)를 GARAGE_UP_N 개 이상 사면 업그레이드 차고 그림으로
 export const GARAGE_UP_N = 6;

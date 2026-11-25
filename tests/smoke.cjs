@@ -380,7 +380,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   const t11 = boot(path); t11.run(5); await login(t11, "Found"); t11.run(10);
   ok(t11.ev("BUILD_COLS.every((b) => { for (let c = b[0]; c <= b[1]; c++) for (let r = SURF; r <= SURF + 1; r++) if (tiles[r*W+c] !== 13) return false; return true; })"), "건물 아래 2줄은 전부 기초석");
   ok(t11.ev("(() => { for (let c = MINE_COL; c < W - 1; c++) if (tiles[SURF*W+c] === 13) return false; return true; })()"), "광산 터(마을 오른쪽)는 그대로 팔 수 있음");
-  ok(t11.ev("BUILD_COLS.length === 1 && MINE_COL === 14 && MINE_COL > GARAGE[1] + 1 && W - MINE_COL >= 20"), "마을 = 건물 한 채 + 차고, 광산 터는 차고 바로 뒤(14칸)부터 넓게");
+  ok(t11.ev("BUILD_COLS.length === 1 && MINE_COL === 13 && MINE_COL > GARAGE[1] + 1 && W - MINE_COL >= 20"), "마을 = 건물 한 채 + 차고, 광산 터는 차고 바로 뒤(13칸)부터 넓게");
   ok(t11.ev("tiles[SURF*W + BUILD_COLS[0][1] + 1] === 13 && tiles[(SURF+1)*W + BUILD_COLS[0][1] + 6] === 13"), "건물 옆 마을 땅도 못 팜(기초석)");
   ok(t11.ev("tiles[(SURF+2)*W+5] !== 13"), "기초석 아래 땅은 일반 지형");
   t11.ev("P.x = 5 * T + 16; P.y = SURF * T - 14; P.vx = P.vy = 0"); t11.run(10);
