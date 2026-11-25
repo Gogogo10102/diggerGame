@@ -5,7 +5,9 @@ import { ICON, getMiner, oreIcon } from "../art/sprites.ts";
 import { TILE } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, cargoCap, cargoCount, maxFuel } from "../core/stats.ts";
+import { EQUIP_FIXED, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, cargoCap, cargoCount, equipTier, equipToggle, maxFuel, worn, wornTier } from "../core/stats.ts";
+import { fxText } from "../art/buildings.ts";
+import { saveNow } from "../save/account.ts";
 import { CONS, HOT, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
@@ -39,32 +41,82 @@ export function renderInventory(note) {
   inf.appendChild(el("div", "dim sm", "$" + P.money + "  ·  연료 " + Math.ceil(P.fuel) + "/" + maxFuel() + "  ·  화물 " + cargoCount() + "/" + cargoCap()));
   card.appendChild(inf);
   root.appendChild(card);
-  // 장비 슬롯
-  root.appendChild(el("p", "msg", "장착 장비"));
+  // 장비 슬롯 (가진 장비가 있는 칸은 눌러서 낄 것을 고름 → 아래 '고르기' 칸)
+  root.appendChild(el("p", "msg", "장착 장비 · 눌러서 낄 장비 고르기"));
   const grid = el("div", "slots");
-  const slot = (label, id, iconSpr, tierTxt, tier) => {
-    const s = el("div", "slot" + (id ? "" : " empty"));
+  const slot = (label, id, iconSpr, tierTxt, tier, key, owned) => {
+    const s = el("div", "slot" + (id ? "" : " empty") + (S.invPick === key ? " pick" : ""));
     if (id) { const tc = TIER_COL[Math.max(0, Math.min(7, tier | 0))]; s.style.borderColor = tc; s.style.background = "linear-gradient(180deg," + tc + "33,rgba(255,255,255,.04))"; }
     s.appendChild(iconEl(iconSpr, 48));
     s.appendChild(el("div", "dim sm", label));
-    s.appendChild(el("div", "nm2", id ? ITEMS[id].name : "비어 있음"));
+    s.appendChild(el("div", "nm2", id ? ITEMS[id].name : owned ? "기본 (빼 둠)" : "비어 있음"));
     if (tierTxt) s.appendChild(el("div", "pips", tierTxt));
+    if (owned) {                                                     // 가진 게 있으면 눌러서 고르기 (다시 누르면 접음)
+      s.style.cursor = "pointer";
+      s.addEventListener("click", () => { S.invPick = S.invPick === key ? null : key; renderInventory(); });
+    }
     grid.appendChild(s);
   };
+  const pickCats = [];                                               // [키, 분류, 단계식?]
   for (const cat of CATS) {
     if (cat.cons) continue;
-    let top = -1;
-    cat.ids.forEach((id, i) => { if (P.items[id]) top = i; });
-    const id = top >= 0 ? cat.ids[top] : null;
-    slot(cat.name, id, id ? itemIcon(id) : ICON[cat.icon === "fuel" ? "fuel" : cat.icon] || ICON.chest, id ? "●".repeat(top + 1) + "○".repeat(cat.ids.length - top - 1) : "", top);
+    const key = "c:" + cat.icon, owned = cat.ids.some((id) => P.items[id] && !EQUIP_FIXED[id]);
+    pickCats.push([key, cat, !!cat.chainTier]);
+    if (cat.chainTier) {
+      const top = wornTier(cat), id = top >= 0 ? cat.ids[top] : null;
+      slot(cat.name, id, id ? itemIcon(id) : ICON[cat.icon === "fuel" ? "fuel" : cat.icon] || ICON.chest, id ? "●".repeat(top + 1) + "○".repeat(cat.ids.length - top - 1) : "", top, key, owned);
+    } else {                                                         // 특수: 하나씩 끼고 뺌
+      const on = cat.ids.filter((id) => worn(id)), id = on.length ? on[on.length - 1] : null;
+      slot(cat.name, id, id ? itemIcon(id) : ICON[cat.icon] || ICON.chest, on.length ? on.length + "개 낌" : "", on.length, key, owned);
+    }
   }
-  for (const cat of RECIPE_CATS) {                                   // 제작 장비: 가장 높은 단계 하나
+  for (const cat of RECIPE_CATS) {                                   // 제작 장비: 낀 것 중 가장 높은 단계 하나
+    const key = "r:" + cat.name;
     let best = null;
-    for (const id of cat.ids) if (P.items[id] && (!best || CRAFT_ICON[id][1] >= CRAFT_ICON[best][1])) best = id;
-    const n = cat.ids.filter((id) => P.items[id]).length;
-    slot("제작·" + cat.name, best, best ? itemIcon(best) : ICON[cat.icon] || ICON.chest, best ? n + " / " + cat.ids.length + " 제작" : "", best ? CRAFT_ICON[best][1] : 0);
+    for (const id of cat.ids) if (worn(id) && (!best || CRAFT_ICON[id][1] >= CRAFT_ICON[best][1])) best = id;
+    const n = cat.ids.filter((id) => worn(id)).length, own = cat.ids.filter((id) => P.items[id]).length;
+    pickCats.push([key, cat, false]);
+    slot("제작·" + cat.name, best, best ? itemIcon(best) : ICON[cat.icon] || ICON.chest, own ? n + " / " + own + " 낌" : "", best ? CRAFT_ICON[best][1] : 0, key, own > 0);
   }
   root.appendChild(grid);
+  // 고르기 칸: 단계 분류는 단계 하나를(아래 단계까지 함께 낌), 그 밖은 하나씩 끼고 뺌
+  const pc = pickCats.find((x) => x[0] === S.invPick);
+  let pickHead = null;
+  if (pc) {
+    const [, cat, tierWise] = pc;
+    const after = (msg, ok) => { if (!msg) saveNow(true, true); renderInventory(msg || ok); };
+    pickHead = root.appendChild(el("p", "msg", (cat.name) + " 고르기" + (tierWise ? " · 한 단계를 고르면 그 아래 단계 효과도 함께 받아요" : " · 하나씩 끼고 뺄 수 있어요")));
+    const pg = el("div", "slots");
+    const card = (iconSpr, name, fx, btn) => {
+      const s = el("div", "slot");
+      s.appendChild(iconEl(iconSpr, 36));
+      s.appendChild(el("div", "nm2", name));
+      s.appendChild(el("div", "dim sm", fx));
+      const row = el("div", "minis"); row.appendChild(btn); s.appendChild(row);
+      pg.appendChild(s);
+    };
+    if (tierWise) {
+      const cur = wornTier(cat), sum = {};
+      const base = { pick: "기본 곡괭이", rocket: "안 씀 (못 날아요)" }[cat.icon] || "기본";
+      card(ICON[cat.icon === "fuel" ? "fuel" : cat.icon] || ICON.chest, base, "추가 효과 없음",
+        cur < 0 ? mkBtn("끼는 중", () => {}, "mini off") : mkBtn("끼기", () => after(equipTier(cat, -1), base + "(으)로 바꿨어요"), "mini pri"));
+      cat.ids.forEach((id, i) => {
+        if (EQUIP_FIXED[id]) return;
+        for (const k in ITEMS[id].fx) sum[k] = (sum[k] || 0) + ITEMS[id].fx[k];   // 이 단계까지 더한 효과
+        if (!P.items[id]) return;
+        card(itemIcon(id), ITEMS[id].name, fxText({ ...sum }),
+          cur === i ? mkBtn("끼는 중", () => {}, "mini off") : mkBtn("끼기", () => after(equipTier(cat, i), ITEMS[id].name + "(으)로 바꿨어요"), "mini pri"));
+      });
+    } else {
+      for (const id of cat.ids) {
+        if (!P.items[id] || EQUIP_FIXED[id]) continue;
+        const on = worn(id);
+        card(itemIcon(id), ITEMS[id].name, fxText(ITEMS[id].fx),
+          on ? mkBtn("빼기", () => after(equipToggle(id), ITEMS[id].name + " 뺐어요"), "mini") : mkBtn("끼기", () => after(equipToggle(id), ITEMS[id].name + " 꼈어요"), "mini pri"));
+      }
+    }
+    root.appendChild(pg);
+  }
   // 소모품
   root.appendChild(el("p", "msg", "소모품 (숫자 키 1~8)"));
   const hot = el("div", "slots hot");
@@ -122,6 +174,7 @@ export function renderInventory(note) {
   root.appendChild(tb);
   charFooter(root);
   showOv(root);
+  if (pickHead && pickHead.scrollIntoView) pickHead.scrollIntoView({ block: "start" });   // 고르기 칸이 아래에 있어 바로 보이게
 }
 
 export const memStore = {};                               // localStorage를 못 쓸 때의 임시 보관

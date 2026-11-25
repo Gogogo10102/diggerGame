@@ -11,7 +11,41 @@ import { cv } from "../render/util.ts";
 import { updateDebris } from "../systems/collapseFx.ts";
 import { lsSet } from "../ui/inventory.ts";
 
-// ---- 능력치: 구매한 아이템 효과의 합 ----
+// ---- 장비 고르기: 가진 장비 중 낄 것만 능력치·외형에 반영 (P.off = 빼 둔 것) ----
+//  단계 분류(곡괭이·로켓·드릴·탱크·화물·엔진·궤도·조명)는 위 단계가 아래 단계에 더해지는 방식이라 '단계'를 고름:
+//  i 단계를 고르면 0~i 단계는 끼고 그 위는 뺌 (-1 = 하나도 안 낌 = 기본). 제작 장비·특수는 하나씩 끼고 뺌
+export const worn = (id) => !!P.items[id] && !(P.off && P.off[id]);
+export const EQUIP_FIXED = { robot: true };                     // 탈것은 빼는 대상이 아님
+export const tierCats = () => CATS.filter((c) => c.chainTier && !c.cons && !c.ids.every((id) => EQUIP_FIXED[id]));
+//  지금 낀 단계 (-1 = 기본)
+export function wornTier(cat) { let t = -1; cat.ids.forEach((id, i) => { if (worn(id)) t = i; }); return t; }
+//  바꾼 뒤 화물이 용량을 넘거나 하면 되돌리고 이유를 돌려줌 (성공이면 "")
+function equipCheck(before) {
+  recalcStats();
+  const n = Object.values(P.cargo).reduce((a, b) => a + b, 0);
+  if (n > STAT.cargo) { P.off = before; recalcStats(); return "화물이 " + n + "개라 화물칸을 뺄 수 없어요 (먼저 팔거나 버려요)"; }
+  if (P.fuel > STAT.fuel) P.fuel = STAT.fuel;                   // 탱크를 빼면 넘친 연료는 버림
+  return "";
+}
+export function equipTier(cat, tier) {
+  const before = { ...P.off };
+  cat.ids.forEach((id, i) => { if (P.items[id]) { if (i <= tier) delete P.off[id]; else P.off[id] = true; } });
+  return equipCheck(before);
+}
+export function equipToggle(id) {
+  if (!P.items[id] || EQUIP_FIXED[id]) return "";
+  const before = { ...P.off };
+  if (P.off[id]) delete P.off[id]; else P.off[id] = true;
+  return equipCheck(before);
+}
+//  새로 사거나 만든 장비는 바로 낌 (단계 분류면 그 단계까지 전부)
+export function equipNew(id) {
+  const cat = CATS.find((c) => c.ids.includes(id));
+  if (cat && cat.chainTier) { const t = cat.ids.indexOf(id); cat.ids.forEach((x, i) => { if (i <= t) delete P.off[x]; }); }
+  else delete P.off[id];
+}
+
+// ---- 능력치: 낀 아이템 효과의 합 ----
 // 연료 소모(초당). 기본 연료·소모량은 여기서 조절
 export const FUEL_BASE = 60, FUEL_IDLE = 0.12, FUEL_THRUST = 0.7, FUEL_DIG = 0.3;
 S.MINER_LV = 1;                                   // 광부 레벨 (레벨당 채굴 +1.2%, 판매가 +0.4%)
@@ -20,7 +54,7 @@ export const STAT = { drill: 1, fuel: FUEL_BASE, cargo: 10, thrust: 1, speed: 1,
 export function recalcStats() {
   const s = { drill: 0, fuel: 0, cargo: 0, thrust: 0, speed: 0, light: 0, eff: 0, sell: 0, lucky: 0, pick: 0, rocket: 0, robot: 0 };
   for (const id in P.items) {
-    if (!P.items[id]) continue;
+    if (!worn(id)) continue;
     for (const k in ITEMS[id].fx) s[k] += ITEMS[id].fx[k];
   }
   STAT.drill = 1 + s.drill + (S.MINER_LV - 1) * 0.012;
@@ -38,11 +72,11 @@ export function recalcStats() {
     const lk = { drill: 0, tracks: 0, lamp: 0, crate: 0, engine: 0, pick: 0, rocket: 0 };
     for (const cat of CATS) {
       if (cat.cons || lk[cat.icon] === undefined) continue;
-      cat.ids.forEach((id, i) => { if (P.items[id]) lk[cat.icon] = Math.max(lk[cat.icon], i + 1); });
+      cat.ids.forEach((id, i) => { if (worn(id)) lk[cat.icon] = Math.max(lk[cat.icon], i + 1); });
     }
     for (const id in CRAFT_ICON) {
       const k = CRAFT_ICON[id][0];
-      if (P.items[id] && lk[k] !== undefined) lk[k] = Math.max(lk[k], CRAFT_ICON[id][1] + 1);
+      if (worn(id) && lk[k] !== undefined) lk[k] = Math.max(lk[k], CRAFT_ICON[id][1] + 1);
     }
     Object.assign(LOOK, lk);
     LOOK.key = [lk.drill, lk.tracks, lk.lamp, lk.crate, lk.engine].join(",");   // (로봇 그림 캐시 키. 곡괭이·로켓 단계 LOOK.pick · LOOK.rocket 은 사람 그림용)

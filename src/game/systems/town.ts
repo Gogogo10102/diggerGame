@@ -4,7 +4,7 @@ import { sfx } from "../core/sound.ts";
 import { TILE } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { STAT, maxFuel, recalcStats, say } from "../core/stats.ts";
+import { STAT, equipNew, maxFuel, recalcStats, say } from "../core/stats.ts";
 import { ITEMS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
@@ -32,6 +32,7 @@ export function craftItem(id) {
   for (const m in it.mats) matTake(m, it.mats[m]);
   P.money -= it.cost;
   P.items[id] = true;
+  equipNew(id);
   recalcStats();
   if (it.fx.fuel) P.fuel = maxFuel();
   if (S.acct) S.acct.stats.crafted = (S.acct.stats.crafted || 0) + 1;
@@ -99,6 +100,7 @@ export function buyItem(id) {
   if (P.money < it.cost) return townFail("돈이 부족합니다 ($" + it.cost + " 필요)");
   P.money -= it.cost;
   P.items[id] = true;
+  equipNew(id);
   recalcStats();
   if (it.fx.fuel) P.fuel = maxFuel();               // 연료통을 사면 가득 채움
   say(it.name + " 장착!"); sfx("buy");

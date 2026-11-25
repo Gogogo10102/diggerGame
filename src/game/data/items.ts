@@ -10,7 +10,7 @@ import { icon } from "../render/util.ts";
 export const ITEMS = {};
 export const CATS = [];
 export function addCat(name, icon, list, chain) {
-  const cat = { name, icon, ids: [] };
+  const cat = { name, icon, ids: [], chainTier: !!chain };   // chainTier: 위 단계가 아래 단계에 더해지는 분류 (장비 고르기는 '단계'로)
   list.forEach((it, i) => {
     const req = it[4] !== undefined ? it[4] : (chain && i > 0 ? list[i - 1][0] : null);
     ITEMS[it[0]] = { id: it[0], name: it[1], fx: it[2], cost: it[3], icon, req };

@@ -11,6 +11,7 @@ export const P = {
   fuel: 60, money: 0,
   cargo: {},
   items: {},            // 구매/제작한 아이템 { id: true }
+  off: {},              // 가지고 있지만 빼 둔 장비 { id: true } (인벤토리 '장비 고르기'. 없으면 전부 낌)
   stash: {},            // 제작소 창고의 광물 { 광물id: 개수 }
   bars: {},             // 용광로에서 만든 주괴 { cu/fe/ag/au/mi: 개수 }
   inv: {},              // 소모품 { 아이템id: 개수 }

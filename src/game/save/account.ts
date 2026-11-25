@@ -29,7 +29,7 @@ export function snapshot() {
   return withChunksSettled(() => ({
     ver: SAVE_VER, id: S.acct.id, name: S.acct.name, created: S.acct.created, updated: Date.now(),
     seed: S.acct.seed, playTime: Math.floor(S.acct.playTime), stats: S.acct.stats,
-    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
+    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, off: P.off, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
     settings: { showHelp: S.showHelp, miniOn: S.miniOn === undefined ? null : S.miniOn },
     world: encodeWorld(),
     stones: 1, worldV: 2,
@@ -75,6 +75,8 @@ export function applyAccount(d) {
   warn.fill(0); floatT.fill(0); chunks.length = 0; drops.length = 0; debrisT.fill(0); debrisList.length = 0; dust.length = 0; S.floatScanT = 0; S.unstable = []; S.graceT = 6; S.cavWarn = 0; S.scanT = 0;     // 불러온 직후 잠깐은 붕괴 유예
   P.items = {};
   for (const id in (pl.items || {})) if (ITEMS[id] && pl.items[id]) P.items[id] = true;   // 모르는 아이템은 무시
+  P.off = {};                                                      // 빼 둔 장비 (예전 세이브엔 없음 → 전부 낌)
+  for (const id in (pl.off || {})) if (P.items[id] && pl.off[id]) P.off[id] = true;
   // 사람 광부 이전 세이브(mech 기록 없음)는 원래 로봇으로 놀던 것 → 로봇을 가진 채 타고 있는 상태로
   if (pl.mech === undefined) { P.items.robot = true; P.mech = true; }
   else P.mech = !!pl.mech && !!P.items.robot;
