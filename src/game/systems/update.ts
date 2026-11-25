@@ -120,19 +120,21 @@ import { sfx, sfxLoop } from "../core/sound.ts";
 //  물리 / 업데이트
 // =====================================================================
 // ---- 사람 움직임 숫자 (타일 32px 시절 값 × PX) ----
-export const HUMAN_SPEED = 150, JUMP_V = 300, CLIMB_SPEED = 110;     // 점프 300 → 약 1.5칸 높이 (한 칸 턱을 뛰어오름)
+export const HUMAN_SPEED = 80, JUMP_H = 50, CLIMB_SPEED = 110;      // 점프 높이 50 = 약 1.5칸 (한 칸 턱을 뛰어오름). 중력을 바꿔도 높이는 그대로 → jumpV()
 //  걷기·비행 손맛 숫자 (조절판 ui/tune.ts 로 게임 안에서 바꿔 볼 수 있음. 속도·가속은 타일 32px 시절 값 × PX)
 //  출발·멈춤은 '최고 속도까지 걸리는 시간(초)'으로 적음 → 속도를 바꿔도 느낌이 유지됨. 사람은 가볍게, 로봇은 묵직하게
-export const MOVE = {
-  hSpeed: HUMAN_SPEED, hAccT: 0.2, hStopT: 0.12,   // 사람: 걷기 속도 · 출발 시간 · 멈춤 시간
-  mSpeed: 170, mAccT: 0.35, mStopT: 0.25,          // 로봇: 기본 속도(× 궤도) · 출발 · 멈춤
-  airCtl: 1,                                       // 공중 좌우 조작 (1 = 땅과 같음, 작을수록 관성이 큼)
-  hStride: 70, mStride: 154,                       // 걷기 그림 한 바퀴(8장)에 가는 거리(화면 px). 작을수록 다리가 빨리 움직임
-  grav: 900, fallMax: 520,                         // 중력 · 최대 낙하 속도
-  rAcc: 1500, rMax: 200, rCap: 380,                // 사람 백팩 로켓: 가속(× 로켓) · 최고 상승(× 로켓) · 상한
-  mAcc: 1800, mMax: 260, mCap: 480,                // 로봇 추진: 가속(× 엔진) · 최고 상승 · 상한
-  mShake: 2,                                       // 로봇 발걸음 화면 흔들림(px)
+export const MOVE = {                              // 2026-11-25 조절판으로 고른 값 (예전 값은 docs/decisions.md 밸런스 메모)
+  hSpeed: HUMAN_SPEED, hAccT: 0.08, hStopT: 0.08,           // 사람: 걷기 속도 · 출발 시간 · 멈춤 시간
+  mSpeed: 125, mAccT: 0.1, mStopT: 0.12,           // 로봇: 기본 속도(× 궤도) · 출발 · 멈춤
+  airCtl: 0.3,                                     // 공중 좌우 조작 (1 = 땅과 같음, 작을수록 관성이 큼)
+  hStride: 130, mStride: 260,                      // 걷기 그림 한 바퀴(8장)에 가는 거리(화면 px). 작을수록 다리가 빨리 움직임
+  grav: 560, fallMax: 330,                         // 중력 · 최대 낙하 속도
+  rAcc: 850, rMax: 130, rCap: 170,                 // 사람 백팩 로켓: 가속(× 로켓) · 최고 상승(× 로켓) · 상한
+  mAcc: 500, mMax: 160, mCap: 230,                 // 로봇 추진: 가속(× 엔진) · 최고 상승 · 상한
+  mShake: 0,                                       // 로봇 발걸음 화면 흔들림(px)
 };
+export const jumpV = () => Math.sqrt(2 * MOVE.grav * JUMP_H);   // 점프 처음 속도 (높이 = v² / 2g 가 JUMP_H 가 되게)
+const LIFT_MIN = 140;                              // 추진 가속은 적어도 중력 + 이만큼 (장비가 약해도 천천히는 떠오르게)
 export const MOVE_DEF = { ...MOVE };
 const STEP_AT = { human: [0, 4], mech: [2, 6] };   // 걷기 그림에서 발이 땅에 닿는 장 (PLAYER_ANIM·MECH_ANIM walk 목록의 순서)
 
@@ -417,7 +419,7 @@ export function update(dt) {
   if (P.mech) {
     thrusting = upNow && P.fuel > 0;
     P.climbing = false;
-    if (thrusting) P.vy = Math.max(-Math.min(MOVE.mCap, MOVE.mMax * (1 + (STAT.thrust - 1) * 0.5)) * PX, P.vy - MOVE.mAcc * PX * STAT.thrust * dt);
+    if (thrusting) P.vy = Math.max(-Math.min(MOVE.mCap, MOVE.mMax * (1 + (STAT.thrust - 1) * 0.5)) * PX, P.vy - Math.max(MOVE.mAcc * STAT.thrust, MOVE.grav + LIFT_MIN) * PX * dt);
     P.vy = Math.min(MOVE.fallMax * PX, P.vy + MOVE.grav * PX * dt);
   } else {
     // 사람: 사다리 · 점프 · (백팩 로켓이 있으면) 비행
@@ -428,12 +430,12 @@ export function update(dt) {
       P.vy = upNow ? -CLIMB_SPEED * PX : D_() ? CLIMB_SPEED * PX : 0;
       if (dir !== 0 && !upNow && !D_()) P.climbing = false;          // 옆으로 걸어 나가면 사다리에서 내림
     } else {
-      if (upEdge && wasGrounded && !ceilAbove) { P.vy = -JUMP_V * PX; sfx("step", { pitch: 1.3 }); }
+      if (upEdge && wasGrounded && !ceilAbove) { P.vy = -jumpV() * PX; sfx("step", { pitch: 1.3 }); }
       // 점프한 뒤 계속 누르면 백팩 로켓: 점프 힘이 어느 정도 빠졌을 때 켜지고, 한 번 켜지면 손을 뗄 때까지 유지
       if (!upNow || wasGrounded || !(STAT.rocket > 0) || P.fuel <= 0) S.rocketOn = false;
-      else if (S.rocketOn || P.vy > -JUMP_V * PX * 0.6) S.rocketOn = true;
+      else if (S.rocketOn || P.vy > -jumpV() * PX * 0.6) S.rocketOn = true;
       thrusting = !!S.rocketOn;
-      if (thrusting) P.vy = Math.max(-Math.min(MOVE.rCap, MOVE.rMax * STAT.rocket) * PX, P.vy - MOVE.rAcc * PX * STAT.rocket * dt);
+      if (thrusting) P.vy = Math.max(-Math.min(MOVE.rCap, MOVE.rMax * STAT.rocket) * PX, P.vy - Math.max(MOVE.rAcc * STAT.rocket, MOVE.grav + LIFT_MIN) * PX * dt);
       P.vy = Math.min(MOVE.fallMax * PX, P.vy + MOVE.grav * PX * dt);
       if (lad && P.vy > 0 && !D_()) { P.vy = 0; P.climbing = true; }  // 떨어지다 사다리를 만나면 붙잡음
     }
