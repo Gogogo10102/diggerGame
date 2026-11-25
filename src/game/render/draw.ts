@@ -125,10 +125,9 @@ export function mechAnim() {
     const k = P.mode === "down" ? "dig_down" : P.mode === "up" ? "dig_up" : "dig";
     return S.digHoldT < 0.24 ? [k + "_in", Math.floor(S.digHoldT / 0.06)] : [k, Math.floor(S.animT * 12)];
   }
-  if (!P.grounded) {
-    if (S.thrustOn) return S.thrustT < 0.16 ? ["takeoff", Math.floor(S.thrustT / 0.08)] : ["fly", Math.floor(S.animT * 8)];
-    return ["fall", 0];
-  }
+  // 추진 중이면 아직 땅에서 덜 떨어졌어도 점화·비행 그림 (추진이 약하면 천천히 떠오르므로)
+  if (S.thrustOn) return S.thrustT < 0.16 ? ["takeoff", Math.floor(S.thrustT / 0.08)] : ["fly", Math.floor(S.animT * 8)];
+  if (!P.grounded) return ["fall", 0];
   if (S.landT > 0) return ["land", S.landT > 0.06 ? 0 : 1];
   if (Math.abs(P.vx) > 20) return ["walk", Math.floor((S.walkD || 0) / (MOVE.mStride / 8))];   // 한 바퀴(8칸)에 MOVE.mStride px (약 2.4칸)
   return ["idle", 0];
