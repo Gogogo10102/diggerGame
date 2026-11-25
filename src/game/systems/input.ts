@@ -2,7 +2,7 @@
 import "../core/stats.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { SHOP_PER, cycleZoom, say } from "../core/stats.ts";
+import { SHOP_PER, cargoCount, cycleZoom, say } from "../core/stats.ts";
 import { HOT } from "../data/consumables.ts";
 import { CATS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
@@ -104,7 +104,7 @@ addEventListener("keydown", (e) => {
   if (e.code === "KeyN") { if (!e.repeat) { toggleMini(innerWidth); saveNow(true, true); } return; }   // 미니맵 켜기/끄기
   keys[e.code] = true;
   if (e.code === "KeyH") { S.showHelp = !S.showHelp; S.helpPinned = S.showHelp; }
-  if (e.code === "KeyE" && !e.repeat && P.dead <= 0) { if (S.nearItems) openShop(); else if (S.nearCraft) openCraft(); else if (S.nearFurnace) openFurnace(); else if (atGarage()) toggleMech(); }
+  if (e.code === "KeyE" && !e.repeat && P.dead <= 0) { if (S.nearItems) openTown(); else if (atGarage()) toggleMech(); }
   if (/^Digit[1-8]$/.test(e.code) && !e.repeat) useConsumable(HOT[Number(e.code.slice(5)) - 1]);
   if (e.code === "KeyZ" && !e.repeat) cycleZoom();
 });
@@ -218,7 +218,7 @@ stage.addEventListener("pointerdown", (e) => {
     if (!hit(S.shopRect)) closeShop();                 // 패널 바깥을 탭하면 닫기
     return;
   }
-  if (S.promptBtn && P.dead <= 0 && hit(S.promptBtn)) { if (S.nearItems) openShop(); else if (S.nearCraft) openCraft(); else if (S.nearFurnace) openFurnace(); else if (atGarage()) toggleMech(); else switchTown("sell"); return; }   // 상점/제작소 열기 버튼
+  if (S.promptBtn && P.dead <= 0 && hit(S.promptBtn)) { if (S.nearItems) openTown(); else if (atGarage()) toggleMech(); else switchTown("sell"); return; }   // 가게 들어가기 버튼
   if (S.menuBtn && hit(S.menuBtn)) { sfx("click"); openMenu(); return; }
   if (S.bagBtn && hit(S.bagBtn)) { sfx("click"); openInventory(); return; }
   if (S.questBtn && hit(S.questBtn)) { sfx("click"); openQuests(); return; }                      // 메뉴 버튼
@@ -276,6 +276,11 @@ export function townKey(e) {                                       // [ / ] 로 
   const i = TOWN.findIndex((t) => t[0] === townActive()), d = e.code === "BracketLeft" ? -1 : 1;
   switchTown(TOWN[(i + d + TOWN.length) % TOWN.length][0]);
   return true;
+}
+// 마을 건물에 들어가기: 광물을 싣고 왔으면 판매 탭(화물은 창고로), 아니면 상점 탭
+export function openTown() {
+  if (cargoCount() > 0) { sfx("open"); switchTown("sell"); }
+  else openShop();
 }
 export function openShop() {
   S.state = "shop"; S.shopSel = 0; sfx("open");

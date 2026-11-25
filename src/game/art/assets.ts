@@ -39,9 +39,7 @@ export function assetTable() {
   t["tiles/bedrock.png"] = () => bedrock;
   t["tiles/plinth_top.png"] = () => plinthTop;
   t["tiles/plinth_low.png"] = () => plinthLow;
-  t["buildings/item_shop.png"] = () => S.itemShopImg;
-  t["buildings/workshop.png"] = () => S.craftShopImg;
-  t["buildings/furnace.png"] = () => furnaceImg;
+  t["buildings/town.png"] = () => S.townImg;                          // 상점·제작소·용광로를 합친 한 채 (예전 세 건물 그림은 안 씀)
   for (const k in SIGN_IMG) t["signs/" + k + ".png"] = () => SIGN_IMG[k];
   for (const k in TAB_IMG) t["signs/tab_" + k + ".png"] = () => TAB_IMG[k];
   t["sky/sun.png"] = () => sunImg;

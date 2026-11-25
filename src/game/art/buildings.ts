@@ -109,6 +109,7 @@ export function buildWorkshop() {
   });
 }
 S.itemShopImg = buildItemShop();
+S.townImg = sprite(1, 1, () => {});                                 // 마을 건물 한 채 (PixelLab, buildings/town.png). 파일이 없으면 안 그림
 S.craftShopImg = buildWorkshop();
 // 건물 기초석 (건물 아래 땅은 부술 수 없음)
 export const plinthTop = sprite(16, 16, (p) => {
