@@ -105,6 +105,7 @@ export function layerSub(ly) {
 }
 import { ORE_GEN, ensureAround, hardOf, seen, solid, tiles } from "../core/world.ts";
 import { CONS, visR } from "../data/consumables.ts";
+import { CATS } from "../data/items.ts";
 import { checkQuests, onMined } from "../data/progress.ts";
 import { saveNow } from "../save/account.ts";
 import { discoverCave, placeSupport, updateCave } from "./cave.ts";
@@ -192,8 +193,24 @@ export function ladderTopAt(x, feetY) {
 }
 
 // ---- 로봇 차고: 마을의 차고 칸에서만 타고 내림 (로봇을 사야 탈 수 있음) ----
-export const GARAGE = [7, 8];                                       // 상점과 제작소 사이 빈 칸
+export const GARAGE = [7, 10];                                      // 마을 건물 바로 오른쪽 (차고 그림 폭 234px ≈ 4칸, 가게와 약 16px 띄움)
 export const atGarage = () => Math.floor(P.y / T) < SURF && Math.floor(P.x / T) >= GARAGE[0] && Math.floor(P.x / T) <= GARAGE[1];
+//  차고 단계: 로봇 장비(드릴·엔진·궤도)를 GARAGE_UP_N 개 이상 사면 업그레이드 차고 그림으로
+export const GARAGE_UP_N = 6;
+export function garageLv() {
+  if (!P.items.robot) return 0;
+  let n = 0;
+  for (const cat of CATS) if (cat.icon === "drill" || cat.icon === "engine" || cat.icon === "tracks") for (const id of cat.ids) if (P.items[id]) n++;
+  return n >= GARAGE_UP_N ? 1 : 0;
+}
+//  셔터: 로봇을 샀고 지상에서 차고 가까이(가운데에서 2.5칸 안) 오면 위로 말려 열림, 멀어지면 내려옴. S.garDoor 0 닫힘 ~ 1 열림
+export function updateGarageDoor(dt) {
+  const cx = (GARAGE[0] + GARAGE[1] + 1) / 2 * T;
+  const want = P.items.robot && P.y < SURF * T && Math.abs(P.x - cx) < 2.5 * T ? 1 : 0;
+  const d = S.garDoor || 0;
+  if (want !== S.garWant) { if (S.garWant !== undefined && d !== want) sfx("shutter"); S.garWant = want; }
+  S.garDoor = want > d ? Math.min(1, d + dt / 0.45) : Math.max(0, d - dt / 0.45);
+}
 export function toggleMech() {
   if (!atGarage()) return false;
   if (P.mech) {
@@ -322,6 +339,7 @@ export function update(dt) {
   updateFx(dt);
   updateBombs(dt);
   updateGas(dt);
+  updateGarageDoor(dt);
   if (S.shakeT > 0) S.shakeT -= dt;
   if (S.landT > 0) S.landT -= dt;
   if (P.grounded) S.walkD = ((S.walkD || 0) + Math.abs(P.vx) * dt) % 1e6;   // 걸은 거리 → 걷기 그림 칸 (draw.ts)

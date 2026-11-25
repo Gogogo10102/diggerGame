@@ -13,7 +13,7 @@ export const SEED = 1234;
 // 마을 건물은 한 채(상점 · 제작소 · 용광로 · 판매를 합침, 2026-11-25). 들어가면 마을 창 4탭. 정비소는 없음 → 지상에 나오면 연료 충전
 export const BUILD_COLS = [[2, 6]];
 export const B_SHOP = 0, B_CRAFT = 0, B_FURN = 0;                 // 예전 세 건물 번호 → 모두 같은 한 채
-export const MINE_COL = 22;                                       // 여기부터 오른쪽이 광산 터 (예전 세 건물 시절 자리 그대로 → 기존 월드 모양이 안 바뀜)
+export const MINE_COL = 13;                                       // 여기부터 오른쪽이 광산 터. 건물 한 채 + 차고(7~10칸) 바로 뒤 (예전 22 → 13, 2026-11-25: 남는 마을 땅을 줄임. 옛 월드의 13~21칸 기초석은 fixFoundation 이 흙으로)
 export const inTown = (c) => c >= 1 && c < MINE_COL;             // 마을 땅(기초석, 못 팜)
 export const inB = (k, c) => c >= BUILD_COLS[k][0] && c <= BUILD_COLS[k][1];
 

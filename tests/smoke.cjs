@@ -380,7 +380,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   const t11 = boot(path); t11.run(5); await login(t11, "Found"); t11.run(10);
   ok(t11.ev("BUILD_COLS.every((b) => { for (let c = b[0]; c <= b[1]; c++) for (let r = SURF; r <= SURF + 1; r++) if (tiles[r*W+c] !== 13) return false; return true; })"), "건물 아래 2줄은 전부 기초석");
   ok(t11.ev("(() => { for (let c = MINE_COL; c < W - 1; c++) if (tiles[SURF*W+c] === 13) return false; return true; })()"), "광산 터(마을 오른쪽)는 그대로 팔 수 있음");
-  ok(t11.ev("BUILD_COLS.length === 1 && MINE_COL === 22 && MINE_COL >= BUILD_COLS[0][1] + 2 && W - MINE_COL >= 20"), "마을 건물 한 채 + 광산 터는 예전 자리(22칸)부터 넓게");
+  ok(t11.ev("BUILD_COLS.length === 1 && MINE_COL === 13 && MINE_COL > GARAGE[1] + 1 && W - MINE_COL >= 20"), "마을 = 건물 한 채 + 차고, 광산 터는 차고 바로 뒤(13칸)부터 넓게");
   ok(t11.ev("tiles[SURF*W + BUILD_COLS[0][1] + 1] === 13 && tiles[(SURF+1)*W + BUILD_COLS[0][1] + 6] === 13"), "건물 옆 마을 땅도 못 팜(기초석)");
   ok(t11.ev("tiles[(SURF+2)*W+5] !== 13"), "기초석 아래 땅은 일반 지형");
   t11.ev("P.x = 5 * T + 16; P.y = SURF * T - 14; P.vx = P.vy = 0"); t11.run(10);
@@ -392,10 +392,10 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t11.ev("tiles[(SURF+1)*W+5]") === 13 && t11.ev("tiles[(SURF)*W+5]") === 13, "폭발도 기초석은 못 부심");
   // 예전 저장: 건물 아래가 이미 뚫려 있던 경우 복구
   const sv18 = JSON.parse(await t11.ev("JSON.stringify(snapshot())"));
-  t11.ev("tiles[(SURF)*W+5] = 0; tiles[(SURF+1)*W+5] = 0; tiles[(SURF)*W+15] = 0");
+  t11.ev("tiles[(SURF)*W+5] = 0; tiles[(SURF+1)*W+5] = 0; tiles[(SURF)*W+12] = 0");
   sv18.world = t11.ev("encodeWorld()");
   t11.ev("applyAccount(" + JSON.stringify(sv18) + ")");
-  ok(t11.ev("tiles[(SURF)*W+5] === 13 && tiles[(SURF+1)*W+5] === 13 && tiles[(SURF)*W+15] === 13"), "예전 저장의 뚫린 건물 아래를 기초석으로 복구");
+  ok(t11.ev("tiles[(SURF)*W+5] === 13 && tiles[(SURF+1)*W+5] === 13 && tiles[(SURF)*W+12] === 13"), "예전 저장의 뚫린 건물 아래를 기초석으로 복구");
   // 확대
   const t12 = boot(path, { w: 1000, h: 640 }); t12.run(5);
   ok(t12.ev("curZoom()") === 1, "데스크톱 자동 확대 1x (타일 64px)");
@@ -796,7 +796,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t33.key("Escape"); await t33.tick();
   ok(t33.ev("BAR_KEYS.every((k) => barIcon[k].width === 16) && Object.keys(oreDrop).every((k) => oreDrop[k].width === 12)"), "주괴 아이콘/떨어진 아이템 스프라이트");
   ok(t33.ev("Object.keys(assetTable()).filter((k) => k.startsWith('signs/')).length") === 9, "광산 표지판 + 탭 이름 8개를 그림 파일로 연결");
-  ok(t33.ev("Object.keys(assetTable()).filter((k) => k.startsWith('buildings/')).sort().join()") === "buildings/town.png", "건물 그림은 마을 건물 한 채");
+  ok(t33.ev("Object.keys(assetTable()).filter((k) => k.startsWith('buildings/')).sort().join()") === "buildings/garage_0.png,buildings/garage_1.png,buildings/shutter.png,buildings/town.png", "건물 그림은 마을 건물 한 채 + 차고 두 단계 + 셔터");
   // 옛 배치(정비소 있던 때) 저장: 광산 터에 남은 기초석은 흙으로
   t33.ev("for (let c = 20; c <= 26; c++) tiles[SURF*W + c] = 13; fixFoundation()");
   ok(t33.ev("(() => { for (let c = MINE_COL; c <= 26; c++) if (tiles[SURF*W + c] === 13) return false; return true; })()") && t33.ev("tiles[SURF*W + 3]") === 13, "옛 기초석 정리, 건물 아래는 유지");
@@ -1259,6 +1259,14 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t70.ev("P.mech"), "차고 밖에서는 내릴 수 없음");
   t70.ev("P.x = GARAGE[0] * T + T; P.y = SURF * T - HH - 1; P.vx = P.vy = 0"); t70.run(2); t70.key("KeyE"); t70.run(1);
   ok(t70.ev("P.mech") === false, "차고에서 E → 로봇에서 내림");
+  // 차고 셔터: 로봇이 있고 가까이 오면 열리고, 멀어지면 닫힘 / 로봇 장비를 많이 사면 차고 그림이 업그레이드
+  t70.run(60); ok(t70.ev("S.garDoor") === 1, "차고 가까이 오면 셔터가 열림");
+  t70.ev("P.x = 30 * T"); t70.run(60); ok(t70.ev("S.garDoor") === 0, "멀어지면 셔터가 닫힘");
+  ok(t70.ev("garageLv()") === 0, "로봇만 있으면 기본 차고");
+  t70.ev("['steel_drill','ti_drill','engine1','engine2','track1','track2'].forEach((id) => P.items[id] = true)");
+  ok(t70.ev("garageLv()") === 1, "로봇 장비 6개 → 업그레이드 차고");
+  t70.ev("delete P.items.track2"); ok(t70.ev("garageLv()") === 0, "5개면 아직 기본 차고");
+  t70.ev("['steel_drill','ti_drill','engine1','engine2','track1'].forEach((id) => delete P.items[id]); recalcStats()");
   // 로봇 동작 순서: 서 있기 → 점화(한 번) → 비행(반복) → 낙하 → 착지 → 서 있기
   hroom(); t70.ev("P.items.robot = true; P.mech = true; recalcStats(); P.fuel = maxFuel()"); t70.run(5);
   ok(t70.ev("mechAnim()[0]") === "idle", "로봇 서 있기");
