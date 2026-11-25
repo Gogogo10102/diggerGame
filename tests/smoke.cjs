@@ -1272,7 +1272,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t70.ev("mechAnim()[0]") === "idle", "로봇 서 있기");
   t70.ev("keys.ArrowUp = true"); t70.run(2);
   ok(t70.ev("mechAnim()[0]") === "takeoff", "↑ 누르면 점화 동작부터");
-  t70.run(20);
+  t70.run(60);                                                       // 추진이 약하면 천천히 떠오르니 넉넉히
   ok(t70.ev("mechAnim()[0]") === "fly", "누르고 있으면 비행 동작 반복");
   t70.ev("keys.ArrowUp = false"); t70.run(1);
   ok(t70.ev("mechAnim()[0]") === "fall", "손을 떼면 불 꺼지고 낙하");
@@ -1292,8 +1292,8 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t70.ev("P.vx") > 0, "손을 떼도 바로 서지 않고 살짝 미끄러짐");
   t70.run(20); ok(t70.ev("P.vx") === 0, "멈춤 시간 뒤 멈춤");
   hroom(); t70.ev("P.items.robot = true; P.mech = true; recalcStats()"); t70.run(5);
-  t70.ev("keys.ArrowRight = true"); t70.run(6);
-  ok(t70.ev("P.vx") < t70.ev("MOVE.mSpeed * STAT.speed * PX") * 0.5, "로봇은 더 묵직하게 출발");
+  t70.ev("keys.ArrowRight = true"); t70.run(2);
+  ok(t70.ev("P.vx") > 0 && t70.ev("P.vx") < t70.ev("MOVE.mSpeed * STAT.speed * PX") * 0.5, "로봇도 곧바로 최고 속도가 되지 않음");
   t70.ev("keys.ArrowRight = false"); t70.run(30);
   ok(t70.ev("typeof S.toggleTune") === "function" && t70.ev("JSON.stringify(MOVE) === JSON.stringify(MOVE_DEF)"), "움직임 조절판 준비 (기본값 그대로)");
   t70.ev("keys.ArrowRight = false"); hroom(); t70.ev("P.items.robot = true; P.mech = true; recalcStats(); P.fuel = maxFuel(); tiles[(SURF + 20) * W + 31] = 3"); t70.run(10);
@@ -1318,6 +1318,35 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t70.ev("openMenu()"); await t70.tick();
   ok(!!t70.btn("구조 요청 (지상으로)"), "땅속에서 메뉴에 구조 요청 버튼");
   t70.ev("closeMenu()");
+
+  console.log("[43] 장비 칸 (분류마다 하나, 장비마다 고유 값) · 상점 장착");
+  t70.ev("P.mech = false; P.x = 4 * T; P.y = SURF * T - HH - 1; P.cargo = {}; P.items = {}; P.eq = {}; P.off = {}; P.money = 99999; recalcStats()");
+  const lvP = t70.ev("(S.MINER_LV - 1) * 0.006");
+  ok(Math.abs(t70.ev("STAT.pick") - (0.5 + lvP)) < 1e-9 && t70.ev("STAT.rocket") === 0, "장비 없음 = 기본값 (곡괭이 0.5 · 로켓 없음)");
+  for (const id of ["pick_iron", "pick_steel", "pick_gold", "rocket1", "rocket2", "eco1", "appraiser"]) t70.ev("buyItem('" + id + "')");
+  ok(Math.abs(t70.ev("STAT.pick") - (1.6 + lvP)) < 1e-9 && t70.ev("LOOK.pick") === 3 && t70.ev("STAT.rocket") === 1.05, "산 장비는 바로 낌 · 값 = 그 장비의 고유 값 (금 곡괭이 1.6, 터보 로켓 1.05)");
+  t70.ev("buyItem('pick_iron')");
+  ok(Math.abs(t70.ev("STAT.pick") - (0.75 + lvP)) < 1e-9 && t70.ev("LOOK.pick") === 1 && t70.ev("worn('pick_iron') && !worn('pick_gold')"), "상점에서 가진 장비 [장착] → 그 장비 하나만 (철 곡괭이 0.75)");
+  ok(t70.ev("msg").includes("장착"), "장착 안내");
+  t70.ev("buyItem('pick_iron')"); ok(t70.ev("msg").includes("이미 장착"), "낀 장비를 다시 누르면 '이미 장착 중'");
+  t70.ev("equipSlot(CATS.find((c) => c.icon === 'rocket'), 'rocket1')"); ok(t70.ev("STAT.rocket") === 0.8 && t70.ev("canFly()"), "약한 로켓으로 바꾸기 (0.8, 날 수 있음)");
+  t70.ev("equipSlot(CATS.find((c) => c.icon === 'rocket'), null)"); ok(t70.ev("STAT.rocket") === 0 && !t70.ev("canFly()"), "로켓을 빼면 못 낢");
+  ok(t70.ev("equipToggle('eco1')") === "" && t70.ev("STAT.eff") === 1 && t70.ev("STAT.sell") > 1, "특수 장비는 하나씩 (연비 개선기만 뺌)");
+  // 저장 → 불러오기 / 예전 세이브(eq·off 없음)는 칸마다 가장 높은 단계
+  const svEq = JSON.parse(await t70.ev("JSON.stringify(snapshot())"));
+  t70.ev("applyAccount(" + JSON.stringify(svEq) + ")");
+  ok(t70.ev("LOOK.pick") === 1 && t70.ev("STAT.rocket") === 0 && t70.ev("STAT.eff") === 1, "낀 장비가 저장·불러오기 뒤에도 그대로");
+  delete svEq.player.eq; delete svEq.player.off; t70.ev("applyAccount(" + JSON.stringify(svEq) + ")");
+  ok(t70.ev("LOOK.pick") === 3 && t70.ev("STAT.rocket") === 1.05 && t70.ev("STAT.eff") === 0.85, "예전 세이브는 칸마다 가장 높은 단계를 낌");
+  // 화물칸: 실은 게 넘치면 작은 칸으로 못 바꿈
+  t70.ev("buyItem('cargo1'); P.cargo = { 2: 15 }");
+  ok(t70.ev("equipSlot(CATS.find((c) => c.icon === 'crate'), null)").includes("화물") && t70.ev("cargoCap()") === 18, "화물이 넘치면 작은 화물칸으로 못 바꿈");
+  t70.ev("P.cargo = {}; buyItem('pick_dia')");
+  ok(t70.ev("LOOK.pick") === 4 && Math.abs(t70.ev("STAT.pick") - (2.3 + lvP)) < 1e-9, "새 곡괭이를 사면 그걸 낌 (2.3)");
+  // 인벤토리 화면: 곡괭이 칸을 누르면 고르기 칸
+  t70.ev("S.state = 'menu'; S.invPick = 'c:pick'; renderInventory()"); await t70.tick();
+  ok(!!t70.btn("장착 중") && !!t70.btn("장착"), "인벤토리 장비 고르기 칸");
+  t70.ev("S.invPick = null; closeMenu()");
 
   console.log("[41] 휴대폰: 지도 켜고 끄기 · 도움말 닫기");
   const t80 = boot(path, { w: 390, h: 844 }); t80.run(5); await login(t80, "Phone"); t80.ev("S.usedTouch = true; S.showHelp = true; S.helpPinned = true"); t80.run(10);

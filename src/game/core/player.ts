@@ -11,6 +11,8 @@ export const P = {
   fuel: 60, money: 0,
   cargo: {},
   items: {},            // 구매/제작한 아이템 { id: true }
+  eq: {},               // 장비 칸마다 낀 장비 { 분류icon: id | "" } ("" = 안 낌. 기록이 없는 칸은 가진 것 중 가장 높은 단계)
+  off: {},              // 빼 둔 특수·제작 장비 { id: true }
   stash: {},            // 제작소 창고의 광물 { 광물id: 개수 }
   bars: {},             // 용광로에서 만든 주괴 { cu/fe/ag/au/mi: 개수 }
   inv: {},              // 소모품 { 아이템id: 개수 }

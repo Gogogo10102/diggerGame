@@ -49,8 +49,9 @@
   #ov .slots.ores{grid-template-columns:repeat(3,1fr)}
   #ov .slot{background:#1d2027;padding:6px 4px;text-align:center;border:2px solid #0b0c0f;min-width:0}
   #ov .slot.empty{opacity:.45}
+  #ov .slot.pick{outline:2px solid #ffc21a;outline-offset:-2px}
   #ov .slot .minis{display:flex;gap:4px;justify-content:center;margin-top:4px}
-  #ov .slot .btn.mini{font-family:var(--font-s);font-size:12px;padding:4px 6px 6px;margin:0;min-width:0}
+  #ov .slot .btn.mini{font-family:var(--font-s);font-size:12px;padding:4px 8px 6px 16px;margin:0;min-width:0}   /* 왼쪽 16px = 색 띠 자리 */
   #ov .slot .ico{image-rendering:pixelated;display:block;margin:0 auto 2px}
   #ov .slot .nm2{font-family:var(--font-s);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #ov .slot .pips{font-family:var(--font-s);font-size:12px;line-height:1;color:#ffc21a;letter-spacing:1px;margin-top:2px}

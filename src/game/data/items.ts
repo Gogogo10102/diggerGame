@@ -4,13 +4,16 @@ import { icon } from "../render/util.ts";
 
 // ---- 아이템 카탈로그 ----
 // 항목: [id, 이름, 효과, 가격, (선택) 선행 아이템 id]
-// 효과 키: drill 로봇 드릴 속도, fuel 최대 연료, cargo 화물 용량, thrust 로봇 추진력,
-//          speed 로봇 이동 속도, light 시야, eff 연료 소모 감소, sell 판매가, pick 곡괭이, rocket 백팩 로켓, robot 로봇 본체
-// chain=true 인 분류는 위에서부터 순서대로 사야 합니다. 분류마다 3개씩 넣으세요.
+// 장비 칸 분류(slot 이 있는 분류: 곡괭이·로켓·드릴·탱크·화물·엔진·궤도·조명)는 효과가 '그 장비의 고유 값'입니다.
+//   한 칸에 하나만 껴서 그 값이 곧 능력치 (예: 금 곡괭이 = 곡괭이 채굴력 1.6). 안 끼면 기본값(stats.ts 의 SLOT_BASE).
+// 특수·제작 장비의 효과는 낀 장비 값에 더해지는 보너스 (판매가·연비·행운은 %).
+// 효과 키: drill 로봇 드릴 채굴력, fuel 최대 연료, cargo 화물칸, thrust 로봇 추진력, speed 로봇 이동 속도,
+//          light 시야, eff 연료 소모 감소, sell 판매가, pick 곡괭이 채굴력, rocket 백팩 로켓 추진력, robot 로봇 본체
+// chain=true 인 분류는 위에서부터 순서대로 사야 합니다.
 export const ITEMS = {};
 export const CATS = [];
-export function addCat(name, icon, list, chain) {
-  const cat = { name, icon, ids: [] };
+export function addCat(name, icon, list, chain, slot) {
+  const cat = { name, icon, ids: [], slot: slot || null };   // slot: 장비 칸이면 그 능력치 키 (한 칸에 하나만 낌)
   list.forEach((it, i) => {
     const req = it[4] !== undefined ? it[4] : (chain && i > 0 ? list[i - 1][0] : null);
     ITEMS[it[0]] = { id: it[0], name: it[1], fx: it[2], cost: it[3], icon, req };
@@ -20,82 +23,82 @@ export function addCat(name, icon, list, chain) {
 }
 // 사람 장비: 곡괭이(처음엔 기본 곡괭이 · 무료) · 백팩 로켓(있어야 날 수 있음, 연료 씀) / 로봇(마을 차고에서 타는 탈것)
 addCat("곡괭이", "pick", [
-  ["pick_iron", "철 곡괭이", { pick: 0.25 }, 60],
-  ["pick_steel", "강철 곡괭이", { pick: 0.35 }, 250],
-  ["pick_gold", "금 곡괭이", { pick: 0.5 }, 900],
-  ["pick_dia", "다이아 곡괭이", { pick: 0.7 }, 3000],
-  ["pick_mith", "미스릴 곡괭이", { pick: 1.0 }, 9000],
-], true);
+  ["pick_iron", "철 곡괭이", { pick: 0.75 }, 60],
+  ["pick_steel", "강철 곡괭이", { pick: 1.1 }, 250],
+  ["pick_gold", "금 곡괭이", { pick: 1.6 }, 900],
+  ["pick_dia", "다이아 곡괭이", { pick: 2.3 }, 3000],
+  ["pick_mith", "미스릴 곡괭이", { pick: 3.3 }, 9000],
+], true, "pick");
 addCat("백팩 로켓", "rocket", [
   ["rocket1", "백팩 로켓", { rocket: 0.8 }, 350],
-  ["rocket2", "터보 백팩 로켓", { rocket: 0.25 }, 1400],
-  ["rocket3", "제트 백팩", { rocket: 0.3 }, 4200],
-  ["rocket4", "플라즈마 백팩", { rocket: 0.4 }, 12000],
-], true);
+  ["rocket2", "터보 백팩 로켓", { rocket: 1.05 }, 1400],
+  ["rocket3", "제트 백팩", { rocket: 1.35 }, 4200],
+  ["rocket4", "플라즈마 백팩", { rocket: 1.75 }, 12000],
+], true, "rocket");
 addCat("로봇", "robot", [
   ["robot", "드릴 로봇", { robot: 1 }, 1500],
 ], true);
 // 아래 드릴 · 엔진 · 궤도는 로봇 장비 (로봇을 사야 살 수 있음). 탱크(연료) · 화물 · 조명 · 특수는 사람·로봇 공용
 addCat("드릴", "drill", [
-  ["steel_drill", "강철 드릴", { drill: 0.4 }, 80, "robot"],
-  ["ti_drill", "티타늄 드릴", { drill: 0.6 }, 320],
-  ["dia_drill", "다이아 드릴", { drill: 1.0 }, 1200],
-  ["plasma_drill", "플라즈마 드릴", { drill: 0.8 }, 3200],
-  ["sonic_drill", "소닉 드릴", { drill: 1.0 }, 8500],
-  ["gravity_drill", "중력 드릴", { drill: 1.2 }, 22000],
-  ["antimatter_drill", "반물질 드릴", { drill: 1.5 }, 55000],
-  ["singularity_drill", "특이점 드릴", { drill: 2.0 }, 140000],
-], true);
+  ["steel_drill", "강철 드릴", { drill: 1.4 }, 80, "robot"],
+  ["ti_drill", "티타늄 드릴", { drill: 2.0 }, 320],
+  ["dia_drill", "다이아 드릴", { drill: 3.0 }, 1200],
+  ["plasma_drill", "플라즈마 드릴", { drill: 3.8 }, 3200],
+  ["sonic_drill", "소닉 드릴", { drill: 4.8 }, 8500],
+  ["gravity_drill", "중력 드릴", { drill: 6.0 }, 22000],
+  ["antimatter_drill", "반물질 드릴", { drill: 7.5 }, 55000],
+  ["singularity_drill", "특이점 드릴", { drill: 9.5 }, 140000],
+], true, "drill");
 addCat("탱크", "fuel", [
-  ["aux_tank", "보조 탱크", { fuel: 20 }, 60],
-  ["big_tank", "대형 탱크", { fuel: 40 }, 250],
-  ["power_cell", "고출력 배터리", { fuel: 80 }, 1000],
-  ["comp_tank", "압축 탱크", { fuel: 120 }, 2800],
-  ["plasma_cell", "플라즈마 셀", { fuel: 180 }, 7500],
-  ["fusion_core", "핵융합 코어", { fuel: 260 }, 20000],
-  ["dark_tank", "암흑물질 탱크", { fuel: 380 }, 52000],
-  ["inf_reactor", "무한 동력로", { fuel: 600 }, 130000],
-], true);
+  ["aux_tank", "보조 탱크", { fuel: 80 }, 60],
+  ["big_tank", "대형 탱크", { fuel: 120 }, 250],
+  ["power_cell", "고출력 배터리", { fuel: 200 }, 1000],
+  ["comp_tank", "압축 탱크", { fuel: 320 }, 2800],
+  ["plasma_cell", "플라즈마 셀", { fuel: 500 }, 7500],
+  ["fusion_core", "핵융합 코어", { fuel: 760 }, 20000],
+  ["dark_tank", "암흑물질 탱크", { fuel: 1140 }, 52000],
+  ["inf_reactor", "무한 동력로", { fuel: 1740 }, 130000],
+], true, "fuel");
 addCat("화물", "crate", [
-  ["cargo1", "확장 화물칸", { cargo: 8 }, 50],
-  ["cargo2", "대형 화물칸", { cargo: 16 }, 220],
-  ["cargo3", "압축 화물칸", { cargo: 32 }, 900],
-  ["cargo4", "합금 화물칸", { cargo: 48 }, 2500],
-  ["cargo5", "자석 화물칸", { cargo: 70 }, 6800],
-  ["cargo6", "공간 압축 화물칸", { cargo: 100 }, 18000],
-  ["cargo7", "차원 화물칸", { cargo: 140 }, 46000],
-  ["cargo8", "블랙홀 화물칸", { cargo: 200 }, 115000],
-], true);
+  ["cargo1", "확장 화물칸", { cargo: 18 }, 50],
+  ["cargo2", "대형 화물칸", { cargo: 34 }, 220],
+  ["cargo3", "압축 화물칸", { cargo: 66 }, 900],
+  ["cargo4", "합금 화물칸", { cargo: 114 }, 2500],
+  ["cargo5", "자석 화물칸", { cargo: 184 }, 6800],
+  ["cargo6", "공간 압축 화물칸", { cargo: 284 }, 18000],
+  ["cargo7", "차원 화물칸", { cargo: 424 }, 46000],
+  ["cargo8", "블랙홀 화물칸", { cargo: 624 }, 115000],
+], true, "cargo");
 addCat("엔진", "engine", [
-  ["engine1", "강화 엔진", { thrust: 0.2 }, 150, "robot"],
-  ["engine2", "터보 엔진", { thrust: 0.3 }, 600],
-  ["engine3", "제트 엔진", { thrust: 0.5 }, 2000],
-  ["engine4", "플라즈마 엔진", { thrust: 0.4 }, 5200],
-  ["engine5", "이온 엔진", { thrust: 0.5 }, 13000],
-  ["engine6", "핵 엔진", { thrust: 0.6 }, 33000],
-  ["engine7", "반중력 엔진", { thrust: 0.8 }, 80000],
-  ["engine8", "초광속 엔진", { thrust: 1.0 }, 200000],
-], true);
+  ["engine1", "강화 엔진", { thrust: 1.2 }, 150, "robot"],
+  ["engine2", "터보 엔진", { thrust: 1.5 }, 600],
+  ["engine3", "제트 엔진", { thrust: 2.0 }, 2000],
+  ["engine4", "플라즈마 엔진", { thrust: 2.4 }, 5200],
+  ["engine5", "이온 엔진", { thrust: 2.9 }, 13000],
+  ["engine6", "핵 엔진", { thrust: 3.5 }, 33000],
+  ["engine7", "반중력 엔진", { thrust: 4.3 }, 80000],
+  ["engine8", "초광속 엔진", { thrust: 5.3 }, 200000],
+], true, "thrust");
 addCat("궤도", "tracks", [
-  ["track1", "고속 궤도", { speed: 0.15 }, 120, "robot"],
-  ["track2", "강화 궤도", { speed: 0.2 }, 500],
-  ["track3", "터보 궤도", { speed: 0.25 }, 1500],
-  ["track4", "합금 궤도", { speed: 0.2 }, 4000],
-  ["track5", "자기부상 궤도", { speed: 0.2 }, 10500],
-  ["track6", "호버 궤도", { speed: 0.25 }, 26000],
-  ["track7", "반중력 궤도", { speed: 0.3 }, 65000],
-  ["track8", "차원 도약 궤도", { speed: 0.35 }, 160000],
-], true);
+  ["track1", "고속 궤도", { speed: 1.15 }, 120, "robot"],
+  ["track2", "강화 궤도", { speed: 1.35 }, 500],
+  ["track3", "터보 궤도", { speed: 1.6 }, 1500],
+  ["track4", "합금 궤도", { speed: 1.8 }, 4000],
+  ["track5", "자기부상 궤도", { speed: 2.0 }, 10500],
+  ["track6", "호버 궤도", { speed: 2.25 }, 26000],
+  ["track7", "반중력 궤도", { speed: 2.55 }, 65000],
+  ["track8", "차원 도약 궤도", { speed: 2.9 }, 160000],
+], true, "speed");
 addCat("조명", "lamp", [
-  ["lamp1", "헤드램프", { light: 0.3 }, 90],
-  ["lamp2", "탐사 라이트", { light: 0.4 }, 400],
-  ["lamp3", "광자 램프", { light: 0.6 }, 1400],
-  ["lamp4", "크세논 램프", { light: 0.3 }, 3800],
-  ["lamp5", "레이저 서치라이트", { light: 0.3 }, 9500],
-  ["lamp6", "플라즈마 조명", { light: 0.4 }, 24000],
-  ["lamp7", "태양광 램프", { light: 0.4 }, 60000],
-  ["lamp8", "초신성 램프", { light: 0.5 }, 150000],
-], true);
+  ["lamp1", "헤드램프", { light: 1.3 }, 90],
+  ["lamp2", "탐사 라이트", { light: 1.7 }, 400],
+  ["lamp3", "광자 램프", { light: 2.3 }, 1400],
+  ["lamp4", "크세논 램프", { light: 2.6 }, 3800],
+  ["lamp5", "레이저 서치라이트", { light: 2.9 }, 9500],
+  ["lamp6", "플라즈마 조명", { light: 3.3 }, 24000],
+  ["lamp7", "태양광 램프", { light: 3.7 }, 60000],
+  ["lamp8", "초신성 램프", { light: 4.2 }, 150000],
+], true, "light");
 addCat("특수", "special", [
   ["eco1", "연비 개선기", { eff: 0.15 }, 300],
   ["appraiser", "감정사 고글", { sell: 0.15 }, 500],
