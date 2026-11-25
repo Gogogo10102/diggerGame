@@ -196,8 +196,8 @@ function drawGarage(camX, camY, vw) {
     const x0 = Math.round(gx + (gw - gimg.width) / 2), y0 = gy - gimg.height;
     ctx.drawImage(gimg, x0, y0);
     const [dx, dy, dw, dh] = GARAGE_FX.door.map((v) => Math.round(v * sc));
-    if (P.items.robot && !P.mech) {                                   // 세워 둔 로봇: 문 안 문턱 위, 마을 쪽(왼쪽)을 봄
-      const mi = mechFrame("idle", 0, -1);
+    if (P.items.robot && !P.mech) {                                   // 세워 둔 로봇: 문 안 문턱 위, 오른쪽(광산 쪽)을 봄
+      const mi = mechFrame("idle", 0, 1);
       if (mi) ctx.drawImage(mi, Math.round(x0 + dx + dw / 2 - MCX), gy - Math.round(GARAGE_FX.floor * sc) - MFT);
     }
     const sh = GARAGE_IMG.shutter, open = S.garDoor || 0;
