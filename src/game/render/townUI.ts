@@ -1,11 +1,12 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./draw.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { TAB_IMG, fxText } from "../art/buildings.ts";
+import { TAB_IMG, fxNum, fxText } from "../art/buildings.ts";
 import { itemIcon } from "../art/itemIcons.ts";
 import { ICON, oreIcon } from "../art/sprites.ts";
 import { TILE } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
+import { EQUIP_FIXED, STAT, worn } from "../core/stats.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { GLYPH, MT, SY, blit, btnPx, btnTxt, ctx, rivet, titleTxt, glyph, hazard, keycap, panel, pxBox, segBar, setFont, txt, well } from "./util.ts";
@@ -230,15 +231,17 @@ export function drawShopModal(vw, vh) {
     if (!S.usedTouch && !f.narrow) { keycap(lx, ry + Math.floor((inner - 26) / 2), String(k + 1)); lx += 32; }
     const ib = inner >= 44 ? Math.min(52, inner - 4) : 36 <= inner ? 36 : inner - 4;   // 줄이 높으면 아이콘도 크게 (드릴 그림이 가로로 길어서)
     iconSlot(itemIcon(id), lx, ry + Math.floor((inner - ib) / 2), ib, locked ? 0.35 : 1); lx += ib + 10;
-    // 오른쪽 버튼: 구매(가격) / 장착 중 / 잠김
+    // 오른쪽 버튼: 구매(가격) / 장착(가진 것, 눌러서 바꿔 끼기) / 장착 중 / 잠김
     const bw = f.narrow ? 76 : 96, bh = Math.min(inner - 6, 48), bx = f.cx + f.cw - 6 - bw, by2 = ry + Math.floor((inner - bh) / 2);
-    const price = money(it.cost);
-    if (owned) uiBtn(bx, by2, bw, bh, "장착 중", null, "steel", false, null);
+    const price = money(it.cost), on = owned && worn(id);
+    if (on || (owned && EQUIP_FIXED[id])) uiBtn(bx, by2, bw, bh, "장착 중", null, "steel", false, null);
+    else if (owned) uiBtn(bx, by2, bw, bh, "장착", null, "gold", true, "buy", id);
     else if (locked) uiBtn(bx, by2, bw, bh, "잠김", bh >= 40 ? price : null, "go", false, "buy", id);
     else uiBtn(bx, by2, bw, bh, bh >= 40 ? "구매" : price, bh >= 40 ? price : null, "go", !poor, "buy", id);
     // 이름 + 설명
     const nameW = bx - 10 - lx;
-    const sub = locked ? "필요: " + ITEMS[it.req].name : it.cons ? it.desc : fxText(it.fx);
+    const cur = cat.slot ? STAT[cat.slot] : null;                   // 장비 칸: 고유 값 + 지금 능력치 (비교)
+    const sub = locked ? "필요: " + ITEMS[it.req].name : it.cons ? it.desc : fxText(it.fx, cat.slot) + (cat.slot && !on ? "  (지금 " + fxNum(cat.slot, cur) + ")" : "");
     const cnt = it.cons ? "  x" + (P.inv[id] || 0) : "";
     if (inner >= 36) {
       const t = ry + Math.floor((inner - 34) / 2);
@@ -250,7 +253,7 @@ export function drawShopModal(vw, vh) {
   if (pages > 1) pager(f, page, pages, "page");
   if (!(S.msgT > 0)) {
     const it = ITEMS[cat.ids[Math.min(S.shopSel, len - 1)]];
-    const tip = it.cons ? "소모품은 여러 개 살 수 있어요 · 아래 슬롯(1~8)으로 사용" : cat.ids.length && !it.cons ? "위에서부터 차례로 강화돼요 · 산 장비는 바로 장착" : "";
+    const tip = it.cons ? "소모품은 여러 개 살 수 있어요 · 아래 슬롯(1~8)으로 사용" : cat.slot ? "한 칸에 하나만 껴요 · 산 장비는 바로 장착 · 가진 장비는 [장착]으로 바꿔 끼기" : cat.ids.length && !it.cons ? "산 장비는 바로 장착 · 빼려면 인벤토리 장비 탭" : "";
     txt(fitText(tip, f.cw, 12), f.cx, f.noteY, SY.mute, 12);
   }
 }

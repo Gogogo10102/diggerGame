@@ -4,7 +4,7 @@ import { sfx } from "../core/sound.ts";
 import { TILE } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { STAT, equipNew, maxFuel, recalcStats, say } from "../core/stats.ts";
+import { STAT, equipNew, equipToggle, maxFuel, recalcStats, say, worn } from "../core/stats.ts";
 import { ITEMS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
@@ -95,7 +95,14 @@ export function buyItem(id) {
     saveNow(true, true);
     return;
   }
-  if (P.items[id]) return townFail("이미 보유한 아이템입니다");
+  if (P.items[id]) {                                // 가진 장비: 장착 (상점 버튼 '장착')
+    if (worn(id)) return townFail("이미 장착 중이에요");
+    const err = equipToggle(id);
+    if (err) return townFail(err);
+    say(it.name + " 장착!"); sfx("click");
+    saveNow(true, true);
+    return;
+  }
   if (it.req && !P.items[it.req]) return townFail("먼저 " + ITEMS[it.req].name + " 구매 필요");
   if (P.money < it.cost) return townFail("돈이 부족합니다 ($" + it.cost + " 필요)");
   P.money -= it.cost;

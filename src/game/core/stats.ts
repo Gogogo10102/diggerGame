@@ -11,63 +11,76 @@ import { cv } from "../render/util.ts";
 import { updateDebris } from "../systems/collapseFx.ts";
 import { lsSet } from "../ui/inventory.ts";
 
-// ---- 장비 고르기: 가진 장비 중 낄 것만 능력치·외형에 반영 (P.off = 빼 둔 것) ----
-//  단계 분류(곡괭이·로켓·드릴·탱크·화물·엔진·궤도·조명)는 위 단계가 아래 단계에 더해지는 방식이라 '단계'를 고름:
-//  i 단계를 고르면 0~i 단계는 끼고 그 위는 뺌 (-1 = 하나도 안 낌 = 기본). 제작 장비·특수는 하나씩 끼고 뺌
-export const worn = (id) => !!P.items[id] && !(P.off && P.off[id]);
-export const EQUIP_FIXED = { robot: true };                     // 탈것은 빼는 대상이 아님
-export const tierCats = () => CATS.filter((c) => c.chainTier && !c.cons && !c.ids.every((id) => EQUIP_FIXED[id]));
-//  지금 낀 단계 (-1 = 기본)
-export function wornTier(cat) { let t = -1; cat.ids.forEach((id, i) => { if (worn(id)) t = i; }); return t; }
-//  바꾼 뒤 화물이 용량을 넘거나 하면 되돌리고 이유를 돌려줌 (성공이면 "")
-function equipCheck(before) {
-  recalcStats();
-  const n = Object.values(P.cargo).reduce((a, b) => a + b, 0);
-  if (n > STAT.cargo) { P.off = before; recalcStats(); return "화물이 " + n + "개라 화물칸을 뺄 수 없어요 (먼저 팔거나 버려요)"; }
-  if (P.fuel > STAT.fuel) P.fuel = STAT.fuel;                   // 탱크를 빼면 넘친 연료는 버림
-  return "";
-}
-export function equipTier(cat, tier) {
-  const before = { ...P.off };
-  cat.ids.forEach((id, i) => { if (P.items[id]) { if (i <= tier) delete P.off[id]; else P.off[id] = true; } });
-  return equipCheck(before);
-}
-export function equipToggle(id) {
-  if (!P.items[id] || EQUIP_FIXED[id]) return "";
-  const before = { ...P.off };
-  if (P.off[id]) delete P.off[id]; else P.off[id] = true;
-  return equipCheck(before);
-}
-//  새로 사거나 만든 장비는 바로 낌 (단계 분류면 그 단계까지 전부)
-export function equipNew(id) {
-  const cat = CATS.find((c) => c.ids.includes(id));
-  if (cat && cat.chainTier) { const t = cat.ids.indexOf(id); cat.ids.forEach((x, i) => { if (i <= t) delete P.off[x]; }); }
-  else delete P.off[id];
-}
-
-// ---- 능력치: 낀 아이템 효과의 합 ----
 // 연료 소모(초당). 기본 연료·소모량은 여기서 조절
 export const FUEL_BASE = 60, FUEL_IDLE = 0.12, FUEL_THRUST = 0.7, FUEL_DIG = 0.3;
 S.MINER_LV = 1;                                   // 광부 레벨 (레벨당 채굴 +1.2%, 판매가 +0.4%)
-export const PICK_BASE = 0.5;                     // 기본 곡괭이 채굴 속도 (로봇 기본 드릴 = 1)
+export const PICK_BASE = 0.5;                     // 기본 곡괭이 채굴력 (로봇 기본 드릴 = 1)
+
+// ---- 장비 칸: 분류마다 하나만 껴서 그 장비의 고유 값이 곧 능력치 (items.ts 의 slot 분류) ----
+//  P.eq[분류 icon] = 낀 장비 id ("" = 안 낌 → 기본값). 기록이 없으면 가진 것 중 가장 높은 단계(예전 세이브·처음)
+//  특수·제작 장비는 낀 값에 더해지는 보너스 → 하나씩 끼고 뺌 (P.off = 빼 둔 것)
+export const SLOT_BASE = { pick: PICK_BASE, rocket: 0, drill: 1, fuel: FUEL_BASE, cargo: 10, thrust: 1, speed: 1, light: 1 };
+export const SLOT_OF = {};                                       // 장비 id → 장비 칸 분류
+for (const c of CATS) if (c.slot) for (const id of c.ids) SLOT_OF[id] = c;
+export const EQUIP_FIXED = { robot: true };                     // 탈것은 빼는 대상이 아님
+export function slotItem(cat) {                                 // 그 칸에 낀 장비 id (없으면 null)
+  const e = P.eq && P.eq[cat.icon];
+  if (e !== undefined) return e && P.items[e] ? e : null;
+  let top = null;
+  for (const id of cat.ids) if (P.items[id]) top = id;
+  return top;
+}
+export const worn = (id) => !!P.items[id] && (SLOT_OF[id] ? slotItem(SLOT_OF[id]) === id : !(P.off && P.off[id]));
+//  바꾼 뒤 화물이 용량을 넘으면 되돌리고 이유를 돌려줌 (성공이면 "")
+function equipCheck(undo) {
+  recalcStats();
+  const n = Object.values(P.cargo).reduce((a, b) => a + b, 0);
+  if (n > STAT.cargo) { undo(); recalcStats(); return "화물이 " + n + "개라 더 작은 화물칸으로 못 바꿔요 (먼저 팔거나 버려요)"; }
+  if (P.fuel > STAT.fuel) P.fuel = STAT.fuel;                   // 작은 탱크로 바꾸면 넘친 연료는 버림
+  return "";
+}
+//  장비 칸에 끼기 (id = null 이면 빼기 → 기본값)
+export function equipSlot(cat, id) {
+  if (id && !P.items[id]) return "";
+  const had = P.eq[cat.icon];
+  P.eq[cat.icon] = id || "";
+  return equipCheck(() => { if (had === undefined) delete P.eq[cat.icon]; else P.eq[cat.icon] = had; });
+}
+//  특수·제작 장비 하나씩 끼고 빼기 (장비 칸 장비면 그 칸에 끼기/빼기)
+export function equipToggle(id) {
+  if (!P.items[id] || EQUIP_FIXED[id]) return "";
+  if (SLOT_OF[id]) return equipSlot(SLOT_OF[id], worn(id) ? null : id);
+  const was = !!P.off[id];
+  if (was) delete P.off[id]; else P.off[id] = true;
+  return equipCheck(() => { if (was) P.off[id] = true; else delete P.off[id]; });
+}
+//  새로 사거나 만든 장비는 바로 낌
+export function equipNew(id) {
+  if (SLOT_OF[id]) P.eq[SLOT_OF[id].icon] = id;
+  else delete P.off[id];
+}
+
+// ---- 능력치: 장비 칸 값 + 보너스(특수·제작) + 레벨 ----
 export const STAT = { drill: 1, fuel: FUEL_BASE, cargo: 10, thrust: 1, speed: 1, light: 1, eff: 1, sell: 1, lucky: 0, pick: PICK_BASE, rocket: 0 };
 export function recalcStats() {
   const s = { drill: 0, fuel: 0, cargo: 0, thrust: 0, speed: 0, light: 0, eff: 0, sell: 0, lucky: 0, pick: 0, rocket: 0, robot: 0 };
+  const v = { ...SLOT_BASE };
+  for (const c of CATS) if (c.slot) { const id = slotItem(c); if (id) v[c.slot] = ITEMS[id].fx[c.slot]; }
   for (const id in P.items) {
-    if (!worn(id)) continue;
+    if (SLOT_OF[id] || !worn(id)) continue;
     for (const k in ITEMS[id].fx) s[k] += ITEMS[id].fx[k];
   }
-  STAT.drill = 1 + s.drill + (S.MINER_LV - 1) * 0.012;
-  STAT.fuel = FUEL_BASE + s.fuel;
-  STAT.cargo = 10 + s.cargo;
-  STAT.thrust = 1 + s.thrust;
-  STAT.speed = 1 + s.speed;
-  STAT.light = 1 + s.light;
+  STAT.drill = v.drill + s.drill + (S.MINER_LV - 1) * 0.012;
+  STAT.fuel = v.fuel + s.fuel;
+  STAT.cargo = v.cargo + s.cargo;
+  STAT.thrust = v.thrust + s.thrust;
+  STAT.speed = v.speed + s.speed;
+  STAT.light = v.light + s.light;
   STAT.eff = Math.max(0.4, 1 - s.eff);   // 연료 소모 배율
   STAT.sell = 1 + s.sell + (S.MINER_LV - 1) * 0.004;
   STAT.lucky = Math.min(0.9, s.lucky);   // 광물을 하나 더 얻을 확률
-  STAT.pick = PICK_BASE + s.pick + (S.MINER_LV - 1) * 0.006;   // 사람: 곡괭이
-  STAT.rocket = s.rocket;                // 사람: 백팩 로켓 추진력 (0 = 로켓 없음 → 못 낢)
+  STAT.pick = v.pick + s.pick + (S.MINER_LV - 1) * 0.006;   // 사람: 곡괭이
+  STAT.rocket = v.rocket + s.rocket;     // 사람: 백팩 로켓 추진력 (0 = 로켓 없음 → 못 낢)
   {                                      // 로봇 외형: 장비 단계에 따라 달라짐
     const lk = { drill: 0, tracks: 0, lamp: 0, crate: 0, engine: 0, pick: 0, rocket: 0 };
     for (const cat of CATS) {

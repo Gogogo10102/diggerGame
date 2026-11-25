@@ -5,8 +5,8 @@ import { ICON, getMiner, oreIcon } from "../art/sprites.ts";
 import { TILE } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { EQUIP_FIXED, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, cargoCap, cargoCount, equipTier, equipToggle, maxFuel, worn, wornTier } from "../core/stats.ts";
-import { fxText } from "../art/buildings.ts";
+import { EQUIP_FIXED, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, SLOT_BASE, STAT, cargoCap, cargoCount, equipSlot, equipToggle, maxFuel, slotItem, worn } from "../core/stats.ts";
+import { fxNum, fxText } from "../art/buildings.ts";
 import { saveNow } from "../save/account.ts";
 import { CONS, HOT, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
@@ -21,6 +21,9 @@ import { barEl, charFooter, charTabs, iconEl } from "./dom.ts";
 import { closeMenu } from "./menu.ts";
 import { el, mkBtn, showOv } from "./overlay.ts";
 
+// 장비 칸 능력치 짧은 이름 (칸 아래 작은 글씨)
+const FX_NAME_INV = { pick: "곡괭이 채굴력", drill: "드릴 채굴력", fuel: "최대 연료", cargo: "화물칸", thrust: "로봇 추진력", speed: "로봇 이동 속도", light: "시야", rocket: "로켓 추진력" };
+const FX_SHORT = (k) => ({ pick: "채굴력", drill: "채굴력", fuel: "연료", cargo: "화물칸", thrust: "추진력", speed: "속도", light: "시야", rocket: "추진력" }[k] || "");
 // ---- 인벤토리: 착용 중인 아이템을 그림으로 한눈에 ----
 export function renderInventory(note) {
   S.invOpen = true;
@@ -57,17 +60,17 @@ export function renderInventory(note) {
     }
     grid.appendChild(s);
   };
-  const pickCats = [];                                               // [키, 분류, 단계식?]
+  const pickCats = [];                                               // [키, 분류, 장비 칸?]
   for (const cat of CATS) {
     if (cat.cons) continue;
     const key = "c:" + cat.icon, owned = cat.ids.some((id) => P.items[id] && !EQUIP_FIXED[id]);
-    pickCats.push([key, cat, !!cat.chainTier]);
-    if (cat.chainTier) {
-      const top = wornTier(cat), id = top >= 0 ? cat.ids[top] : null;
-      slot(cat.name, id, id ? itemIcon(id) : ICON[cat.icon === "fuel" ? "fuel" : cat.icon] || ICON.chest, id ? "●".repeat(top + 1) + "○".repeat(cat.ids.length - top - 1) : "", top, key, owned);
-    } else {                                                         // 특수: 하나씩 끼고 뺌
+    pickCats.push([key, cat, !!cat.slot]);
+    if (cat.slot) {                                                  // 장비 칸: 낀 것 하나 (값 = 그 장비의 고유 값)
+      const id = slotItem(cat), i = id ? cat.ids.indexOf(id) : -1;
+      slot(cat.name, id, id ? itemIcon(id) : ICON[cat.icon === "fuel" ? "fuel" : cat.icon] || ICON.chest, id ? FX_SHORT(cat.slot) + " " + fxNum(cat.slot, ITEMS[id].fx[cat.slot]) : "", i, key, owned);
+    } else {                                                         // 로봇 · 특수: 하나씩 끼고 뺌
       const on = cat.ids.filter((id) => worn(id)), id = on.length ? on[on.length - 1] : null;
-      slot(cat.name, id, id ? itemIcon(id) : ICON[cat.icon] || ICON.chest, on.length ? on.length + "개 낌" : "", on.length, key, owned);
+      slot(cat.name, id, id ? itemIcon(id) : ICON[cat.icon] || ICON.chest, on.length && !EQUIP_FIXED[id] ? on.length + "개 낌" : "", on.length, key, owned);
     }
   }
   for (const cat of RECIPE_CATS) {                                   // 제작 장비: 낀 것 중 가장 높은 단계 하나
@@ -85,7 +88,7 @@ export function renderInventory(note) {
   if (pc) {
     const [, cat, tierWise] = pc;
     const after = (msg, ok) => { if (!msg) saveNow(true, true); renderInventory(msg || ok); };
-    pickHead = root.appendChild(el("p", "msg", (cat.name) + " 고르기" + (tierWise ? " · 한 단계를 고르면 그 아래 단계 효과도 함께 받아요" : " · 하나씩 끼고 뺄 수 있어요")));
+    pickHead = root.appendChild(el("p", "msg", (cat.name) + " 고르기" + (tierWise ? " · 한 칸에 하나만 껴요 (숫자 = 그 장비의 값)" : " · 하나씩 끼고 뺄 수 있어요")));
     const pg = el("div", "slots");
     const card = (iconSpr, name, fx, btn) => {
       const s = el("div", "slot");
@@ -95,24 +98,22 @@ export function renderInventory(note) {
       const row = el("div", "minis"); row.appendChild(btn); s.appendChild(row);
       pg.appendChild(s);
     };
-    if (tierWise) {
-      const cur = wornTier(cat), sum = {};
+    if (tierWise) {                                                  // 장비 칸: 하나만 고름 (각 장비의 고유 값)
+      const cur = slotItem(cat), k = cat.slot;
       const base = { pick: "기본 곡괭이", rocket: "안 씀 (못 날아요)" }[cat.icon] || "기본";
-      card(ICON[cat.icon === "fuel" ? "fuel" : cat.icon] || ICON.chest, base, "추가 효과 없음",
-        cur < 0 ? mkBtn("끼는 중", () => {}, "mini off") : mkBtn("끼기", () => after(equipTier(cat, -1), base + "(으)로 바꿨어요"), "mini pri"));
-      cat.ids.forEach((id, i) => {
-        if (EQUIP_FIXED[id]) return;
-        for (const k in ITEMS[id].fx) sum[k] = (sum[k] || 0) + ITEMS[id].fx[k];   // 이 단계까지 더한 효과
-        if (!P.items[id]) return;
-        card(itemIcon(id), ITEMS[id].name, fxText({ ...sum }),
-          cur === i ? mkBtn("끼는 중", () => {}, "mini off") : mkBtn("끼기", () => after(equipTier(cat, i), ITEMS[id].name + "(으)로 바꿨어요"), "mini pri"));
-      });
+      card(ICON[cat.icon === "fuel" ? "fuel" : cat.icon] || ICON.chest, base, k === "rocket" ? "날 수 없음" : FX_NAME_INV[k] + " " + fxNum(k, SLOT_BASE[k]),
+        !cur ? mkBtn("장착 중", () => {}, "mini off") : mkBtn("장착", () => after(equipSlot(cat, null), base + "(으)로 바꿨어요"), "mini"));
+      for (const id of cat.ids) {
+        if (!P.items[id] || EQUIP_FIXED[id]) continue;
+        card(itemIcon(id), ITEMS[id].name, fxText(ITEMS[id].fx, k),
+          cur === id ? mkBtn("장착 중", () => {}, "mini off") : mkBtn("장착", () => after(equipSlot(cat, id), ITEMS[id].name + " 장착!"), "mini"));
+      }
     } else {
       for (const id of cat.ids) {
         if (!P.items[id] || EQUIP_FIXED[id]) continue;
         const on = worn(id);
         card(itemIcon(id), ITEMS[id].name, fxText(ITEMS[id].fx),
-          on ? mkBtn("빼기", () => after(equipToggle(id), ITEMS[id].name + " 뺐어요"), "mini") : mkBtn("끼기", () => after(equipToggle(id), ITEMS[id].name + " 꼈어요"), "mini pri"));
+          on ? mkBtn("빼기", () => after(equipToggle(id), ITEMS[id].name + " 뺐어요"), "mini") : mkBtn("장착", () => after(equipToggle(id), ITEMS[id].name + " 장착!"), "mini"));
       }
     }
     root.appendChild(pg);
