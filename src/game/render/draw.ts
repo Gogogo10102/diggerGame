@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { BLD_FX, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
+import { BLD_FX, GARAGE_FX, GARAGE_IMG, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
 import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PLAYER_MINE_CELLS, PLAYER_MINE_DOWN_CELLS, ROCKET_CELLS, ROCKET_NOZZLE, playerCell, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
@@ -19,7 +19,7 @@ import { chunks, floatT, solidTile } from "../systems/floating.ts";
 import { BARS, furnaceImg, matHave, matIcon, matName } from "../systems/furnace.ts";
 import { STICK_R, U_, shopBtn, touch } from "../systems/input.ts";
 import { drawCraftModal, drawFurnaceModal, drawShopModal, fitText } from "./townUI.ts";
-import { GARAGE, PICK_SWING, TUT_STEPS, atGarage, gasR, gases, onLadder } from "../systems/update.ts";
+import { GARAGE, PICK_SWING, TUT_STEPS, atGarage, garageLv, gasR, gases, onLadder } from "../systems/update.ts";
 import { drawMapModal, drawMinimap } from "./minimap.ts";
 import { SELL_KEYS, stashValue, unitPrice } from "../systems/town.ts";
 import { ov } from "../ui/overlay.ts";
@@ -190,7 +190,24 @@ function drawHuman(px, py) {
 function drawGarage(camX, camY, vw) {
   const gx = GARAGE[0] * T - camX, gy = SURF * T - camY, gw = (GARAGE[1] - GARAGE[0] + 1) * T;
   if (gx > vw || gx + gw < 0 || gy < -T * 3 || gy > cv.height + T) return;
-  // 바닥 판: 노랑·검정 경고 줄무늬 띠가 있는 철판
+  const gimg = GARAGE_IMG["garage_" + garageLv()];
+  if (gimg.width > 16) {                                              // PixelLab 차고: 칸 가운데, 그림 아래 끝 = 땅 표면
+    const sc = gimg.width / GARAGE_FX.w;                              // 그림 크기가 바뀌어도 문 자리를 비율로 맞춤
+    const x0 = Math.round(gx + (gw - gimg.width) / 2), y0 = gy - gimg.height;
+    ctx.drawImage(gimg, x0, y0);
+    const [dx, dy, dw, dh] = GARAGE_FX.door.map((v) => Math.round(v * sc));
+    if (P.items.robot && !P.mech) {                                   // 세워 둔 로봇: 문 안 문턱 위, 마을 쪽(왼쪽)을 봄
+      const mi = mechFrame("idle", 0, -1);
+      if (mi) ctx.drawImage(mi, Math.round(x0 + dx + dw / 2 - MCX), gy - Math.round(GARAGE_FX.floor * sc) - MFT);
+    }
+    const sh = GARAGE_IMG.shutter, open = S.garDoor || 0;
+    if (sh.width > 1 && open < 1) {                                   // 셔터: 위 철판 띠 속으로 말려 올라감 (아래 끝이 올라가는 만큼만 보임)
+      const k = Math.round(dh * open / 2) * 2;                        // 2px 단위 (도트가 반 칸씩 밀리지 않게)
+      ctx.drawImage(sh, 0, Math.round(k / sc), sh.width, sh.height - Math.round(k / sc), x0 + dx, y0 + dy, dw, dh - k);
+    }
+    return;
+  }
+  // (차고 그림 파일이 없을 때) 바닥 판: 노랑·검정 경고 줄무늬 띠가 있는 철판
   ctx.fillStyle = "#14151f"; ctx.fillRect(gx + 4, gy - 10, gw - 8, 10);
   ctx.fillStyle = "#6a7186"; ctx.fillRect(gx + 8, gy - 8, gw - 16, 4);
   ctx.fillStyle = "#9aa3b8"; ctx.fillRect(gx + 8, gy - 8, gw - 16, 2);

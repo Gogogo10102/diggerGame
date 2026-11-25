@@ -55,7 +55,7 @@ function hiss(a: AudioContext, kind: BiquadFilterType, f0: number, f1: number, d
 }
 
 // 같은 소리가 너무 촘촘히 겹치지 않게 하는 최소 간격(초)
-const SND_GAP: Record<string, number> = { ignite: 0.25, dig: 0.08, step: 0.12, thrust: 0.07, tick: 0.03, click: 0.04, pickup: 0.05, land: 0.12, warn: 0.5, error: 0.15 };
+const SND_GAP: Record<string, number> = { ignite: 0.25, shutter: 0.3, dig: 0.08, step: 0.12, thrust: 0.07, tick: 0.03, click: 0.04, pickup: 0.05, land: 0.12, warn: 0.5, error: 0.15 };
 
 export type SfxOpt = { pitch?: number; vol?: number; hard?: boolean };
 export function sfx(name: string, o: SfxOpt = {}) {
@@ -116,6 +116,10 @@ export function sfx(name: string, o: SfxOpt = {}) {
       beep(a, "sine", 300, 900, 0.28, 0.12 * v); beep(a, "triangle", 600, 1500, 0.22, 0.05 * v, 0.06); break;
     case "ignite":         // 엔진 점화: 펑 + 쉬이익 (로켓 발사 시작)
       beep(a, "sine", 140, 50, 0.18, 0.4 * v); hiss(a, "lowpass", 3000, 500, 0.35, 0.5 * v); hiss(a, "bandpass", 600, 2400, 0.25, 0.25 * v, 0.03, 0.7); break;
+    case "shutter":        // 차고 셔터: 철판이 말리며 덜그럭 (짧은 딸깍 여러 번 + 쇳소리)
+      hiss(a, "bandpass", 1500 * p, 900 * p, 0.42, 0.14 * v, 0, 1.2);
+      for (let i = 0; i < 6; i++) beep(a, "square", (210 + (i % 2) * 40) * p, 150 * p, 0.025, 0.05 * v, i * 0.065);
+      break;
     case "fuse":           // 폭약 설치
       hiss(a, "highpass", 3000, 5000, 0.25, 0.1 * v); beep(a, "square", 400, 300, 0.05, 0.06 * v); break;
   }
