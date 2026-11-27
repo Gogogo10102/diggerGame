@@ -3,7 +3,7 @@ import "./draw.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { TAB_IMG, UIK, fxNum, fxText } from "../art/buildings.ts";
 import { itemIcon } from "../art/itemIcons.ts";
 import { ICON, oreIcon } from "../art/sprites.ts";
-import { TILE } from "../core/config.ts";
+import { TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { EQUIP_FIXED, STAT, worn } from "../core/stats.ts";
@@ -50,7 +50,7 @@ export function fitText(s, maxW, size) {
   while (s.length > 1 && ctx.measureText(s + "…").width > maxW) s = s.slice(0, -1);
   return s + "…";
 }
-const money = (n) => "$" + Number(n).toLocaleString("en-US");
+const money = (n) => won(n);                                     // 원 (한국식 9만 5천원)
 
 // ---- PixelLab UI 부품 (ui/kit/*.png, tools/make-ui-kit.py) ----
 //  9조각: 모서리는 그대로, 변·가운데는 되풀이해 깔아 늘림 (도트·리벳이 늘어나 보이지 않게). [위, 오른, 아래, 왼] 여백
@@ -303,6 +303,26 @@ function townRow(x, y, w, h, sel, k) {
   ctx.fillStyle = k % 2 ? SY.row2 : SY.row; ctx.fillRect(x, y, w, h);
   if (sel) { ctx.fillStyle = SY.y; ctx.fillRect(x, y, w, 2); ctx.fillRect(x, y + h - 2, w, 2); ctx.fillRect(x, y, 2, h); ctx.fillRect(x + w - 2, y, 2, h); }
 }
+// 줄 안 글 두 줄(이름 16px + 설명 12px)을 줄 판의 가운데에. PixelLab 줄 판은 위아래 테두리(나무·철)가 두꺼워서
+//   판 안쪽 높이가 모자라면 한 줄로: 이름 뒤에 설명을 작게 이어 씀 (테두리 위로 글자가 올라가지 않게)
+const ROW_2LINE = () => (kitOn() ? 46 : 34);
+function rowText(x, ry, inner, w, name, nameCol, desc, descCol) {
+  if (inner >= ROW_2LINE()) {
+    const t = ry + Math.floor((inner - 31) / 2);
+    txt(fitText(name, w, 16), x, t, nameCol, 16);
+    txt(fitText(desc, w, 12), x, t + 19, descCol, 12);
+    return;
+  }
+  const t = ry + Math.floor((inner - 16) / 2);
+  const nm = fitText(name, w, 16);
+  txt(nm, x, t, nameCol, 16);
+  setFont(16);
+  const nw = Math.ceil(ctx.measureText(nm).width) + 10;
+  if (desc && w - nw > 40) txt(fitText(desc, w - nw, 12), x + nw, t + 3, descCol, 12);
+}
+// 줄 판 오른쪽 끝 여백 (PixelLab 줄 판은 오른쪽 끝이 둥근 테두리라 조금 더 띄움)
+const ROW_PAD = () => (kitOn() ? 14 : 8);
+
 // 아이콘 칸 (파인 칸 + 그림)
 function iconSlot(img, x, y, s, alpha) {
   if (kit("slot", x, y, s, s)) { drawPx(img, x + 4, y + 4, s - 8, alpha); return; }
@@ -358,11 +378,7 @@ export function drawShopModal(vw, vh) {
     const cur = cat.slot ? STAT[cat.slot] : null;                   // 장비 칸: 고유 값 + 지금 능력치 (비교)
     const sub = locked ? "필요: " + ITEMS[it.req].name : it.cons ? it.desc : fxText(it.fx, cat.slot) + (cat.slot && !on ? "  (지금 " + fxNum(cat.slot, cur) + ")" : "");
     const cnt = it.cons ? "  x" + (P.inv[id] || 0) : "";
-    if (inner >= 36) {
-      const t = ry + Math.floor((inner - 34) / 2);
-      txt(fitText(it.name + cnt, nameW, 16), lx, t, locked ? SY.mute : SY.txt, 16);
-      txt(fitText(sub, nameW, 12), lx, t + 21, locked ? SY.warn : poor ? SY.red : SY.dim, 12);
-    } else txt(fitText(it.name + cnt, nameW, 16), lx, ry + Math.floor((inner - 16) / 2), locked ? SY.mute : SY.txt, 16);
+    rowText(lx, ry, inner, nameW, it.name + cnt, locked ? SY.mute : SY.txt, sub, locked ? SY.warn : poor ? SY.red : SY.dim);
     shopBtn.push({ x: f.cx, y: ry, w: bx - f.cx - 4, h: inner, act: "sel", i });
   }
   if (pages > 1) pager(f, page, pages, "page");
@@ -456,9 +472,8 @@ function drawSellModal(vw, vh) {
     const b2x = f.cx + f.cw - 6 - bw, b1x = b2x - 6 - bw;
     uiBtn(b1x, by2, bw, bh, "1개", bh >= 40 ? money(unit) : null, "go", have >= 1, "sell", [id, 1]);
     uiBtn(b2x, by2, bw, bh, "전부", bh >= 40 ? money(unit * have) : null, "go", have >= 1, "sell", [id, Infinity]);
-    const nameW = b1x - 8 - lx, t = ry + Math.floor((inner - 34) / 2);
-    txt(fitText(matName(id) + "  x" + have, nameW, 16), lx, t, have > 0 ? SY.txt : SY.mute, 16);
-    txt(fitText("개당 " + money(unit) + (BARS[id] ? " · 원석보다 35% 비쌈" : ""), nameW, 12), lx, t + 21, have > 0 ? SY.gold : SY.mute, 12);
+    const nameW = b1x - 8 - lx;
+    rowText(lx, ry, inner, nameW, matName(id) + "  x" + have, have > 0 ? SY.txt : SY.mute, "개당 " + money(unit) + (BARS[id] ? " · 원석보다 35% 비쌈" : ""), have > 0 ? SY.gold : SY.mute);
     shopBtn.push({ x: f.cx, y: ry, w: b1x - f.cx - 4, h: inner, act: "sellsel", i });
   }
   if (pages > 1) {
@@ -486,9 +501,8 @@ function drawOrders(vw, vh) {
     const lx = f.cx + 6 + ib + 10, bw = f.narrow ? 70 : 92, bh = Math.min(inner - 6, 44);
     const bx = f.cx + f.cw - 6 - bw, by2 = ry + Math.floor((inner - bh) / 2);
     uiBtn(bx, by2, bw, bh, "납품", bh >= 40 ? money(o.pay) : null, "go", ok, "order", k);
-    const nameW = bx - 8 - lx, t = ry + Math.floor((inner - 34) / 2);
-    txt(fitText(matName(o.k) + " " + o.n + "개", nameW, 16), lx, t, SY.txt, 16);
-    txt(fitText("가진 것 " + have + " / " + o.n + "  ·  보상 " + money(o.pay) + " · 경험치 " + o.xp, nameW, 12), lx, t + 21, ok ? SY.green : SY.dim, 12);
+    const nameW = bx - 8 - lx;
+    rowText(lx, ry, inner, nameW, matName(o.k) + " " + o.n + "개", SY.txt, "가진 것 " + have + " / " + o.n + "  ·  보상 " + money(o.pay) + " · 경험치 " + o.xp, ok ? SY.green : SY.dim);
     shopBtn.push({ x: f.cx, y: ry, w: bx - f.cx - 4, h: inner, act: "sellsel", i: SELL_KEYS.length + k });
     const fl = S.orderFlash;
     if (fl && fl.k === k && fl.t > 0) {                                // 방금 끝낸 줄: 초록 반짝 + '완료!' (새 의뢰가 그 자리로)
@@ -503,72 +517,131 @@ function drawOrders(vw, vh) {
 }
 
 // ---------------------------------------------------------------------
-//  용광로 (원석 2개 + 석탄 → 주괴 1개): 위 상태 카드 + 주괴 목록 + 아래 넣기 버튼
+//  용광로 (원석 2개 + 석탄 → 주괴 1개) — 마인크래프트 화로처럼 한눈에:
+//    위: 만들 주괴 고르기(가로 칸 5개) · 가운데: 화로 [넣은 원석] + [불] + [석탄] → (진행 화살표) → [나온 주괴] · 대기열 칸
+//    아래: 넣기 1개 / 5개 / 최대 / 비우기 + 강화
 // ---------------------------------------------------------------------
+// 불꽃 (2px 도트, 켜져 있으면 흔들림 · 꺼져 있으면 회색 숯)
+function furnaceFlame(x, y, on, u = 2) {
+  const t = S.animT || 0, k = on ? Math.floor(t * 8) % 3 : 0;
+  const cols = on ? ["#ff5a1f", "#ffa21a", "#ffe066"] : ["#3a3f4b", "#4c5362", "#5b606e"];
+  const rows = [[3, 5], [2, 7], [1, 9], [1, 9], [0, 11], [0, 11], [1, 9], [2, 7]];   // 아래에서 위로 넓어졌다 좁아지는 혀 모양
+  const lift = on ? [0, 1, 0][k] : 0;
+  rows.forEach(([a, w], i) => {
+    const yy = y + (rows.length - 1 - i) * u - lift * u;
+    if (on && i === rows.length - 1 && k === 2) return;               // 맨 위 한 줄은 깜박
+    ctx.fillStyle = cols[0]; ctx.fillRect(x + a * u, yy, w * u, u);
+    if (w > 4) { ctx.fillStyle = cols[1]; ctx.fillRect(x + (a + 2) * u, yy, (w - 4) * u, u); }
+    if (w > 7 && i < 6) { ctx.fillStyle = cols[2]; ctx.fillRect(x + (a + 3) * u + (k === 1 ? u : 0), yy, (w - 7) * u, u); }
+  });
+}
+// 진행 화살표 (빈 회색 → 주황으로 차오름)
+function furnaceArrow(x, y, w, h, p) {
+  const sh = Math.floor(h / 3), hw = Math.floor(h * 0.7), mid = y + Math.floor(h / 2);
+  const draw = (col, upto) => {
+    ctx.fillStyle = col;
+    const sw = Math.max(0, Math.min(w - hw, upto));
+    if (sw > 0) ctx.fillRect(x, mid - (sh >> 1), sw, sh);
+    for (let i = 0; i < hw; i += 2) {                                 // 화살촉: 2px 계단
+      if (x + w - hw + i >= x + upto) break;
+      const half = Math.floor((h / 2) * (1 - i / hw));
+      ctx.fillRect(x + w - hw + i, mid - half, 2, half * 2);
+    }
+  };
+  ctx.fillStyle = SY.ink; ctx.fillRect(x - 2, mid - (sh >> 1) - 2, w - hw + 2, sh + 4);
+  draw("#3a3f4b", w);
+  draw("#ffa21a", Math.round(w * p));
+}
+// 칸 안 오른쪽 아래 개수 (검은 그림자)
+function slotCount(n, x, y, s) { if (n > 0) txt(String(n), x + s - 5, y + s - 18, "#fff", 16, "right", SY.ink); }
+
 export function drawFurnaceModal(vw, vh) {
   const F = S.acct.furnace, L = FURNACE_LV[F.lv], nx = FURNACE_LV[F.lv + 1];
-  const f = townFrame(vw, vh, "용광로 · Lv." + F.lv, null, 0, null, "[ ] 건물 이동 · ↑↓ 고르기 · 1 / 5 / Enter 넣기 · U 강화 · Esc 닫기");
+  const f = townFrame(vw, vh, "용광로 · Lv." + F.lv, null, 0, null, "[ ] 건물 이동 · ←→ 주괴 고르기 · 1 / 5 / Enter 넣기 · U 강화 · Esc 닫기");
+  const narrow = f.narrow, low = f.short && !narrow, gap = 8;          // low: 낮은 화면(가로 휴대폰) → 칸·화로를 작게
+  const sel = BAR_KEYS[S.furnaceSel] || BAR_KEYS[0], SB = BARS[sel], canSel = furnaceCan(sel);
 
-  // 상태 카드: 아이콘 · 진행 상황 · 강화 버튼
-  const cardH = f.short ? 48 : 66, ib = f.short || f.narrow ? 32 : 48;
-  ctx.fillStyle = SY.row; ctx.fillRect(f.cx, f.cy, f.cw, cardH);
-  drawPx(ICON.furnace, f.cx + 8, f.cy + Math.floor((cardH - ib) / 2), ib);
-  const bw = f.narrow ? 84 : 104, bh = cardH - 14;
-  const upLabel = !nx ? "최고 단계" : bh >= 40 ? "강화" : "강화 " + money(nx.cost);
-  uiBtn(f.cx + f.cw - 8 - bw, f.cy + 7, bw, bh, upLabel, nx && bh >= 40 ? money(nx.cost) : null, "gold", !!nx && P.money >= nx.cost, nx ? "fup" : null);
-  const x0 = f.cx + 8 + ib + 12, tw = f.cw - (x0 - f.cx) - bw - 20, t0 = f.cy + (f.short ? 4 : 8);
-  const qTxt = "대기 " + F.q.length + "/" + L.cap, qInline = !f.narrow;
-  const lvInfo = "속도 x" + L.speed + (L.save ? " · 석탄 " + Math.round(L.save * 100) + "% 절약" : "");
-  if (F.q.length) {
-    const j = F.q[0], B = BARS[j.m], left = Math.ceil(F.q.reduce((a, q) => a + q.left, 0) / L.speed);
-    txt(fitText("재련 중 · " + B.name, qInline ? tw - 70 : tw, 16), x0, t0, SY.gold, 16);
-    if (qInline) txt(qTxt, x0 + tw, t0 + 2, SY.dim, 12, "right");
-    const nSeg = Math.max(4, Math.floor(tw / 10)), done = Math.round(nSeg * (1 - j.left / B.time));
-    segBar(x0, t0 + 20, nSeg, done, "fuel", 10, f.short ? 12 : 14);
-    txt(fitText((qInline ? "" : qTxt + " · ") + "남은 약 " + left + "초 · " + lvInfo, tw, 12), x0, t0 + (f.short ? 34 : 38), SY.dim, 12);
-  } else {
-    txt("쉬는 중", x0, t0, SY.txt, 16);
-    if (qInline) txt(qTxt, x0 + tw, t0 + 2, SY.dim, 12, "right");
-    txt(fitText("원석 " + ORE_PER_BAR + "개 + 석탄 → 주괴 1개 · 광산에 있어도 계속 재련돼요", tw, 12), x0, t0 + 20, SY.dim, 12);
-    if (!f.short) txt(fitText((qInline ? "" : qTxt + " · ") + lvInfo, tw, 12), x0, t0 + 38, SY.mute, 12);
-  }
-
-  // 주괴 목록
-  const fh = f.narrow ? 120 : 76;
-  const ly = f.cy + cardH + 8, n = BAR_KEYS.length;
-  const rh = Math.max(28, Math.min(50, Math.floor((f.cy + f.ch - fh - 12 - ly) / n))), inner = rh - 4;
+  // ---- 위: 만들 주괴 고르기 (가로 칸) ----
+  const n = BAR_KEYS.length, tw = Math.floor((f.cw - gap * (n - 1)) / n), th = narrow ? 64 : low ? 50 : 86;
   BAR_KEYS.forEach((k, i) => {
-    const B = BARS[k], ry = ly + i * rh, can = furnaceCan(k);
-    townRow(f.cx, ry, f.cw, inner, i === S.furnaceSel, i);
-    let lx = f.cx + 10;
-    const iy = ry + Math.floor((inner - 24) / 2);
-    drawPx(oreIcon[B.ore], lx, iy, 24, can > 0 ? 1 : 0.55); lx += 26;
-    txt("→", lx + 2, ry + Math.floor((inner - 16) / 2), "#ff9a4d", 16); lx += 22;
-    drawPx(barIcon[k], lx, iy, 24); lx += 34;
-    const rightW = 92, nameW = f.cx + f.cw - 12 - rightW - lx;
-    if (inner >= 34) {
-      const t = ry + Math.floor((inner - 32) / 2);
-      txt(fitText(B.name, nameW, 16), lx, t, SY.txt, 16);
-      txt(fitText(TILE[B.ore].name + " " + ORE_PER_BAR + " + 석탄 " + B.coal + " · " + B.time + "초", nameW, 12), lx, t + 19, SY.dim, 12);
-      txt("보유 " + (P.bars[k] || 0), f.cx + f.cw - 12, t, SY.blue, 16, "right");
-      txt("넣기 가능 " + can, f.cx + f.cw - 12, t + 19, can > 0 ? SY.green : SY.mute, 12, "right");
-    } else {
-      txt(fitText(B.name, nameW, 16), lx, ry + Math.floor((inner - 16) / 2), SY.txt, 16);
-      txt("보유 " + (P.bars[k] || 0), f.cx + f.cw - 12, ry + Math.floor((inner - 16) / 2), SY.blue, 16, "right");
+    const B = BARS[k], x = f.cx + i * (tw + gap), y = f.cy, can = furnaceCan(k), on = i === S.furnaceSel;
+    kit(on ? "tab_on" : "tab", x, y, tw, th) || (ctx.fillStyle = SY.row, ctx.fillRect(x, y, tw, th));
+    const ic = narrow || low ? 24 : 32, top = y + (narrow ? 8 : low ? 7 : 10);
+    if (narrow) drawPx(barIcon[k], x + Math.floor((tw - ic) / 2), top, ic);
+    else {                                                            // 원석 → 주괴
+      const w0 = ic * 2 + 14, x0 = x + Math.floor((tw - w0) / 2);
+      drawPx(oreIcon[B.ore], x0, top, ic, can > 0 ? 1 : 0.5);
+      ctx.fillStyle = "#ff9a4d"; ctx.fillRect(x0 + ic + 3, top + ic / 2 - 1, 6, 2); ctx.fillRect(x0 + ic + 7, top + ic / 2 - 3, 2, 6);
+      drawPx(barIcon[k], x0 + ic + 14, top, ic);
     }
-    shopBtn.push({ x: f.cx, y: ry, w: f.cw, h: inner, act: "fsel", i });
+    if (!narrow && !low) txt(fitText(B.name, tw - 12, 12), x + tw / 2, top + ic + 4, on ? SY.y : SY.txt, 12, "center", SY.ink);
+    txt((narrow ? "" : "가능 ") + can, x + tw / 2, y + th - (narrow ? 22 : low ? 18 : 20), can > 0 ? SY.green : SY.mute, 12, "center", SY.ink);
+    shopBtn.push({ x, y, w: tw, h: th, act: "fsel", i });
   });
 
-  // 아래: 고른 주괴 넣기
-  const k = BAR_KEYS[S.furnaceSel] || BAR_KEYS[0], B = BARS[k], can = furnaceCan(k);
+  // ---- 가운데: 화로 ----
+  const bh = narrow ? 92 : 48;                                        // 아래 버튼 줄 높이 (좁으면 두 줄)
+  const py = f.cy + th + 10, ph = f.cy + f.ch - bh - 10 - py;
+  kit("detail", f.cx, py, f.cw, ph) || well(f.cx, py, f.cw, ph);
+  const job = F.q[0], JB = job ? BARS[job.m] : null;
+  const showK = job ? job.m : sel, show = BARS[showK];
+  const ss = narrow ? 52 : low ? 36 : 64, os = narrow ? 68 : low ? 48 : 84, fu = low ? 2 : 3;   // 넣는 칸 · 나오는 칸 크기 · 불꽃 도트
+  const fh = 8 * fu + 8, colH = ss * 2 + fh;
+  const inX = f.cx + (narrow ? 30 : 48);
+  const inY = narrow ? py + 26 : py + Math.floor((ph - colH) / 2), midY = inY + Math.floor(colH / 2), fuelY = inY + ss + fh;   // 좁으면 화로를 판 위쪽에, 아래에 상태·대기열
+  // 넣은 원석 (재련 중이면 화로 안의 것, 쉬는 중이면 고른 주괴의 원석을 흐리게)
+  const qSame = job ? F.q.filter((q) => q.m === job.m).length : 0, coalIn = F.q.reduce((a, q) => a + BARS[q.m].coal, 0);
+  kit("slot", inX, inY, ss, ss);
+  drawPx(oreIcon[show.ore], inX + 6, inY + 6, ss - 12, job ? 1 : 0.35);
+  slotCount(job ? qSame * ORE_PER_BAR : 0, inX, inY, ss);
+  furnaceFlame(inX + Math.floor((ss - 11 * fu) / 2), inY + ss + 4, !!job, fu);
+  kit("slot", inX, fuelY, ss, ss);
+  drawPx(oreIcon[6], inX + 6, fuelY + 6, ss - 12, job ? 1 : 0.35);
+  slotCount(coalIn, inX, fuelY, ss);
+  // 화살표 → 나온 주괴
+  const outX = narrow ? f.cx + f.cw - os - 30 : inX + ss + (low ? 110 : 170), outY = midY - Math.floor(os / 2);
+  const ax = inX + ss + 18, aw = outX - 18 - ax, p = job ? 1 - job.left / JB.time : 0, ah = narrow ? 24 : 32;
+  furnaceArrow(ax, midY - ah / 2, aw, ah, p);
+  kit("slot", outX, outY, os, os);
+  drawPx(barIcon[showK], outX + 8, outY + 8, os - 16);
+  slotCount(P.bars[showK] || 0, outX, outY, os);
+  if (!narrow && !low) txt("보유", outX + os / 2, outY + os + 4, SY.dim, 12, "center", SY.ink);
+  // 오른쪽(좁으면 아래 줄): 상태 · 대기열 칸
+  const sx = narrow ? f.cx + 22 : outX + os + 36, sw = narrow ? f.cw - 44 : f.cx + f.cw - 22 - sx;
+  let sy = narrow ? inY + colH + 18 : py + (low ? 14 : 22);          // 좁은 화면은 화로 아래에 상태 + 대기열
+  const left = job ? Math.ceil(F.q.reduce((a, q) => a + q.left, 0) / L.speed) : 0;
+  txt(fitText(job ? "재련 중 · " + JB.name : "쉬는 중", sw, 16), sx, sy, job ? SY.gold : SY.txt, 16, "left", SY.ink);
+  txt(fitText(job ? "남은 약 " + left + "초 · 속도 x" + L.speed : "원석 " + ORE_PER_BAR + "개 + 석탄 → 주괴 1개", sw, 12), sx, sy + 22, SY.dim, 12, "left", SY.ink);
+  if (!narrow && !low) txt(fitText("광산에 있어도 계속 재련돼요", sw, 12), sx, sy + 40, SY.mute, 12, "left", SY.ink);
+  sy += narrow || low ? 40 : 66;
+  txt("대기 " + F.q.length + " / " + L.cap, sx, sy, SY.dim, 12, "left", SY.ink);
+  const qs = 24, per = Math.max(1, Math.floor((sw + 4) / (qs + 4))), rowsQ = Math.max(1, Math.min(3, Math.floor((py + ph - 22 - (sy + 18)) / (qs + 4))));
+  const shown = Math.min(L.cap, per * rowsQ);
+  for (let i = 0; i < shown; i++) {                                   // 대기열 칸: 들어간 주괴(맨 앞은 진행 막대)
+    const qx = sx + (i % per) * (qs + 4), qy = sy + 18 + Math.floor(i / per) * (qs + 4), q = F.q[i];
+    ctx.fillStyle = SY.ink; ctx.fillRect(qx, qy, qs, qs);
+    ctx.fillStyle = q ? "#2a2e37" : "#1d2027"; ctx.fillRect(qx + 2, qy + 2, qs - 4, qs - 4);
+    if (q) {
+      drawPx(barIcon[q.m], qx + 4, qy + 4, 16);
+      if (i === 0) { ctx.fillStyle = "#ffa21a"; ctx.fillRect(qx + 2, qy + qs - 4, Math.round((qs - 4) * p), 2); }
+    }
+  }
+  if (L.cap > shown && F.q.length > shown) txt("+" + (F.q.length - shown), sx + per * (qs + 4), sy + 22, SY.dim, 12, "left", SY.ink);
+
+  // ---- 아래: 넣기 버튼 · 강화 ----
   const full = F.q.length >= L.cap;
-  const note = full ? ["대기열이 가득 찼어요 · 강화하면 더 많이 넣을 수 있어요", SY.warn, 12]
-    : can <= 0 ? [TILE[B.ore].name + " " + ORE_PER_BAR + "개와 석탄 " + B.coal + "개가 있어야 1개를 만들 수 있어요", SY.warn, 12]
-    : ["창고: " + TILE[B.ore].name + " " + (P.stash[B.ore] || 0) + "개 · 석탄 " + (P.stash[6] || 0) + "개", SY.dim, 12];
-  townFooter(f, fh, [[B.name + " 넣기", SY.txt, 16], note], [
-    { label: "1개", kind: "go", on: can >= 1, act: "smelt", arg: 1, w: 58 },
-    { label: "5개", kind: "go", on: can >= 1, act: "smelt", arg: 5, w: 58 },
-    { label: "최대", sub: can + "개", kind: "go", on: can >= 1, act: "smelt", arg: Infinity, w: 74 },
-    { label: "비우기", kind: "danger", on: F.q.length > 0, act: "fclear", w: 74 },
-  ]);
+  const note = full ? "대기열이 가득 찼어요 · 강화하면 더 넣을 수 있어요"
+    : canSel <= 0 ? TILE[SB.ore].name + " " + ORE_PER_BAR + "개 + 석탄 " + SB.coal + "개가 있어야 1개를 만들어요"
+    : "창고: " + TILE[SB.ore].name + " " + (P.stash[SB.ore] || 0) + "개 · 석탄 " + (P.stash[6] || 0) + "개";
+  const by = f.cy + f.ch - bh, upW = narrow ? f.cw : 124;
+  const btns = [["1개", 1, "go"], ["5개", 5, "go"], ["최대", Infinity, "go"]];
+  const bw = narrow ? Math.floor((f.cw - gap * 3) / 4) : 80;
+  let bx = f.cx;
+  if (!narrow) { txt(fitText(SB.name + " 넣기", 200, 16), f.cx, by + 4, SY.txt, 16, "left", SY.ink); txt(fitText(note, f.cw - upW - 4 * (bw + gap) - 16, 12), f.cx, by + 26, canSel > 0 && !full ? SY.dim : SY.warn, 12, "left", SY.ink); bx = f.cx + f.cw - upW - gap - 4 * (bw + gap); }
+  const bY = narrow ? by : by, bH = narrow ? 42 : bh;
+  for (const [lab, v, kind] of btns) { uiBtn(bx, bY, bw, bH, lab, v === Infinity && bH >= 40 ? canSel + "개" : null, kind, canSel >= 1 && !full, "smelt", v); bx += bw + gap; }
+  uiBtn(bx, bY, bw, bH, "비우기", null, "danger", F.q.length > 0, "fclear"); bx += bw + gap;
+  const upY = narrow ? by + 48 : by, upLabel = !nx ? "최고 단계" : "강화 Lv." + (F.lv + 1);
+  uiBtn(narrow ? f.cx : bx, upY, upW, narrow ? 42 : bh, upLabel, nx ? money(nx.cost) : null, "gold", !!nx && P.money >= nx.cost, nx ? "fup" : null);
+  if (narrow && !(S.msgT > 0)) txt(fitText(note, f.cw, 12), f.cx, f.noteY, canSel > 0 && !full ? SY.dim : SY.warn, 12);
 }

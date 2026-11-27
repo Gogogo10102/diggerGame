@@ -3,7 +3,7 @@ import "../data/recipes.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼
 import { sfx } from "../core/sound.ts";
 import { B } from "../art/itemIcons.ts";
 import { ICON, oreIcon, sprite } from "../art/sprites.ts";
-import { BUILD_COLS, B_FURN, SURF, T, TILE } from "../core/config.ts";
+import { B_FURN, BUILD_COLS, SURF, T, TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { floaters, say, spawn } from "../core/stats.ts";
@@ -139,7 +139,7 @@ export function furnaceClear() {                                   // 대기열 
 export function furnaceUpgrade() {
   const F = S.acct.furnace, nx = FURNACE_LV[F.lv + 1];
   if (!nx) return "이미 최고 단계예요";
-  if (P.money < nx.cost) return "돈이 부족해요 ($" + nx.cost + ")";
+  if (P.money < nx.cost) return "돈이 부족해요 (" + won(nx.cost) + ")";
   P.money -= nx.cost; F.lv++;
   saveNow(true, true);
   return "용광로 Lv." + F.lv + " 강화 완료!";

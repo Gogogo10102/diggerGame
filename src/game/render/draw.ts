@@ -3,7 +3,7 @@ import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { BLD_FX, GARAGE_FX, GARAGE_IMG, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
 import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PLAYER_MINE_CELLS, PLAYER_MINE_DOWN_CELLS, ROCKET_CELLS, ROCKET_NOZZLE, playerCell, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
-import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
+import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
@@ -846,7 +846,7 @@ function drawOreBar(x, y, maxW, center) {
 }
 
 // 큰 수는 "12.3만" 처럼 줄여서
-function hudMoney(n) { return n >= 100000 ? (n / 10000).toFixed(n >= 1000000 ? 0 : 1) + "만" : Number(n).toLocaleString("en-US"); }
+function hudMoney(n) { return n >= 100000 ? +(n / 10000).toFixed(n >= 1000000 ? 0 : 1) + "만원" : won(n); }
 // 칸 막대 + 왼쪽에 겹쳐 그린 아이콘 (번개 막대 모양)
 function hudBar(x, y, img, n, filled, kind, label, labelCol) {
   const w = segBar(x + 22, y, n, filled, kind, 10, 20);

@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./town.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, HW, inB, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W } from "../core/config.ts";
+import { B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, HW, inB, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bannerQ, bombs, canFly, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, pushBanner, say, spawn, updateFx } from "../core/stats.ts";
@@ -18,7 +18,7 @@ export function openChest(c, r) {
     const id = pick[(Math.random() * pick.length) | 0];
     P.inv[id] = (P.inv[id] || 0) + 1; bonus = " + " + CONS[id].name;
   }
-  floaters.push({ x, y: y - 20, text: "보물! +$" + money + bonus, color: "#ffd34d", life: 1.8 });
+  floaters.push({ x, y: y - 20, text: "보물! +" + won(money) + bonus, color: "#ffd34d", life: 1.8 });
   for (let k = 0; k < 18; k++) spawn(x + (Math.random() - 0.5) * 30, y, (Math.random() - 0.5) * 200 * PX, -(80 + Math.random() * 160) * PX, 0.7 + Math.random() * 0.4, ["#ffd34d", "#fff3a8", "#ffb020"][k % 3], 4, 600 * PX);
   sfx("sell"); sfx("levelup", { pitch: 1.6, vol: 0.4 });
   if (S.acct && S.acct.stats.chests === 1) pushBanner("보물 상자 발견!", "땅속 곳곳에 묻혀 있어요 · 깊을수록 값진 보물", ICON.chest, "#ffd34d");

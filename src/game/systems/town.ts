@@ -1,7 +1,7 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./input.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { sfx } from "../core/sound.ts";
-import { TILE } from "../core/config.ts";
+import { TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { STAT, equipNew, equipToggle, maxFuel, recalcStats, say, worn } from "../core/stats.ts";
@@ -28,7 +28,7 @@ export function craftItem(id) {
   if (P.items[id]) return townFail("이미 제작한 장비예요");
   if (it.req && !P.items[it.req]) return townFail("먼저 " + ITEMS[it.req].name + " 제작");
   for (const m in it.mats) if (matHave(m) < it.mats[m]) return townFail(matName(m) + "이(가) 부족해요" + (isBar(m) ? " (용광로에서 재련)" : ""));
-  if (P.money < it.cost) return townFail("돈이 부족해요 ($" + it.cost + ")");
+  if (P.money < it.cost) return townFail("돈이 부족해요 (" + won(it.cost) + ")");
   for (const m in it.mats) matTake(m, it.mats[m]);
   P.money -= it.cost;
   P.items[id] = true;
@@ -59,7 +59,7 @@ export function sellItem(k, n) {
   P.money += gain;
   if (S.acct) S.acct.stats.earned += gain;
   P.bars[k] = have - c; if (P.bars[k] <= 0) delete P.bars[k];
-  say(BARS[k].name + " " + c + "개 판매 +$" + gain); sfx("sell");
+  say(BARS[k].name + " " + c + "개 판매 +" + won(gain)); sfx("sell");
   saveNow(true, true);
 }
 // 선택한 광물만 판매 (n: 개수, Infinity = 전부)
@@ -71,7 +71,7 @@ export function sellOre(id, n) {
   if (S.acct) S.acct.stats.earned += gain;
   P.stash[id] = have - k;
   if (P.stash[id] <= 0) delete P.stash[id];
-  say(TILE[id].name + " " + k + "개 판매 +$" + gain); sfx("sell");
+  say(TILE[id].name + " " + k + "개 판매 +" + won(gain)); sfx("sell");
   saveNow(true, true);
 }
 export function sellStash() {
@@ -80,14 +80,14 @@ export function sellStash() {
   P.money += gain;
   if (S.acct) S.acct.stats.earned += gain;
   P.stash = {};
-  say("창고 광물 판매 +$" + gain); sfx("sell");
+  say("창고 광물 판매 +" + won(gain)); sfx("sell");
   saveNow(true);
 }
 export function buyItem(id) {
   const it = ITEMS[id];
   if (!it) return;
   if (it.cons) {
-    if (P.money < it.cost) return townFail("돈이 부족합니다 ($" + it.cost + " 필요)");
+    if (P.money < it.cost) return townFail("돈이 부족합니다 (" + won(it.cost) + " 필요)");
     if ((P.inv[id] || 0) >= 99) return townFail("더 들 수 없어요 (최대 99개)");
     P.money -= it.cost;
     P.inv[id] = (P.inv[id] || 0) + 1;
@@ -104,7 +104,7 @@ export function buyItem(id) {
     return;
   }
   if (it.req && !P.items[it.req]) return townFail("먼저 " + ITEMS[it.req].name + " 구매 필요");
-  if (P.money < it.cost) return townFail("돈이 부족합니다 ($" + it.cost + " 필요)");
+  if (P.money < it.cost) return townFail("돈이 부족합니다 (" + won(it.cost) + " 필요)");
   P.money -= it.cost;
   P.items[id] = true;
   equipNew(id);
@@ -153,16 +153,16 @@ export function deliverOrder(i) {
   addXP(o.xp);
   S.acct.orders[i] = makeOrder(S.acct.orders.map((x) => x.k));
   S.orderFlash = { k: i, t: 0.6 };                                  // 그 줄이 잠깐 초록으로 반짝이고 새 의뢰가 들어옴
-  say("의뢰 완료! +$" + o.pay + " · 경험치 +" + o.xp); sfx("sell"); sfx("levelup", { pitch: 1.5, vol: 0.35 });
+  say("의뢰 완료! +" + won(o.pay) + " · 경험치 +" + o.xp); sfx("sell"); sfx("levelup", { pitch: 1.5, vol: 0.35 });
   checkQuests();
   saveNow(true, true);
 }
 export function rerollOrders() {
   const c = orderRerollCost();
-  if (P.money < c) return townFail("돈이 부족해요 ($" + c + ")");
+  if (P.money < c) return townFail("돈이 부족해요 (" + won(c) + ")");
   P.money -= c;
   S.acct.orders = [];
   ensureOrders();
-  say("새 의뢰를 받았어요 (-$" + c + ")"); sfx("buy");
+  say("새 의뢰를 받았어요 (-" + won(c) + ")"); sfx("buy");
   saveNow(true, true);
 }

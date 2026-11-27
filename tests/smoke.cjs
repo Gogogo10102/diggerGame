@@ -1321,6 +1321,8 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(!!t70.btn("구조 요청 (지상으로)"), "땅속에서 메뉴에 구조 요청 버튼");
   t70.ev("closeMenu()");
 
+  console.log("[44] 돈 표시 (원, 한국식)");
+  ok(t70.ev("[won(95000), won(98089), won(4200), won(5000), won(0), won(140000), won(120000000), won(750)].join('|')") === "9만 5천원|9만 8,089원|4,200원|5천원|0원|14만원|1억 2,000만원|750원", "won(): 9만 5천원 · 9만 8,089원 · 4,200원 · 5천원 …");
   console.log("[43] 장비 칸 (분류마다 하나, 장비마다 고유 값) · 상점 장착");
   t70.ev("P.mech = false; P.x = 4 * T; P.y = SURF * T - HH - 1; P.cargo = {}; P.items = {}; P.eq = {}; P.off = {}; P.money = 99999; recalcStats()");
   const lvP = t70.ev("(S.MINER_LV - 1) * 0.006");

@@ -118,3 +118,26 @@
   #ov h2 span.tt,#ov h2{-webkit-text-stroke:0}
   #ov h2 .tt{background:linear-gradient(#fff19a 0,#ffb52a 45%,#ff9a1a 55%,#e0520a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
     filter:drop-shadow(2px 0 0 #0b0c0f) drop-shadow(-2px 0 0 #0b0c0f) drop-shadow(0 2px 0 #0b0c0f) drop-shadow(0 -2px 0 #0b0c0f) drop-shadow(1px 3px 0 #0b0c0f)}
+
+  /* ---- PixelLab UI 부품 (2026-11-27): 그림을 불러오면 <html class="kit"> + --k-<이름> (art/assets.ts) → 마을 창과 같은 모양 ----
+     border-image 9조각: 모서리 그대로, 변·가운데는 되풀이(round). 숫자 = 부품 테두리 두께(townUI.ts 의 UIK_IN 과 같음) */
+  .kit #ov .pnl{background:none;box-shadow:none;border:24px solid transparent;border-image:var(--k-window) 24 fill / 24px round;padding:0 8px 8px;image-rendering:pixelated}
+  .kit #ov h2{background:none;box-shadow:none;margin:0 0 10px;padding:0 0 6px;border-bottom:2px solid #0b0c0f}
+  .kit #ov h2::before,.kit #ov h2::after{display:none}
+  .kit #ov .btn{position:relative;color:#fff;text-shadow:0 2px 0 #0b0c0f;background:none;box-shadow:none;border:8px solid transparent;border-image:var(--k-btn) 8 fill / 8px round;padding:0 10px 2px 16px;min-height:44px;clip-path:none}
+  .kit #ov .btn::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:4px;background:var(--s);box-shadow:0 0 0 2px #0b0c0f}
+  .kit #ov .btn.off{color:#8a8f99;border-image-source:var(--k-btn_off)}
+  .kit #ov .btn.off::before{display:none}
+  .kit #ov .btn:active{transform:translateY(2px);box-shadow:none}
+  .kit #ov .btn.mini{min-height:32px;padding:0 6px 1px 12px}
+  .kit #ov .btn.mini::before{top:1px;bottom:1px}
+  .kit #ov .vol .btn{padding:0 0 2px 6px}
+  .kit #ov .tabs .btn.tab{border-image-source:var(--k-tab);color:#e6eaf2;padding:0 2px 2px;white-space:nowrap;min-width:0}   /* 좁은 화면에서 글자가 세로로 쪼개지지 않게 */
+  .kit #ov .tabs .btn.tab::before{display:none}
+  .kit #ov .tabs .btn.tab.on{border-image-source:var(--k-tab_on);color:#ffb52a;background:none}
+  .kit #ov .tabs .btn.tab.x{border-image-source:var(--k-close);color:#f2606e;padding:0 0 2px}
+  .kit #ov .row,.kit #ov .hero{background:none;box-shadow:none;border:8px solid transparent;border-image:var(--k-row) 8 12 fill / 8px 12px round;padding:2px 4px}
+  .kit #ov .slot,.kit #ov .robot{background:none;border:8px solid transparent;border-image:var(--k-slot) 8 fill / 8px round;padding:0}
+  .kit #ov .slot.pick{outline:2px solid #ffc21a;outline-offset:-4px}
+  .kit #ov .robot.on{box-shadow:none;outline:3px solid #ffc21a;outline-offset:-3px}
+  .kit #ov .portrait{background:none;border:8px solid transparent;border-image:var(--k-slot) 8 fill / 8px round;padding:0}
