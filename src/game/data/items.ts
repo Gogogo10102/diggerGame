@@ -31,6 +31,7 @@ addCat("곡괭이", "pick", [
 ], true, "pick");
 addCat("백팩 로켓", "rocket", [
   ["rocket1", "백팩 로켓", { rocket: 0.8 }, 350],
+  ["rocket1b", "강화 백팩 로켓", { rocket: 0.9 }, 700],      // 2026-11-28 추가 (PixelLab 그림 5종). id 는 세이브 때문에 기존 것 그대로 두고 사이에 끼움
   ["rocket2", "터보 백팩 로켓", { rocket: 1.05 }, 1400],
   ["rocket3", "제트 백팩", { rocket: 1.35 }, 4200],
   ["rocket4", "플라즈마 백팩", { rocket: 1.75 }, 12000],

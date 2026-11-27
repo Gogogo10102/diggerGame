@@ -55,8 +55,9 @@ addEventListener("keydown", (e) => {
     else if (e.code === "PageUp") S.shopSel = Math.max(0, (Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) - 1) * (S.shopPer || SHOP_PER));
     else if (e.code === "Enter" || e.code === "Space") buyItem(CATS[S.shopTab].ids[S.shopSel]);
     else if (/^Digit[1-9]$/.test(e.code)) {
-      const idx = Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) * (S.shopPer || SHOP_PER) + Number(e.code.slice(5)) - 1;
-      if (idx < len) { S.shopSel = idx; buyItem(CATS[S.shopTab].ids[idx]); }
+      const per = S.shopPer || SHOP_PER, d = Number(e.code.slice(5));
+      const idx = Math.floor(S.shopSel / per) * per + d - 1;
+      if (d <= per && idx < len) { S.shopSel = idx; buyItem(CATS[S.shopTab].ids[idx]); }   // 지금 쪽에 보이는 칸 번호만
     }
     return;
   }

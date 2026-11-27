@@ -23,7 +23,7 @@ CELL = 32
 
 # 시트마다 고른 칸 (2026-11-28 백팩 로켓부터)
 PICKS = {
-    "rocket": {17: "rocket1", 29: "rocket2", 36: "rocket3", 53: "rocket4"},
+    "rocket": {2: "rocket1", 18: "rocket1b", 24: "rocket2", 33: "rocket3", 49: "rocket4"},   # 백팩 · 강화 · 터보 · 제트 · 플라즈마
 }
 CONSUMABLE = {"fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x", "ladder", "recall", "sup_w", "sup_s"}
 
