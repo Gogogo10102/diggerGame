@@ -1323,6 +1323,11 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
 
   console.log("[44] 돈 표시 (원, 한국식)");
   ok(t70.ev("[won(95000), won(98089), won(4200), won(5000), won(0), won(140000), won(120000000), won(750)].join('|')") === "9만 5천원|9만 8,089원|4,200원|5천원|0원|14만원|1억 2,000만원|750원", "won(): 9만 5천원 · 9만 8,089원 · 4,200원 · 5천원 …");
+  console.log("[45] 상점 소모품 → 내 가방 (날아 들어가는 그림)");
+  t70.ev("P.money = 9999; P.inv = {}; S.shopFly = []; buyItem('dyn_s'); buyItem('dyn_s')");
+  ok(t70.ev("P.inv.dyn_s") === 2 && t70.ev("S.shopFly.length") === 2 && t70.ev("S.shopFly[0].id") === "dyn_s", "소모품을 사면 가방에 들어가고 날아가는 그림 대기열에 쌓임");
+  t70.ev("S.state = 'shop'; S.shopTab = CATS.findIndex((c) => c.cons); S.shopSel = 0; draw(); drawShopModal(1280, 760)");
+  ok(t70.ev("S.shopFly.length") === 2, "소모품 탭 그리기 (예전 그림 모드)도 문제없음");
   console.log("[43] 장비 칸 (분류마다 하나, 장비마다 고유 값) · 상점 장착");
   t70.ev("P.mech = false; P.x = 4 * T; P.y = SURF * T - HH - 1; P.cargo = {}; P.items = {}; P.eq = {}; P.off = {}; P.money = 99999; recalcStats()");
   const lvP = t70.ev("(S.MINER_LV - 1) * 0.006");

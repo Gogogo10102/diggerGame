@@ -92,6 +92,7 @@ export function buyItem(id) {
     P.money -= it.cost;
     P.inv[id] = (P.inv[id] || 0) + 1;
     say(it.name + " 구매! (보유 " + P.inv[id] + "개)"); sfx("buy");
+    (S.shopFly = S.shopFly || []).push({ id, t: performance.now() });   // 상점 '내 가방'으로 날아 들어가는 그림 (townUI.ts)
     saveNow(true, true);
     return;
   }
