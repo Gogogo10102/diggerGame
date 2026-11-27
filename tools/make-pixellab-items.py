@@ -42,6 +42,7 @@ PICKS = {
 # 상점 분류 아이콘(탭 띠): 시트 tabs.png → ui/tab/<분류 icon 키>.png (아이템 그림과 따로, 2026-11-28)
 TAB_PICKS = {
     "tabs": {1: "pick", 10: "rocket", 23: "drill", 25: "fuel", 40: "crate", 41: "engine", 49: "tracks", 57: "special"},
+    "cons": {25: "fuelcan"},   # 소모품 = 다이너마이트 묶음 (빨간 기름통이 탱크와 헷갈려서)
 }
 TAB_OUT = os.path.join(ROOT, "public/assets/ui/tab")
 # 시트에 없는 색은 비슷한 칸의 색만 바꿔서: 아이템 id → (시트, 칸, 색상(도), 채도 배율)
