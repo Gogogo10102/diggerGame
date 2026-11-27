@@ -477,7 +477,7 @@ const consAt = {}, bagAt = {};                                      // 이번 �
 const FLY_MS = 420, POP_MS = 260;
 function shopConsGrid(f, cat, top, ch, low) {
   const now = performance.now(), gap = 8;
-  const bagW = Math.max(180, Math.min(280, Math.floor(f.cw * 0.28)));
+  const bagW = Math.max(188, Math.min(300, Math.floor(f.cw * 0.30)));
   const lw = f.cw - bagW - gap * 2;
   const ids = cat.ids, flat = (ch - gap) / 2 < 112;                   // 낮은 판(휴대폰 가로): 2줄 x 4칸 대신 가로로 긴 줄 2열 x 4줄
   const cols = flat ? 2 : 4, rows = Math.ceil(ids.length / cols);
@@ -509,7 +509,7 @@ function shopConsGrid(f, cat, top, ch, low) {
     consAt[id] = { x: mid - ib / 2, y: sy + (ss - ib) / 2, s: ib };
     setFont(16);
     const nsz = ctx.measureText(it.name).width <= tw - 12 ? 16 : 12;
-    txt(fitText(it.name, tw - 8, nsz), mid, sy + ss + 6 + (nsz === 12 ? 2 : 0), SY.txt, nsz, "center", SY.ink);
+    txt(fitText(it.name, tw - (nsz === 12 ? 2 : 8), nsz), mid, sy + ss + 6 + (nsz === 12 ? 2 : 0), SY.txt, nsz, "center", SY.ink);
     const room = th - (ss + 26) - pad * 2;
     const bh = room >= 44 ? 40 : Math.max(28, Math.min(36, room - 4)), by = y + th - bh - pad;
     uiBtn(x + 10, by, tw - 20, bh, money(it.cost), null, "go", !poor, "buy", id);
@@ -522,20 +522,20 @@ function shopConsGrid(f, cat, top, ch, low) {
 function bagPanel(ids, bx, top, bw, bh, now, fly, tall) {
   kit("window", bx, top, bw, bh);
   const own = ids.reduce((a, id) => a + (P.inv[id] || 0), 0);
-  let gx0, gw, gy0, gc, sg = tall ? 6 : 4;
+  let gx0, gw, gy0, gc, sg = tall ? 10 : 4;                         // 칸 사이·판 테두리와 넉넉히 띄움 (빽빽해 보여서, 2026-11-28)
   if (tall) {
     titleTxt("내 가방", bx + 16, top + 14, 16);
     txt(own + "개", bx + bw - 16, top + 16, SY.dim, 12, "right", SY.ink);
-    gx0 = bx + 14; gw = bw - 28; gy0 = top + 44; gc = (gw - sg * 3) / 4 >= 44 ? 4 : 3;   // 칸이 작아지면 3줄로
+    gx0 = bx + 18; gw = bw - 36; gy0 = top + 52; gc = 3;                // 3칸씩 (판이 낮으면 아래에서 4칸)
   } else {
     titleTxt("내 가방", bx + 12, top + 10, 16);
     txt(own + "개", bx + bw - 12, top + 12, SY.dim, 12, "right", SY.ink);
     gx0 = bx + 10; gw = bw - 20; gy0 = top + 32; gc = ids.length;
   }
-  let cs = Math.min(60, Math.floor((gw - sg * (gc - 1)) / gc));
+  let cs = Math.min(tall ? 64 : 60, Math.floor((gw - sg * (gc - 1)) / gc));
   if (tall) {                                                        // 판이 낮으면(휴대폰 가로) 칸을 줄이고 4칸씩
     const fit = (c) => Math.floor((bh - (gy0 - top) - 10 - sg * (Math.ceil(ids.length / c) - 1)) / Math.ceil(ids.length / c));
-    if (cs > fit(gc) && gc === 3) { gc = 4; cs = Math.min(60, Math.floor((gw - sg * 3) / 4)); }
+    if (cs > fit(gc) && gc === 3) { gc = 4; sg = 8; cs = Math.min(60, Math.floor((gw - sg * 3) / 4)); }
     cs = Math.min(cs, fit(gc));
   }
   const gx = gx0 + Math.floor((gw - (cs * gc + sg * (gc - 1))) / 2);
@@ -548,7 +548,7 @@ function bagPanel(ids, bx, top, bw, bh, now, fly, tall) {
     const isz = cs >= 40 ? 32 : 16;
     drawPx(itemIcon(id), x + (cs - isz) / 2, y + (cs - isz) / 2, isz, n > 0 ? 1 : 0.18);   // 없는 것은 흐리게 (자리만)
     if (pk > 0) { ctx.globalAlpha = pk; ctx.fillStyle = SY.y; ctx.fillRect(x, y, cs, 2); ctx.fillRect(x, y + cs - 2, cs, 2); ctx.fillRect(x, y, 2, cs); ctx.fillRect(x + cs - 2, y, 2, cs); ctx.globalAlpha = 1; }
-    if (n > 0) txt(cs >= 40 ? "x" + n : String(n), x + cs - 3, y + cs - 14, "#fff", 12, "right", SY.ink);
+    if (n > 0) txt(cs >= 40 ? "x" + n : String(n), x + cs - (cs >= 48 ? 7 : 3), y + cs - (cs >= 48 ? 18 : 14), "#fff", 12, "right", SY.ink);
     bagAt[id] = { x: x + (cs - isz) / 2, y: y0 + (cs - isz) / 2, s: isz };
   });
   const ny = gy0 + Math.ceil(ids.length / gc) * (cs + sg) + 6;
@@ -630,7 +630,7 @@ function drawShopList(vw, vh) {
 export function drawCraftModal(vw, vh) {
   if (S.craftTab === RECIPE_CATS.length) return drawSellModal(vw, vh);
   const cat = RECIPE_CATS[S.craftTab];
-  const f = townFrame(vw, vh, "제작 · " + cat.name, RECIPE_CATS.map((c) => ({ name: c.name, icon: c.icon })), S.craftTab, "tab",
+  const f = townFrame(vw, vh, "제작 · " + cat.name, RECIPE_CATS.map((c) => ({ name: c.name, icon: c.icon, img: CAT_IMG["craft_" + c.icon] && CAT_IMG["craft_" + c.icon].width > 1 ? CAT_IMG["craft_" + c.icon] : null })), S.craftTab, "tab",
     "[ ] 건물 이동 · Tab 분류 · 방향키 고르기 · Enter 제작 · Esc 닫기");
   const stat = (id) => {
     const it = ITEMS[id], owned = !!P.items[id];
