@@ -33,9 +33,9 @@ addEventListener("keydown", (e) => {
   if (S.state === "furnace") {                          // 용광로 창 조작: ↑↓ 고르기 · 1/5/Enter 넣기 · U 강화 · Backspace 비우기
     const len = BAR_KEYS.length;
     if (e.code === "Escape" || e.code === "KeyE") { if (!e.repeat) closeShop(); return; }
-    if (e.repeat && !/^Arrow|^Key[WS]$/.test(e.code)) return;
-    if (e.code === "ArrowUp" || e.code === "KeyW") S.furnaceSel = (S.furnaceSel + len - 1) % len;
-    else if (e.code === "ArrowDown" || e.code === "KeyS") S.furnaceSel = (S.furnaceSel + 1) % len;
+    if (e.repeat && !/^Arrow|^Key[WASD]$/.test(e.code)) return;
+    if (/^Arrow(Up|Left)$|^Key[WA]$/.test(e.code)) S.furnaceSel = (S.furnaceSel + len - 1) % len;   // 주괴 고르기 (가로 칸이라 ←→ 도)
+    else if (/^Arrow(Down|Right)$|^Key[SD]$/.test(e.code)) S.furnaceSel = (S.furnaceSel + 1) % len;
     else if (e.code === "Digit1") furnaceAct("smelt", 1);
     else if (e.code === "Digit5") furnaceAct("smelt", 5);
     else if (e.code === "Enter" || e.code === "Space") furnaceAct("smelt", Infinity);
