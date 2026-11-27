@@ -34,7 +34,7 @@ src/
     ui/     dom inventory overlay menu tune(움직임 조절판)
 public/assets/         게임 그림 PNG + manifest.json
 tests/                 harness.cjs(가짜 DOM/캔버스) smoke.cjs(테스트)
-tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-player.py  make-pixellab-tiles.py  make-pixellab-ores.py  make-icons.py(+pixicon.py)  make-drill-icons.py(+drillart/)  make-buildings.py  make-signs.py
+tools/                 build-test-html.mjs  make-manifest.mjs  make-hires.py(+robot3d.py, mapart.py)  make-player.py  make-pixellab-tiles.py  make-pixellab-ores.py  make-icons.py(+pixicon.py)  make-drill-icons.py(+drillart/)  make-buildings.py  make-signs.py  make-ui-kit.py
 docs/                  plan.md decisions.md
 ```
 
@@ -92,6 +92,10 @@ docs/                  plan.md decisions.md
   터치 화면 도움말 띠는 눌러서 닫음(`S.helpRect`). 둘 다 누르면 조작(드래그)이 시작되지 않게 input.ts 에서 먼저 처리.
 - **양 표시는 칸 막대**(`segBar`): 연료·화물·경험치·단계·소리 크기. 아이콘은 막대 왼쪽 끝에 겹침.
 - **큰 화면 UI 배율**: 마을 창은 `townScale`(draw.ts)로 2배/1.5배 키워 그리고 누른 자리도 나눠 맞춤(`S.townU`). 창 함수는 나눈 화면 크기를 받으니 배치는 그대로 짜면 됨. HTML 창은 style.css 의 zoom.
+- **마을 창 UI 부품 = PixelLab**(2026-11-27): 'Create UI'로 한 장에 뽑은 시트 `tools/ref/pixellab/ui/kit.png`(256x256, 배치표 = make-ui-kit.py 의 `LAYOUT`)
+  → `python3 tools/make-ui-kit.py` 가 투명 바탕으로 떨어진 덩어리를 찾아 가까운 배치 이름으로 잘라 `ui/kit/<이름>.png`(1배) 13개: window·row·row_on·tab·tab_on·btn·btn_off·slot·slot2·detail·close·price·bar. 버튼에 박힌 글자는 도구가 지움.
+  townUI.ts 의 `kit(이름, x, y, w, h)` 가 9조각으로 그림(모서리 그대로, 변·가운데는 되풀이해 깔기 → 리벳이 늘어나지 않음, 여백 `UIK_IN`). 그림이 없으면(테스트·불러오기 전) 예전 철판 그림(`kitOn()` 거짓).
+  창 = window, 위 탭·왼쪽 분류 = tab/tab_on, 목록 줄 = row(고른 줄은 노란 테두리), 아이콘 칸 = slot, 버튼 = btn/btn_off + 왼쪽 색 띠(뜻) + 흰 글씨, 닫기 = close. 같은 배치로 다시 뽑아 kit.png 만 바꾸면 그대로 적용.
 - 마을 창(상점·제작·용광로·판매)은 `render/townUI.ts` 의 공용 틀 `townFrame(…, 분류목록, 고른분류, 분류동작)` 을 씁니다.
   "왼쪽 분류 → 오른쪽 목록(줄마다 버튼)" 흐름을 지켜 주세요. 상세 칸이 필요하면 `townFooter`.
 - **움직임 숫자 = `update.ts` 의 `MOVE`**(걷기 속도·출발/멈춤 시간·걷기 한 바퀴 거리·공중 조작·중력·로켓/추진). 출발·멈춤은 '최고 속도까지 걸리는 초'로 적음. 지금 값은 2026-11-25 조절판으로 고른 것(사람 속도 80·로봇 125, 중력 560 등).

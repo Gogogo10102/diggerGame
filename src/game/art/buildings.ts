@@ -135,6 +135,8 @@ export function fxText(fx, slot) {
 
 // ---- 광산 입구 표지판 로고 (글자 없이 그림만): public/assets/signs/mine.png. 못 불러오면 draw.ts 가 나무판 + 화살표로 대신 ----
 export const SIGN_IMG = { mine: sprite(1, 1, () => {}) };
+// 마을 창 UI 부품 (PixelLab 'Create UI' 시트 → tools/make-ui-kit.py). 못 불러오면 townUI.ts 가 예전 철판 그림으로
+export const UIK = Object.fromEntries(["window", "row", "row_on", "tab", "tab_on", "btn", "btn_off", "slot", "slot2", "detail", "close", "price", "bar"].map((k) => [k, sprite(1, 1, () => {})]));
 // 로봇 차고 (PixelLab): garage_0 기본 · garage_1 업그레이드(같은 크기·같은 문 자리) + 문 구멍을 덮는 셔터. 못 불러오면 draw.ts 가 철판 기둥으로 대신
 export const GARAGE_IMG = { garage_0: sprite(1, 1, () => {}), garage_1: sprite(1, 1, () => {}), shutter: sprite(1, 1, () => {}) };
 export const GARAGE_FX = { w: 234, h: 170, door: [106, 86, 92, 72], floor: 12 };   // make-pixellab-building.py 출력값: 문 구멍(잘린 그림 기준) · 문턱 높이

@@ -797,6 +797,8 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t33.ev("BAR_KEYS.every((k) => barIcon[k].width === 16) && Object.keys(oreDrop).every((k) => oreDrop[k].width === 12)"), "주괴 아이콘/떨어진 아이템 스프라이트");
   ok(t33.ev("Object.keys(assetTable()).filter((k) => k.startsWith('signs/')).length") === 9, "광산 표지판 + 탭 이름 8개를 그림 파일로 연결");
   ok(t33.ev("Object.keys(assetTable()).filter((k) => k.startsWith('buildings/')).sort().join()") === "buildings/garage_0.png,buildings/garage_1.png,buildings/shutter.png,buildings/town.png", "건물 그림은 마을 건물 한 채 + 차고 두 단계 + 셔터");
+  ok(t33.ev("Object.keys(assetTable()).filter((k) => k.startsWith('ui/kit/')).length") === 13, "마을 창 UI 부품 13개 등록");
+  ok(t33.ev("kitOn()") === false && t33.ev("kit('row', 0, 0, 10, 10)") === false, "UI 부품 그림이 없으면 예전 철판 그림으로 (테스트 환경)");
   // 옛 배치(정비소 있던 때) 저장: 광산 터에 남은 기초석은 흙으로
   t33.ev("for (let c = 20; c <= 26; c++) tiles[SURF*W + c] = 13; fixFoundation()");
   ok(t33.ev("(() => { for (let c = MINE_COL; c <= 26; c++) if (tiles[SURF*W + c] === 13) return false; return true; })()") && t33.ev("tiles[SURF*W + 3]") === 13, "옛 기초석 정리, 건물 아래는 유지");

@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./draw.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { TAB_IMG, fxNum, fxText } from "../art/buildings.ts";
+import { TAB_IMG, UIK, fxNum, fxText } from "../art/buildings.ts";
 import { itemIcon } from "../art/itemIcons.ts";
 import { ICON, oreIcon } from "../art/sprites.ts";
 import { TILE } from "../core/config.ts";
@@ -52,11 +52,57 @@ export function fitText(s, maxW, size) {
 }
 const money = (n) => "$" + Number(n).toLocaleString("en-US");
 
+// ---- PixelLab UI 부품 (ui/kit/*.png, tools/make-ui-kit.py) ----
+//  9조각: 모서리는 그대로, 변·가운데는 되풀이해 깔아 늘림 (도트·리벳이 늘어나 보이지 않게). [위, 오른, 아래, 왼] 여백
+const UIK_IN = {
+  window: [24, 24, 24, 24], detail: [20, 20, 20, 20], bar: [10, 18, 10, 18], price: [14, 14, 14, 14],
+  row: [8, 12, 8, 12], row_on: [8, 12, 8, 12], tab: [8, 10, 8, 10], tab_on: [8, 10, 8, 10],
+  btn: [8, 8, 8, 8], btn_off: [8, 8, 8, 8], slot: [8, 8, 8, 8], slot2: [7, 7, 7, 7], close: [8, 8, 8, 8],
+};
+export const kitOn = () => UIK.window.width > 16;
+const KIT_STRIPE = { go: "#5fd068", gold: "#ffa82a", plain: "#40c4f0", danger: "#f2606e" };   // 버튼 뜻 = 왼쪽 작은 색 띠 (CLAUDE.md 버튼 규칙)
+export function kit(name, x, y, w, h) {
+  const img = UIK[name];
+  if (!img || img.width <= 4) return false;
+  x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
+  let [t, r, b, l] = UIK_IN[name];
+  if (l + r > w) { l = Math.floor(w / 2); r = w - l; }                // 아주 작게 그릴 때 모서리끼리 겹치지 않게
+  if (t + b > h) { t = Math.floor(h / 2); b = h - t; }
+  const iw = img.width, ih = img.height, mw = iw - l - r, mh = ih - t - b, dw = w - l - r, dh = h - t - b;
+  const part = (sx, sy, sw, sh, dx, dy, ww, hh) => {                 // (sx,sy,sw,sh) 조각을 ww×hh 에 되풀이해 깔기
+    if (ww <= 0 || hh <= 0 || sw <= 0 || sh <= 0) return;
+    for (let oy = 0; oy < hh; oy += sh) for (let ox = 0; ox < ww; ox += sw) {
+      const cw = Math.min(sw, ww - ox), ch = Math.min(sh, hh - oy);
+      ctx.drawImage(img, sx, sy, cw, ch, dx + ox, dy + oy, cw, ch);
+    }
+  };
+  part(l, t, mw, mh, x + l, y + t, dw, dh);                          // 가운데
+  part(l, 0, mw, t, x + l, y, dw, t); part(l, ih - b, mw, b, x + l, y + h - b, dw, b);   // 위·아래 변
+  part(0, t, l, mh, x, y + t, l, dh); part(iw - r, t, r, mh, x + w - r, y + t, r, dh);   // 왼·오른 변
+  ctx.drawImage(img, 0, 0, l, t, x, y, l, t); ctx.drawImage(img, iw - r, 0, r, t, x + w - r, y, r, t);
+  ctx.drawImage(img, 0, ih - b, l, b, x, y + h - b, l, b); ctx.drawImage(img, iw - r, ih - b, r, b, x + w - r, y + h - b, r, b);
+  return true;
+}
+
 // 버튼. kind: go(초록) gold(주황) plain(파랑) danger(빨강) steel(회색). 꺼져 있으면 회색이지만 누르면 동작을 부름 → "돈이 부족해요" 같은 안내가 나옴
 const KIND_COL = { go: "green", gold: "orange", plain: "blue", danger: "red", steel: "steel" };
 export function uiBtn(x: number, y: number, w: number, h: number, label: string, sub: string | null, kind: string, on: boolean, act?: string | null, arg?: any, i?: number) {
   const col = on ? (KIND_COL[kind] || "steel") : "steel";
   const pb = S.pressBtn, pressed = !!(pb && pb.x === x && pb.y === y && performance.now() - pb.t < 150);   // 방금 누른 버튼은 눌린 모양
+  if (kitOn()) {                                                      // PixelLab 버튼: 어두운 철판 + 왼쪽 색 띠 + 밝은 글씨
+    const dy = pressed ? 2 : 0;
+    kit(on ? "btn" : "btn_off", x, y + dy, w, h - dy);
+    const sc = on && KIT_STRIPE[kind];
+    if (sc && w >= 48) { ctx.fillStyle = SY.ink; ctx.fillRect(x + 5, y + 6 + dy, 6, h - 12 - dy); ctx.fillStyle = sc; ctx.fillRect(x + 6, y + 7 + dy, 4, h - 14 - dy); }
+    const sx = sc && w >= 48 ? 5 : 0, tw = w - 14 - sx * 2, mid = x + w / 2 + sx, cy = y + dy + Math.floor((h - dy) / 2);
+    const fg = on ? "#fff" : "#8a8f99";
+    if (sub && h >= 40) {
+      txt(fitText(label, tw, 16), mid, cy - 18, fg, 16, "center", SY.ink);
+      txt(fitText(sub, tw, 12), mid, cy + 1, on ? SY.gold : "#8a8f99", 12, "center", SY.ink);
+    } else txt(fitText(label, tw, 16), mid, cy - 8, fg, 16, "center", SY.ink);
+    if (act) shopBtn.push({ x, y, w, h, act, arg, i });
+    return;
+  }
   const cy = btnPx(x, y, w, h, col, pressed || (!on && kind === "steel"));
   const sx = col !== "steel" && w >= 64 ? 6 : 0, tw = w - 8 - sx * 2;             // 왼쪽 색 띠만큼 글자를 살짝 오른쪽으로
   if (sub && h >= 40) {
@@ -70,6 +116,7 @@ export function uiBtn(x: number, y: number, w: number, h: number, label: string,
 //   cats: [{name, icon}] 또는 null(분류 없음) · sel: 고른 분류 · catAct: 분류를 눌렀을 때 동작 이름
 export function townFrame(vw, vh, title, cats, sel, catAct, hint) {
   if (!S.townDimDone) { ctx.fillStyle = "rgba(10,11,14,0.72)"; ctx.fillRect(0, 0, vw, vh); }   // (draw.ts 가 이미 화면 전체를 어둡게 깔았으면 생략)
+  if (kitOn()) return townFrameKit(vw, vh, title, cats, sel, catAct, hint);
   const narrow = vw < 560;
   const w = Math.min(720, vw - 16), h = Math.min(narrow ? 600 : 520, vh - 16);
   const short = h < 420;
@@ -152,6 +199,69 @@ export function townFrame(vw, vh, title, cats, sel, catAct, hint) {
   return { x, y, w, h, narrow: narrow || rw < 420, short, cx: rx + 8, cy: ry + 32, cw: rw - 16, ch: rh - 32 - 24, rx, ry, rw, rh, noteY };
 }
 
+// PixelLab 부품으로 그린 틀 (배치·돌려주는 자리는 townFrame 과 같음)
+function townFrameKit(vw, vh, title, cats, sel, catAct, hint) {
+  const narrow = vw < 560;
+  const w = Math.min(720, vw - 16), h = Math.min(narrow ? 600 : 520, vh - 16);
+  const short = h < 420;
+  const x = Math.floor((vw - w) / 2), y = Math.floor((vh - h) / 2);
+  S.shopRect = { x, y, w, h };
+  kit("window", x, y, w, h);                                          // 나무 + 철 모서리 창
+  const FP = 18, TH = short ? 32 : 36;                               // 테두리 안쪽 여백 · 머리 줄 높이
+  // 탭 (상점·제작·용광로·판매): 고른 탭은 주황 테두리
+  const act = townActive(), n = TOWN.length, gap = 4, closeW = TH;
+  const tabsW = Math.min(n * 112, w - 2 * FP - closeW - 8 - (narrow ? 0 : 60));
+  const tw = Math.floor((tabsW - gap * (n - 1)) / n), ty = y + FP;
+  TOWN.forEach(([k, label], i) => {
+    const tx = x + FP + i * (tw + gap), on = k === act;
+    kit(on ? "tab_on" : "tab", tx, ty, tw, TH);
+    const img = TAB_IMG[k + (on ? "_on" : "_off")];
+    if (img && img.width > 1 && img.width <= tw - 12) ctx.drawImage(img, tx + Math.floor((tw - img.width) / 2), ty + Math.floor((TH - img.height) / 2));
+    else txt(fitText(label, tw - 12, 12), tx + tw / 2, ty + Math.floor((TH - 12) / 2), on ? SY.y : "#fff", 12, "center", SY.ink);
+    shopBtn.push({ x: tx, y: ty, w: tw, h: TH, act: "town", arg: k });
+  });
+  const cx = x + w - FP - closeW, hzX = x + FP + n * (tw + gap) + 6;
+  if (cx - 8 - hzX >= 24) hazard(hzX, ty + 8, Math.min(96, cx - 8 - hzX) & ~1, TH - 16);
+  kit("close", cx, ty, closeW, TH);
+  glyph(GLYPH.x, cx + Math.floor((closeW - 14) / 2), ty + Math.floor((TH - 14) / 2), "#f2606e");
+  shopBtn.push({ x: cx - 4, y: ty - 4, w: closeW + 8, h: TH + 8, act: "close" });
+  // 본문
+  const by = ty + TH + 10, bh = y + h - 22 - by;                     // 아래 테두리(나무 + 철)가 위보다 두꺼워서 22
+  let lw = 0;
+  if (cats) {                                                          // 왼쪽 분류: 나무 탭, 고른 것은 주황 테두리
+    lw = narrow ? 52 : 132;
+    const cg = 4, ch = Math.max(20, Math.min(narrow ? 48 : 44, Math.floor((bh + cg) / cats.length) - cg));   // 낮은 화면(가로 휴대폰)에서도 분류가 다 들어가게
+    cats.forEach((c, i) => {
+      const cy = by + i * (ch + cg), on = i === sel, bx = x + FP;
+      kit(on ? "tab_on" : "tab", bx, cy, lw, ch);
+      const mid = cy + Math.floor(ch / 2);
+      if (on) { ctx.fillStyle = SY.y; for (let k = 0; k < 5; k++) ctx.fillRect(bx + lw + 2 + k * 2, mid - 10 + k * 2, 2, 20 - k * 4); }
+      const ib = ch - 10 >= 32 && narrow ? 32 : 16;
+      if (narrow) drawPx(c.img || ICON[c.icon], bx + Math.floor((lw - ib) / 2), Math.round(mid - ib / 2), ib);
+      else {
+        const ix = bx + 10, is = ch >= 36 ? 32 : 16;                  // 칸이 낮으면 아이콘도 작게
+        drawPx(c.img || ICON[c.icon], ix, Math.round(mid - is / 2), is);
+        const nm = fitText(c.name, lw - (ix - bx) - is - 14, 16);
+        if (on) titleTxt(nm, ix + is + 4, Math.round(mid - 8), 16); else txt(nm, ix + is + 4, Math.round(mid - 8), "#e6eaf2", 16, "left", SY.ink);
+      }
+      shopBtn.push({ x: bx, y: cy, w: lw, h: ch, act: catAct, arg: i });
+    });
+    lw += 16;
+  }
+  // 오른쪽 판: 창 안쪽 어두운 바닥 그대로 (제목 + 돈)
+  const rx = x + FP + lw, ry = by, rw = x + w - FP - rx, rh = bh;
+  const tY = ry + 4;
+  setFont(16);
+  const ms = money(P.money), mw = Math.ceil(ctx.measureText(ms).width);
+  txt(ms, rx + rw - 6, tY, SY.gold, 16, "right", SY.ink);
+  drawPx(ICON.coin, rx + rw - 6 - mw - 22, tY, 16);
+  titleTxt(fitText(title, rw - 60 - mw, 16), rx + 4, tY, 16);
+  const noteY = ry + rh - 18;
+  if (S.msgT > 0) txt(fitText(S.msg, rw - 12, 12), rx + 4, noteY, SY.gold, 12, "left", SY.ink);
+  if (hint && !S.usedTouch && vh - (y + h) >= 20) txt(hint, x + w, y + h + 6, SY.mute, 12, "right");
+  return { x, y, w, h, narrow: narrow || rw < 420, short, cx: rx, cy: ry + 28, cw: rw, ch: rh - 28 - 22, rx, ry, rw, rh, noteY };
+}
+
 // 상세 칸(판 아래쪽): 왼쪽에 글 줄들, 오른쪽(좁으면 아래 줄)에 버튼들. f 의 본문 아래쪽을 fh 만큼 씀
 //   lines: [[글, 색, 크기]]   btns: [{label, sub, kind, on, act, arg, w}]
 export function townFooter(f, fh, lines, btns) {
@@ -186,11 +296,16 @@ export function townFooter(f, fh, lines, btns) {
 
 // 목록 한 줄의 바탕 (번갈아 색 · 고른 줄은 노란 테두리)
 function townRow(x, y, w, h, sel, k) {
+  if (kit("row", x, y, w, h)) {                                      // PixelLab 줄 판. 고른 줄은 노란 테두리 (주황 판은 글씨가 안 읽혀서)
+    if (sel) { ctx.fillStyle = SY.y; ctx.fillRect(x + 2, y, w - 4, 2); ctx.fillRect(x + 2, y + h - 2, w - 4, 2); ctx.fillRect(x, y + 2, 2, h - 4); ctx.fillRect(x + w - 2, y + 2, 2, h - 4); }
+    return;
+  }
   ctx.fillStyle = k % 2 ? SY.row2 : SY.row; ctx.fillRect(x, y, w, h);
   if (sel) { ctx.fillStyle = SY.y; ctx.fillRect(x, y, w, 2); ctx.fillRect(x, y + h - 2, w, 2); ctx.fillRect(x, y, 2, h); ctx.fillRect(x + w - 2, y, 2, h); }
 }
 // 아이콘 칸 (파인 칸 + 그림)
 function iconSlot(img, x, y, s, alpha) {
+  if (kit("slot", x, y, s, s)) { drawPx(img, x + 4, y + 4, s - 8, alpha); return; }
   ctx.fillStyle = SY.ink; ctx.fillRect(x, y, s, s);
   ctx.fillStyle = SY.wellDk; ctx.fillRect(x + 2, y + 2, s - 4, s - 4);
   ctx.fillStyle = SY.wellLt; ctx.fillRect(x + 2, y + s - 4, s - 4, 2);

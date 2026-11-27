@@ -8,7 +8,7 @@
 // =====================================================================
 import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg, MINER_HI, MINER_CH, minerCache, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, gasTile, ladderTile, PLAYER_IMG, MECH_IMG, clearPlayerCache } from "./sprites.ts";
 import { ITEM_ICON } from "./itemIcons.ts";
-import { GARAGE_IMG, SIGN_IMG, TAB_IMG, plinthTop, plinthLow } from "./buildings.ts";
+import { GARAGE_IMG, SIGN_IMG, TAB_IMG, UIK, plinthTop, plinthLow } from "./buildings.ts";
 import { barIcon, furnaceImg } from "../systems/furnace.ts";
 import { oreDrop } from "../systems/drops.ts";
 import { S } from "../core/state.ts";
@@ -40,6 +40,7 @@ export function assetTable() {
   t["tiles/plinth_top.png"] = () => plinthTop;
   t["tiles/plinth_low.png"] = () => plinthLow;
   t["buildings/town.png"] = () => S.townImg;                          // 상점·제작소·용광로를 합친 한 채 (예전 세 건물 그림은 안 씀)
+  for (const k in UIK) t["ui/kit/" + k + ".png"] = () => UIK[k];   // 마을 창 UI 부품
   for (const k in GARAGE_IMG) t["buildings/" + k + ".png"] = () => GARAGE_IMG[k];   // 로봇 차고 두 단계 + 셔터
   for (const k in SIGN_IMG) t["signs/" + k + ".png"] = () => SIGN_IMG[k];
   for (const k in TAB_IMG) t["signs/tab_" + k + ".png"] = () => TAB_IMG[k];
