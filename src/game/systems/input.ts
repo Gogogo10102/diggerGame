@@ -3,8 +3,7 @@ import "../core/stats.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼�
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { SHOP_PER, cargoCount, cycleZoom, say } from "../core/stats.ts";
-import { HOT } from "../data/consumables.ts";
-import { CATS } from "../data/items.ts";
+import { HOT, SHOP_TABS } from "../data/consumables.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
 import { BAR_KEYS, furnaceAct, openFurnace } from "./furnace.ts";
@@ -44,7 +43,7 @@ addEventListener("keydown", (e) => {
     return;
   }
   if (S.state === "shop") {                             // 상점 메뉴 조작
-    const n = CATS.length, len = CATS[S.shopTab].ids.length;
+    const n = SHOP_TABS.length, len = SHOP_TABS[S.shopTab].ids.length;
     if (e.code === "Escape" || e.code === "KeyE") { if (!e.repeat) closeShop(); return; }
     if (e.repeat && (e.code === "Enter" || e.code === "Space")) return;
     if (e.code === "ArrowLeft" || e.code === "KeyA") { S.shopTab = (S.shopTab + n - 1) % n; S.shopSel = 0; }
@@ -53,7 +52,7 @@ addEventListener("keydown", (e) => {
     else if (e.code === "ArrowDown" || e.code === "KeyS") S.shopSel = (S.shopSel + 1) % len;
     else if (e.code === "PageDown") S.shopSel = Math.min(len - 1, (Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) + 1) * (S.shopPer || SHOP_PER));
     else if (e.code === "PageUp") S.shopSel = Math.max(0, (Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) - 1) * (S.shopPer || SHOP_PER));
-    else if (e.code === "Enter" || e.code === "Space") buyItem(CATS[S.shopTab].ids[S.shopSel]);
+    else if (e.code === "Enter" || e.code === "Space") buyItem(SHOP_TABS[S.shopTab].ids[S.shopSel]);
     return;
   }
   if (S.state === "craft") {                            // 제작소 메뉴 조작
@@ -242,9 +241,9 @@ function stageDown(e) {
       if (b.act === "town") switchTown(b.arg);
       else if (b.act === "tab") { S.shopTab = b.arg; S.shopSel = 0; }
       else if (b.act === "sel") S.shopSel = b.i;              // 줄을 누르면 고르기, 아래 [구매] 버튼으로 사기
-      else if (b.act === "buy") { const k = CATS[S.shopTab].ids.indexOf(b.arg); if (k >= 0) S.shopSel = k; buyItem(b.arg); }
+      else if (b.act === "buy") { const k = SHOP_TABS[S.shopTab].ids.indexOf(b.arg); if (k >= 0) S.shopSel = k; buyItem(b.arg); }
       else if (b.act === "page") {
-        const np = Math.max(0, Math.min(Math.ceil(CATS[S.shopTab].ids.length / (S.shopPer || SHOP_PER)) - 1, Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) + b.arg));
+        const np = Math.max(0, Math.min(Math.ceil(SHOP_TABS[S.shopTab].ids.length / (S.shopPer || SHOP_PER)) - 1, Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) + b.arg));
         S.shopSel = np * (S.shopPer || SHOP_PER);
       }
       else if (b.act === "scroll") shopScrollBy(b.arg);

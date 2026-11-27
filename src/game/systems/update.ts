@@ -105,7 +105,8 @@ export function layerSub(ly) {
 }
 import { ORE_GEN, ensureAround, hardOf, seen, solid, tiles } from "../core/world.ts";
 import { CONS, visR } from "../data/consumables.ts";
-import { CATS } from "../data/items.ts";
+import { CATS, ITEMS } from "../data/items.ts";
+import { buyItem } from "./town.ts";
 import { checkQuests, onMined } from "../data/progress.ts";
 import { saveNow } from "../save/account.ts";
 import { discoverCave, placeSupport, updateCave } from "./cave.ts";
@@ -257,7 +258,13 @@ export function toggleMech() {
     P.mech = false; P.vy = 0; sfx("land", { vol: 0.5 });
     say("로봇에서 내렸어요 · 곡괭이로 캐요 (로봇은 차고에서 다시 타요)");
   } else {
-    if (!P.items.robot) { say("로봇은 아이템 상점 '로봇' 칸에서 살 수 있어요"); sfx("error"); return true; }
+    if (!P.items.robot) {                                          // 로봇은 상점이 아니라 차고에서 삼 (2026-11-28)
+      const it = ITEMS.robot;
+      if (P.money < it.cost) { say("로봇은 " + won(it.cost) + " 이에요 · 광물을 팔아 모아 오세요"); sfx("error"); return true; }
+      buyItem("robot");
+      say("로봇을 샀어요! [E] 로 타요 · 드릴·엔진·궤도는 상점에서");
+      return true;
+    }
     P.mech = true; P.climbing = false; sfx("ignite");
     say("로봇에 탔어요! 드릴로 빠르게 캐고 ↑ 로 날아요");
   }

@@ -6,7 +6,8 @@ import { ICON, oreIcon } from "../art/sprites.ts";
 import { TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { EQUIP_FIXED, STAT, worn } from "../core/stats.ts";
+import { EQUIP_FIXED, SLOT_OF, STAT, worn } from "../core/stats.ts";
+import { SHOP_TABS } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { GLYPH, MT, SY, blit, btnPx, btnTxt, ctx, rivet, titleTxt, glyph, hazard, keycap, panel, pxBox, segBar, setFont, txt, well } from "./util.ts";
@@ -349,13 +350,13 @@ function pager(f, page, pages, act) {
 const SHOP_CARDS = 4;
 export function drawShopModal(vw, vh) {
   if (!kitOn() || vw < 560) return drawShopList(vw, vh);             // vw 는 이미 UI 배율로 나눈 크기
-  const cat = CATS[S.shopTab], len = cat.ids.length;
+  const cat = SHOP_TABS[S.shopTab], len = cat.ids.length;
   const f = townFrame(vw, vh, cat.name, null, 0, null, "[ ] 건물 이동 · ←→ 분류 · ↑↓ 고르기 · 휠·끌기 옆으로 · Enter 구매·장착 · Esc 닫기");
   if (f.narrow) return;                                              // (townFrame 이 좁다고 판단하면 위에서 걸러짐)
   const low = f.short;
   // 분류 아이콘 띠
-  const n = CATS.length, cg = 4, cw = Math.floor((f.cw - cg * (n - 1)) / n), chh = low ? 36 : 48;
-  CATS.forEach((c, i) => {
+  const n = SHOP_TABS.length, cg = 4, cw = Math.floor((f.cw - cg * (n - 1)) / n), chh = low ? 36 : 48;
+  SHOP_TABS.forEach((c, i) => {
     const x = f.cx + i * (cw + cg), on = i === S.shopTab, is = low || cw < 44 ? 16 : 32;
     kit(on ? "tab_on" : "tab", x, f.cy, cw, chh);
     drawPx(ICON[c.icon], x + Math.floor((cw - is) / 2), f.cy + Math.floor((chh - is) / 2), is);
@@ -397,10 +398,11 @@ export function drawShopModal(vw, vh) {
     const nsz = ctx.measureText(it.name).width <= cwid - 20 ? 16 : 12;   // 카드가 좁으면 긴 이름은 작은 글씨로 (…로 자르지 않게)
     txt(fitText(it.name, cwid - 16, nsz), mid, y + (nsz === 12 ? 3 : 0), locked ? SY.mute : SY.txt, nsz, "center", SY.ink);
     y += 22;
-    if (cat.slot) {                                                  // 장비 칸: 능력치 이름 + 값 (지금보다 좋으면 초록 + 차이)
-      const v = it.fx[cat.slot], cur = STAT[cat.slot], better = !on && v > cur + 1e-9;
-      if (!low) { txt(FX_NAME[cat.slot], mid, y, SY.dim, 12, "center", SY.ink); y += 18; }
-      txt(fxNum(cat.slot, v) + (better ? "  (+" + fxNum(cat.slot, v - cur) + ")" : ""), mid, y, better ? SY.green : on ? SY.y : SY.txt, 16, "center", SY.ink);
+    const sl = SLOT_OF[id] ? SLOT_OF[id].slot : null;               // 이 아이템의 장비 칸 (기타 탭은 조명·특수가 섞여 있어서 아이템마다)
+    if (sl) {                                                        // 장비 칸: 능력치 이름 + 값 (지금보다 좋으면 초록 + 차이)
+      const v = it.fx[sl], cur = STAT[sl], better = !on && v > cur + 1e-9;
+      if (!low) { txt(FX_NAME[sl], mid, y, SY.dim, 12, "center", SY.ink); y += 18; }
+      txt(fxNum(sl, v) + (better ? "  (+" + fxNum(sl, v - cur) + ")" : ""), mid, y, better ? SY.green : on ? SY.y : SY.txt, 16, "center", SY.ink);
       y += 22;
     } else {
       txt(fitText(fxText(it.fx), cwid - 28, 12), mid, y, SY.dim, 12, "center", SY.ink);
@@ -408,7 +410,7 @@ export function drawShopModal(vw, vh) {
     }
     // 버튼 (카드 아래): 안 가진 것은 가격만 (구매·잠김 글자 없이, 못 사면 꺼진 버튼)
     const bh = low ? 36 : 44, bx = x + 16, bw = cwid - 32, by = top + ch - bh - (low ? 12 : 16), price = money(it.cost);
-    if (locked && y + 14 <= by - 4) txt(fitText("필요: " + ITEMS[it.req].name, cwid - 28, 12), mid, y, SY.warn, 12, "center", SY.ink);   // 자리가 있을 때만
+    if (locked && y + 14 <= by - 4) txt(fitText(reqText(it), cwid - 28, 12), mid, y, SY.warn, 12, "center", SY.ink);   // 자리가 있을 때만
     if (on) uiBtn(bx, by, bw, bh, "장착 중", null, "steel", false, null);
     else if (owned) uiBtn(bx, by, bw, bh, "장착", null, "gold", true, "buy", id);
     else uiBtn(bx, by, bw, bh, price, null, "go", !locked && !poor, "buy", id);
@@ -424,6 +426,8 @@ export function drawShopModal(vw, vh) {
   if (sv < maxS - 0.02) shopEdge(f.cx + f.cw, top, ch, -1);
   shopBar(f, cat, barY, barH, maxS > 0 ? { sv, max: maxS, per, len } : 0);
 }
+// 잠긴 상품의 안내: 로봇 장비는 로봇을 차고에서 사야 해서 그렇게 알려 줌
+const reqText = (it) => (it.req === "robot" ? "필요: 로봇 (차고에서 구매)" : "필요: " + ITEMS[it.req].name);
 // 상점 가로 스크롤: S.shopScroll = 목표(카드 번호, 정수) · S.shopScrollV = 지금 그리는 자리(부드럽게 따라감)
 export function shopScrollTick(maxS, per) {
   const now = performance.now(), dt = Math.min(0.1, (now - (S.shopScrollT || now)) / 1000);
@@ -451,7 +455,7 @@ function shopEdge(x, y, h, dir) {
 function shopBar(f, cat, by, barH, sc) {
   kit("bar", f.cx, by, f.cw, barH);
   const selIt = cat.cons && ITEMS[cat.ids[S.shopSel]];
-  const tip = S.msgT > 0 ? S.msg : selIt ? selIt.name + " · " + selIt.desc : cat.slot ? "한 칸에 하나만 껴요 · 가진 장비는 [장착]으로 바꿔 끼기" : "산 장비는 바로 장착 · 빼려면 인벤토리 장비 탭";
+  const tip = S.msgT > 0 ? S.msg : selIt ? selIt.name + " · " + selIt.desc : cat.slot ? "한 칸에 하나만 껴요 · 가진 장비는 [장착]으로 바꿔 끼기" : cat.cats.length > 1 ? "조명은 하나만 껴요 · 특수 장비는 산 만큼 다 껴요" : "산 장비는 바로 장착 · 빼려면 인벤토리 장비 탭";
   const pw = sc ? 170 : 0;
   txt(fitText(tip, f.cw - 48 - pw, 12), f.cx + 22, by + Math.floor((barH - 12) / 2), S.msgT > 0 ? SY.gold : SY.dim, 12, "left", SY.ink);
   if (sc) {
@@ -564,9 +568,9 @@ function drawFly(fly, now) {
 }
 // 좁은 화면: 왼쪽 분류 + 목록 줄 (예전 상점)
 function drawShopList(vw, vh) {
-  const cat = CATS[S.shopTab];
+  const cat = SHOP_TABS[S.shopTab];
   S.shopStrip = null;                                                // (휴대폰 목록은 위아래 목록 + 쪽)
-  const f = townFrame(vw, vh, cat.name, CATS.map((c) => ({ name: c.name, icon: c.icon, img: ICON[c.icon] })), S.shopTab, "tab",
+  const f = townFrame(vw, vh, cat.name, SHOP_TABS.map((c) => ({ name: c.name, icon: c.icon, img: ICON[c.icon] })), S.shopTab, "tab",
     "[ ] 건물 이동 · ←→ 분류 · ↑↓ 고르기 · Enter 구매 · Esc 닫기");
   // 한 쪽에 몇 줄: 창 높이에 맞춰 3~9줄 (예전엔 4줄 고정이라 빈 자리가 남아도 쪽을 넘겨야 했음)
   const len = cat.ids.length;
@@ -598,8 +602,8 @@ function drawShopList(vw, vh) {
     else uiBtn(bx, by2, bw, bh, price, null, "go", !locked && !poor, "buy", id);   // 가격만 (구매·잠김 글자 없이)
     // 이름 + 설명
     const nameW = bx - 10 - lx;
-    const cur = cat.slot ? STAT[cat.slot] : null;                   // 장비 칸: 고유 값 + 지금 능력치 (비교)
-    const sub = locked ? "필요: " + ITEMS[it.req].name : it.cons ? it.desc : fxText(it.fx, cat.slot) + (cat.slot && !on ? "  (지금 " + fxNum(cat.slot, cur) + ")" : "");
+    const sl = SLOT_OF[id] ? SLOT_OF[id].slot : null, cur = sl ? STAT[sl] : null;   // 장비 칸: 고유 값 + 지금 능력치 (비교)
+    const sub = locked ? reqText(it) : it.cons ? it.desc : fxText(it.fx, sl) + (sl && !on ? "  (지금 " + fxNum(sl, cur) + ")" : "");
     const cnt = it.cons && !bagH ? "  x" + (P.inv[id] || 0) : "";   // 가방 띠가 있으면 개수는 거기서
     rowText(lx, ry, inner, nameW, it.name + cnt, locked ? SY.mute : SY.txt, sub, locked ? SY.warn : poor ? SY.red : SY.dim);
     shopBtn.push({ x: f.cx, y: ry, w: bx - f.cx - 4, h: inner, act: "sel", i });

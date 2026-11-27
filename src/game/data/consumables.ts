@@ -50,6 +50,17 @@ export const HOT = ["fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x", "la
   }
   CATS.push({ name: "소모품", icon: "fuelcan", ids, cons: true });
 }
+// 상점 탭 (2026-11-28): 장비 칸 분류(CATS)를 상점에서는 묶어서 보여 줌 → 탭 수를 줄임
+//   조명 + 특수 = 기타 · 로봇 본체는 상점에서 빼고 차고에서 삼(update.ts toggleMech)
+//   카드의 능력치 칸은 탭이 아니라 그 아이템의 분류(SLOT_OF)로 판단
+export const SHOP_TABS = [
+  ["곡괭이", "pick", ["pick"]], ["백팩 로켓", "rocket", ["rocket"]], ["드릴", "drill", ["drill"]],
+  ["탱크", "fuel", ["fuel"]], ["화물", "crate", ["crate"]], ["엔진", "engine", ["engine"]], ["궤도", "tracks", ["tracks"]],
+  ["기타", "special", ["lamp", "special"]], ["소모품", "fuelcan", ["fuelcan"]],
+].map(([name, icon, keys]) => {
+  const cs = keys.map((k) => CATS.find((c) => c.icon === k));
+  return { name, icon, cats: cs, ids: cs.flatMap((c) => c.ids), cons: !!cs[0].cons, slot: cs.length === 1 ? cs[0].slot : null };
+});
 export const VIS_BASE = 2.5;                                     // 기본 시야 반경(타일)
 export const visR = () => VIS_BASE * STAT.light;
 export const LOOK = { drill: 0, tracks: 0, lamp: 0, crate: 0, engine: 0, pick: 0, rocket: 0, key: "" };   // 로봇 외형(장비 단계) · 사람 곡괭이/로켓 단계
