@@ -350,7 +350,7 @@ const SHOP_CARDS = 4;
 export function drawShopModal(vw, vh) {
   if (!kitOn() || vw < 560) return drawShopList(vw, vh);             // vw 는 이미 UI 배율로 나눈 크기
   const cat = CATS[S.shopTab], len = cat.ids.length;
-  const f = townFrame(vw, vh, cat.name, null, 0, null, "[ ] 건물 이동 · ←→ 분류 · ↑↓ 고르기 · 1~4 / Enter 구매·장착 · Esc 닫기");
+  const f = townFrame(vw, vh, cat.name, null, 0, null, "[ ] 건물 이동 · ←→ 분류 · ↑↓ 고르기 · 숫자 / Enter 구매·장착 · Esc 닫기");
   if (f.narrow) return;                                              // (townFrame 이 좁다고 판단하면 위에서 걸러짐)
   const low = f.short;
   // 분류 아이콘 띠
@@ -369,14 +369,15 @@ export function drawShopModal(vw, vh) {
     txt(len + "개 중 " + own + "개 가짐", f.rx + 4 + tw2 + 12, f.ry + 7, SY.dim, 12, "left", SY.ink);
   }
   // 카드
-  S.shopPer = SHOP_CARDS;
-  const pages = Math.ceil(len / SHOP_CARDS), page = Math.floor(S.shopSel / SHOP_CARDS);
+  const per = len === 5 ? 5 : SHOP_CARDS;                            // 5개짜리 분류(곡괭이·백팩 로켓)는 한 쪽에 다 보이게
+  S.shopPer = per;
+  const pages = Math.ceil(len / per), page = Math.floor(S.shopSel / per);
   const barH = 34, barY = f.ry + f.rh - barH, top = f.cy + chh + 10, ch = barY - 10 - top, gap = 10;   // 아래 띠는 판 맨 아래(안내 줄 자리까지)
-  const cwid = Math.floor((f.cw - gap * (SHOP_CARDS - 1)) / SHOP_CARDS);
+  const cwid = Math.floor((f.cw - gap * (per - 1)) / per);
   const ss = Math.max(40, Math.min(88, ch - (low ? 120 : 190)));      // 아이콘 칸: 카드 높이에서 글·버튼 자리를 빼고 남는 만큼
   const ib = ss >= 72 ? 64 : 32;
-  for (let k = 0; k < SHOP_CARDS; k++) {
-    const i = page * SHOP_CARDS + k;
+  for (let k = 0; k < per; k++) {
+    const i = page * per + k;
     if (i >= len) break;
     const id = cat.ids[i], it = ITEMS[id], x = f.cx + k * (cwid + gap), mid = x + Math.floor(cwid / 2);
     const owned = !it.cons && !!P.items[id], on = owned && (worn(id) || EQUIP_FIXED[id]);
@@ -389,7 +390,10 @@ export function drawShopModal(vw, vh) {
     drawPx(itemIcon(id), mid - ib / 2, y + Math.floor((ss - ib) / 2), ib, locked ? 0.35 : 1);
     if (!S.usedTouch && !low) keycap(x + 16, top + 16, String(k + 1));
     y += ss + (low ? 6 : 12);
-    txt(fitText(it.name + (it.cons ? "  x" + (P.inv[id] || 0) : ""), cwid - 28, 16), mid, y, locked ? SY.mute : SY.txt, 16, "center", SY.ink);
+    const nm = it.name + (it.cons ? "  x" + (P.inv[id] || 0) : "");
+    setFont(16);
+    const nsz = ctx.measureText(nm).width <= cwid - 20 ? 16 : 12;   // 카드가 좁으면(5장) 긴 이름은 작은 글씨로 (…로 자르지 않게)
+    txt(fitText(nm, cwid - 16, nsz), mid, y + (nsz === 12 ? 3 : 0), locked ? SY.mute : SY.txt, nsz, "center", SY.ink);
     y += 22;
     if (cat.slot) {                                                  // 장비 칸: 능력치 이름 + 값 (지금보다 좋으면 초록 + 차이)
       const v = it.fx[cat.slot], cur = STAT[cat.slot], better = !on && v > cur + 1e-9;

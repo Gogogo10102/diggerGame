@@ -15,7 +15,7 @@ export const PAL = [
   { h: "#ffffff", m: "#6ef2d4", l: "#2a9d92" },   // 7 미스릴
 ];
 // 사람 장비 단계 → PAL 색 (이름에 맞춰: 철·강철·금·다이아·미스릴 / 로켓 1~4)
-export const PICK_TIER = [0, 1, 4, 2, 7], ROCKET_TIER = [0, 1, 4, 6];
+export const PICK_TIER = [0, 1, 4, 2, 7], ROCKET_TIER = [0, 3, 1, 4, 6];
 export const GLOW = ["#ffcd3c", "#fff3a8", "#e8ffff", "#b8ffcf", "#ffe9a0", "#ffc0c0", "#e6c8ff", "#ffffff"];
 export const FLAME = [["#ff8a1f", "#ffe066"], ["#ff8a1f", "#ffe066"], ["#ffb040", "#fff3a8"], ["#5ef2ff", "#e8ffff"],
   ["#3ddc84", "#c8ffd8"], ["#ff4d5e", "#ffc8c8"], ["#a45cff", "#ecd4ff"], ["#6ef2d4", "#ffffff"], ["#ffffff", "#6ef2d4"]];
