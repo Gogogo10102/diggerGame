@@ -1016,13 +1016,13 @@ export function drawHUD(vw, vh, depth) {
   const helpLift = helpUp ? 44 : 0;
   const garageHere = !S.nearItems && !S.nearCraft && !S.nearFurnace && atGarage();
   if ((S.nearItems || S.nearCraft || S.nearFurnace || garageHere) && S.state === "play" && P.dead <= 0) {
-    const nm = S.nearItems ? (cargoCount() > 0 ? "가게 들어가기 · 광물 팔기" : "가게 들어가기") : P.mech ? "로봇에서 내리기" : P.items.robot ? "로봇 타기" : "차고 (로봇 없음)";
+    const nm = S.nearItems ? (cargoCount() > 0 ? "가게 들어가기 · 광물 팔기" : "가게 들어가기") : P.mech ? "로봇에서 내리기" : P.items.robot ? "로봇 타기" : "로봇 사기 · " + won(ITEMS.robot.cost);
     const label = S.usedTouch ? nm : "[E] " + nm;
     setFont(16);
     const pw = Math.ceil(ctx.measureText(label).width) + 56, ph = 48;
     const px = Math.floor((vw - pw) / 2), py = vh - 124 - helpLift;
     S.promptBtn = { x: px, y: py, w: pw, h: ph };
-    const cy = btnPx(px, py, pw, ph, garageHere && !P.mech && !P.items.robot ? "steel" : "green");
+    const cy = btnPx(px, py, pw, ph, garageHere && !P.mech && !P.items.robot && P.money < ITEMS.robot.cost ? "steel" : "green");
     btnTxt(label, vw / 2 + 4, cy - 8, 16);
   }
 

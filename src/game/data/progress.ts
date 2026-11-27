@@ -87,7 +87,7 @@ S.questT = 0;
 // ---- 캐릭터(로봇) 종류: 해금 조건 (그림은 sprites.ts 의 CHAR_IDS · tools/chars.py) ----
 //  need: [기록 종류, 목표] — lv 레벨 · depth 최고 깊이(m) · chests 연 보물 상자 · ores 캔 광물 수
 export const CHAR_INFO = [
-  { id: "yellow", name: "노랑이", desc: "기본 드릴 로봇. 안전 노랑이 자랑", need: null },
+  { id: "yellow", name: "노랑이", desc: "기본 굴착 로봇. 안전 노랑이 자랑", need: null },
   { id: "ruby", name: "불꽃이", desc: "새빨간 몸 · 안테나 하나 · 호박색 눈", need: ["lv", 3] },
   { id: "mint", name: "새싹이", desc: "둥근 머리 민트 로봇 · 분홍 눈", need: ["depth", 100] },
   { id: "cobalt", name: "파랑이", desc: "고글 눈 심해 탐사 로봇 · 안테나 없음", need: ["chests", 5] },

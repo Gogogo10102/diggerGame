@@ -92,6 +92,7 @@ export function buyItem(id) {
     P.money -= it.cost;
     P.inv[id] = (P.inv[id] || 0) + 1;
     say(it.name + " 구매! (보유 " + P.inv[id] + "개)"); sfx("buy");
+    (S.shopFly = S.shopFly || []).push({ id, t: performance.now() });   // 상점 '내 가방'으로 날아 들어가는 그림 (townUI.ts)
     saveNow(true, true);
     return;
   }
@@ -103,7 +104,7 @@ export function buyItem(id) {
     saveNow(true, true);
     return;
   }
-  if (it.req && !P.items[it.req]) return townFail("먼저 " + ITEMS[it.req].name + " 구매 필요");
+  if (it.req && !P.items[it.req]) return townFail(it.req === "robot" ? "먼저 차고에서 로봇을 사야 해요" : "먼저 " + ITEMS[it.req].name + " 구매 필요");
   if (P.money < it.cost) return townFail("돈이 부족합니다 (" + won(it.cost) + " 필요)");
   P.money -= it.cost;
   P.items[id] = true;

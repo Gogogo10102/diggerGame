@@ -3,8 +3,7 @@ import "../core/stats.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼�
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { SHOP_PER, cargoCount, cycleZoom, say } from "../core/stats.ts";
-import { HOT } from "../data/consumables.ts";
-import { CATS } from "../data/items.ts";
+import { HOT, SHOP_TABS } from "../data/consumables.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
 import { BAR_KEYS, furnaceAct, openFurnace } from "./furnace.ts";
@@ -44,7 +43,7 @@ addEventListener("keydown", (e) => {
     return;
   }
   if (S.state === "shop") {                             // 상점 메뉴 조작
-    const n = CATS.length, len = CATS[S.shopTab].ids.length;
+    const n = SHOP_TABS.length, len = SHOP_TABS[S.shopTab].ids.length;
     if (e.code === "Escape" || e.code === "KeyE") { if (!e.repeat) closeShop(); return; }
     if (e.repeat && (e.code === "Enter" || e.code === "Space")) return;
     if (e.code === "ArrowLeft" || e.code === "KeyA") { S.shopTab = (S.shopTab + n - 1) % n; S.shopSel = 0; }
@@ -53,12 +52,7 @@ addEventListener("keydown", (e) => {
     else if (e.code === "ArrowDown" || e.code === "KeyS") S.shopSel = (S.shopSel + 1) % len;
     else if (e.code === "PageDown") S.shopSel = Math.min(len - 1, (Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) + 1) * (S.shopPer || SHOP_PER));
     else if (e.code === "PageUp") S.shopSel = Math.max(0, (Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) - 1) * (S.shopPer || SHOP_PER));
-    else if (e.code === "Enter" || e.code === "Space") buyItem(CATS[S.shopTab].ids[S.shopSel]);
-    else if (/^Digit[1-9]$/.test(e.code)) {
-      const per = S.shopPer || SHOP_PER, d = Number(e.code.slice(5));
-      const idx = Math.floor(S.shopSel / per) * per + d - 1;
-      if (d <= per && idx < len) { S.shopSel = idx; buyItem(CATS[S.shopTab].ids[idx]); }   // 지금 쪽에 보이는 칸 번호만
-    }
+    else if (e.code === "Enter" || e.code === "Space") buyItem(SHOP_TABS[S.shopTab].ids[S.shopSel]);
     return;
   }
   if (S.state === "craft") {                            // 제작소 메뉴 조작
@@ -152,8 +146,46 @@ export function endStick(e) {
     S.stick = null; touch.l = touch.r = touch.u = touch.d = false;
   }
 }
+// 상점 카드 줄은 끌어서 옆으로 밀기: 누르면 바로 버튼을 누르지 않고 기다렸다가, 거의 안 움직이고 떼면 그때 누른 것으로 (stageDown)
+function shopDragStart(e) {
+  const st = S.shopStrip;
+  if (S.state !== "shop" || !st || st.max <= 0) return false;
+  const u = S.townU || 1, x = e.clientX / u, y = e.clientY / u;
+  if (x < st.x || x > st.x + st.w || y < st.y || y > st.y + st.h) return false;
+  if (e.pointerType === "touch" || e.pointerType === "pen") S.usedTouch = true;
+  S.shopDrag = { id: e.pointerId, cx: e.clientX, cy: e.clientY, x0: x, s0: S.shopScroll || 0, moved: false, pt: e.pointerType };
+  try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+  return true;
+}
+function shopDragMove(e) {
+  const d = S.shopDrag, st = S.shopStrip;
+  if (!d || e.pointerId !== d.id || !st) return false;
+  const dx = e.clientX / (S.townU || 1) - d.x0;
+  if (!d.moved && Math.abs(dx) > 8) d.moved = true;
+  if (d.moved) S.shopScroll = Math.max(0, Math.min(st.max, d.s0 - dx / st.step));
+  d.dx = dx;
+  return true;
+}
+function shopDragEnd(e) {
+  const d = S.shopDrag;
+  if (!d || e.pointerId !== d.id) return false;
+  S.shopDrag = null;
+  if (!d.moved) { stageDown({ clientX: d.cx, clientY: d.cy, pointerType: d.pt, pointerId: d.id }); return true; }
+  const r = S.shopScroll, max = S.shopStrip ? S.shopStrip.max : 0;   // 조금만 밀어도 민 쪽으로 한 장 넘어가게 맞춤
+  S.shopScroll = Math.max(0, Math.min(max, d.dx < 0 ? Math.floor(r + 0.8) : Math.ceil(r - 0.8)));
+  return true;
+}
+export function shopScrollBy(n) {
+  const st = S.shopStrip;
+  if (!st) return;
+  S.shopScroll = Math.max(0, Math.min(st.max, Math.round(S.shopScroll || 0) + n));
+}
 stage.addEventListener("pointerdown", (e) => {
   e.preventDefault();
+  if (shopDragStart(e)) return;
+  stageDown(e);
+});
+function stageDown(e) {
   if (e.pointerType === "touch" || e.pointerType === "pen") S.usedTouch = true;
   if (S.state === "title") { openAccountScreen(); return; }
   if (S.state === "account" || S.state === "menu") return;
@@ -209,11 +241,12 @@ stage.addEventListener("pointerdown", (e) => {
       if (b.act === "town") switchTown(b.arg);
       else if (b.act === "tab") { S.shopTab = b.arg; S.shopSel = 0; }
       else if (b.act === "sel") S.shopSel = b.i;              // 줄을 누르면 고르기, 아래 [구매] 버튼으로 사기
-      else if (b.act === "buy") { const k = CATS[S.shopTab].ids.indexOf(b.arg); if (k >= 0) S.shopSel = k; buyItem(b.arg); }
+      else if (b.act === "buy") { const k = SHOP_TABS[S.shopTab].ids.indexOf(b.arg); if (k >= 0) S.shopSel = k; buyItem(b.arg); }
       else if (b.act === "page") {
-        const np = Math.max(0, Math.min(Math.ceil(CATS[S.shopTab].ids.length / (S.shopPer || SHOP_PER)) - 1, Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) + b.arg));
+        const np = Math.max(0, Math.min(Math.ceil(SHOP_TABS[S.shopTab].ids.length / (S.shopPer || SHOP_PER)) - 1, Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) + b.arg));
         S.shopSel = np * (S.shopPer || SHOP_PER);
       }
+      else if (b.act === "scroll") shopScrollBy(b.arg);
       else if (b.act === "close") closeShop();
       return;
     }
@@ -232,16 +265,24 @@ stage.addEventListener("pointerdown", (e) => {
   S.stick = { id: e.pointerId, ox: x, oy: y, x, y };
   try { stage.setPointerCapture(e.pointerId); } catch (_) {}
   updateStick();
-});
+}
 stage.addEventListener("pointermove", (e) => {
+  if (shopDragMove(e)) return;
   if (S.state === "map") { mapPointerMove(e.clientX, e.clientY, e.pointerId); return; }
   if (!S.stick || e.pointerId !== S.stick.id) return;
   S.stick.x = e.clientX; S.stick.y = e.clientY;
   updateStick();
 });
-stage.addEventListener("pointerup", (e) => { mapPointerUp(e.pointerId); endStick(e); });
-stage.addEventListener("pointercancel", (e) => { mapPointerUp(e.pointerId); endStick(e); });
-stage.addEventListener("wheel", (e) => { if (S.state === "map") { e.preventDefault(); mapZoom(e.deltaY < 0 ? 1 : -1); } }, { passive: false });
+stage.addEventListener("pointerup", (e) => { if (shopDragEnd(e)) return; mapPointerUp(e.pointerId); endStick(e); });
+stage.addEventListener("pointercancel", (e) => { if (S.shopDrag && S.shopDrag.id === e.pointerId) { S.shopDrag = null; shopScrollBy(0); } mapPointerUp(e.pointerId); endStick(e); });
+stage.addEventListener("wheel", (e) => {
+  if (S.state === "map") { e.preventDefault(); mapZoom(e.deltaY < 0 ? 1 : -1); return; }
+  if (S.state === "shop" && S.shopStrip && S.shopStrip.max > 0) {      // 상점 카드: 휠(세로·가로 둘 다)로 한 장씩
+    e.preventDefault();
+    S.shopWheel = (S.shopWheel || 0) + (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY);
+    if (Math.abs(S.shopWheel) >= 40) { shopScrollBy(Math.sign(S.shopWheel)); S.shopWheel = 0; }
+  }
+}, { passive: false });
 addEventListener("contextmenu", (e) => e.preventDefault());
 
 export const L_ = () => keys.ArrowLeft || keys.KeyA || touch.l;

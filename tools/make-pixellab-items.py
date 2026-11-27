@@ -24,6 +24,30 @@ CELL = 32
 # 시트마다 고른 칸 (2026-11-28 백팩 로켓부터)
 PICKS = {
     "rocket": {2: "rocket1", 18: "rocket1b", 24: "rocket2", 33: "rocket3", 49: "rocket4"},   # 백팩 · 강화 · 터보 · 제트 · 플라즈마
+    "fuel": {4: "aux_tank", 10: "big_tank", 19: "power_cell", 29: "comp_tank", 34: "plasma_cell", 49: "fusion_core", 54: "dark_tank", 64: "inf_reactor"},
+    "crate": {25: "cargo1", 29: "cargo2", 40: "cargo3", 41: "cargo4", 33: "cargo5", 43: "cargo6", 49: "cargo7", 62: "cargo8"},   # 나무 상자 대신 철 상자 → 기계 큐브 (로봇 몸 안 적재함 느낌)
+    "engine": {2: "engine1", 15: "engine2", 18: "engine3", 26: "engine4", 35: "engine5", 43: "engine6", 50: "engine7", 61: "engine8"},
+    "lamp": {2: "lamp1", 13: "lamp2", 18: "lamp3", 31: "lamp4", 33: "lamp5", 44: "lamp6", 49: "lamp7", 63: "lamp8"},
+    "special": {2: "eco1", 13: "appraiser", 17: "eco2", 27: "market_ana", 35: "luck_ant", 45: "auction", 49: "superwire", 58: "exchange"},
+    "c_engine": {2: "coal_boiler", 10: "ruby_core", 21: "mithril_reactor", 25: "copper_coil", 33: "gold_cell", 41: "diamond_cell", 52: "void_engine"},
+    "c_tracks": {1: "copper_motor", 10: "steel_frame", 20: "mithril_armor", 26: "turbo_motor", 34: "ion_thruster", 41: "silver_plating", 49: "diamond_hull"},
+    "c_lamp": {1: "silver_lens", 22: "gold_scale", 19: "lucky_charm", 26: "emerald_lens", 34: "diamond_scope", 47: "merchant_ring", 57: "clover_gem"},
+    "c_special": {2: "scout_goggles", 19: "geo_scanner", 33: "vein_radar", 50: "deep_visor"},
+    "cons": {1: "fuel_s", 17: "fuel_m", 14: "fuel_l", 19: "dyn_s", 25: "dyn_l", 32: "dyn_x", 38: "ladder", 49: "recall", 50: "sup_w", 59: "sup_s"},
+    # 톱니(예전 '드릴', 로봇 팔이 톱니바퀴라 2026-11-28 바꿈) · 제작 톱날 · 구동계(예전 '궤도', 다리 대신 몸속 부품)
+    "gear": {2: "steel_drill", 12: "ti_drill", 22: "dia_drill", 26: "plasma_drill", 35: "sonic_drill", 44: "gravity_drill", 50: "antimatter_drill", 58: "singularity_drill",
+             6: "iron_bit", 15: "silver_bit", 18: "dia_bit", 32: "ruby_bit", 36: "mithril_drill"},
+    "drive": {1: "track1", 17: "track2", 34: "track3", 29: "track4", 57: "track5", 58: "track6", 55: "track7", 64: "track8"},
+}
+# 상점 분류 아이콘(탭 띠): 시트 tabs.png → ui/tab/<분류 icon 키>.png (아이템 그림과 따로, 2026-11-28)
+TAB_PICKS = {
+    "tabs": {1: "pick", 10: "rocket", 23: "drill", 25: "fuel", 40: "crate", 41: "engine", 49: "tracks", 57: "special"},
+}
+TAB_OUT = os.path.join(ROOT, "public/assets/ui/tab")
+# 시트에 없는 색은 비슷한 칸의 색만 바꿔서: 아이템 id → (시트, 칸, 색상(도), 채도 배율)
+RECOLOR = {
+    "gold_bit": ("gear", 11, 45, 2.2),       # 은 톱날 → 금빛
+    "laser_drill": ("gear", 20, 140, 1.4),   # 파란 결정 톱날 → 에메랄드 초록
 }
 CONSUMABLE = {"fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x", "ladder", "recall", "sup_w", "sup_s"}
 
@@ -48,6 +72,35 @@ def main(only):
             if iid in CONSUMABLE:
                 c.save(os.path.join(UI, iid + ".png"))
             print(f"{name} #{n} → items/{iid}.png")
+    os.makedirs(TAB_OUT, exist_ok=True)
+    for name, picks in TAB_PICKS.items():
+        if only and name not in only:
+            continue
+        sheet = Image.open(os.path.join(SRC, name + ".png")).convert("RGBA")
+        for n, key in picks.items():
+            cell(sheet, n).save(os.path.join(TAB_OUT, key + ".png"))
+            print(f"{name} #{n} → ui/tab/{key}.png")
+    for iid, (name, n, hue, sat) in RECOLOR.items():
+        if only and name not in only:
+            continue
+        sheet = Image.open(os.path.join(SRC, name + ".png")).convert("RGBA")
+        recolor(cell(sheet, n), hue, sat).save(os.path.join(OUT, iid + ".png"))
+        print(f"{name} #{n} (색 {hue}도) → items/{iid}.png")
+
+
+def recolor(c, hue, sat):
+    """밝기·투명도는 그대로 두고 색상만 hue 로, 채도는 sat 배 (테두리 검정은 채도가 없어서 그대로)"""
+    import colorsys
+    px = c.load()
+    for y in range(c.size[1]):
+        for x in range(c.size[0]):
+            r, g, b, a = px[x, y]
+            if not a:
+                continue
+            h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+            r2, g2, b2 = colorsys.hsv_to_rgb(hue / 360, min(1, s * sat + 0.08 * (v > 0.25)), v)
+            px[x, y] = (round(r2 * 255), round(g2 * 255), round(b2 * 255), a)
+    return c
 
 
 if __name__ == "__main__":

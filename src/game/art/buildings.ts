@@ -120,10 +120,10 @@ export const plinthLow = sprite(16, 16, (p) => { brickFill(p, 0, 0, 16, 16, "#4a
 
 //  장비 효과 글: 장비 칸 장비(slot)는 그 장비의 고유 값 ("곡괭이 채굴력 1.6"), 특수·제작 보너스는 더하는 값 ("+0.8")
 //  판매가·행운·연비만 % (원래 비율이라서)
-export const FX_NAME = { drill: "드릴 채굴력", pick: "곡괭이 채굴력", thrust: "로봇 추진력", speed: "로봇 이동 속도", light: "시야", fuel: "최대 연료", cargo: "화물칸", rocket: "로켓 추진력", sell: "판매가", lucky: "행운", eff: "연료 소모" };
+export const FX_NAME = { drill: "톱니 채굴력", pick: "곡괭이 채굴력", thrust: "로봇 추진력", speed: "로봇 이동 속도", light: "시야", fuel: "최대 연료", cargo: "화물칸", rocket: "로켓 추진력", sell: "판매가", lucky: "행운", eff: "연료 소모" };
 export const fxNum = (k, v) => (k === "fuel" || k === "cargo" ? String(Math.round(v)) : (Math.round(v * 100) / 100).toString());
 export function fxText(fx, slot) {
-  if (fx.robot) return "마을 차고에서 타요 · 강한 드릴 · 날 수 있음";
+  if (fx.robot) return "마을 차고에서 타요 · 톱니로 빠르게 캠 · 날 수 있음";
   return Object.keys(fx).map((k) => {
     const v = fx[k];
     if (k === slot) return FX_NAME[k] + " " + fxNum(k, v) + (k === "rocket" ? " · 날 수 있음" : "");
@@ -141,5 +141,7 @@ export const UIK = Object.fromEntries(["window", "row", "row_on", "tab", "tab_on
 export const GARAGE_IMG = { garage_0: sprite(1, 1, () => {}), garage_1: sprite(1, 1, () => {}), shutter: sprite(1, 1, () => {}) };
 export const GARAGE_FX = { w: 234, h: 170, door: [106, 86, 92, 72], floor: 12 };   // make-pixellab-building.py 출력값: 문 구멍(잘린 그림 기준) · 문턱 높이
 // 마을 창 탭 이름도 그림으로 (signs/tab_<탭>_<on|off>.png). 1배로 그림
+// 상점 분류 아이콘 (PixelLab, ui/tab/<키>.png). 없는 키는 예전 ICON 을 씀 → catIcon()
+export const CAT_IMG = Object.fromEntries(["pick", "rocket", "drill", "fuel", "crate", "engine", "tracks", "special", "fuelcan"].map((k) => [k, sprite(1, 1, () => {})]));
 export const TAB_IMG = {};
 for (const k of ["shop", "craft", "furnace", "sell"]) for (const st of ["on", "off"]) TAB_IMG[k + "_" + st] = sprite(1, 1, () => {});
