@@ -8,7 +8,7 @@
 // =====================================================================
 import { ICON, oreIcon, ORE_SPR, dirtTiles, backTiles, grassTiles, decoTiles, hardTiles, stoneTiles, cracks, bedrock, sunImg, cloudImg, MINER_HI, MINER_CH, minerCache, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, gasTile, ladderTile, PLAYER_IMG, MECH_IMG, clearPlayerCache } from "./sprites.ts";
 import { ITEM_ICON } from "./itemIcons.ts";
-import { GARAGE_IMG, SIGN_IMG, TAB_IMG, UIK, plinthTop, plinthLow } from "./buildings.ts";
+import { CAT_IMG, GARAGE_IMG, SIGN_IMG, TAB_IMG, UIK, plinthTop, plinthLow } from "./buildings.ts";
 import { barIcon, furnaceImg } from "../systems/furnace.ts";
 import { oreDrop } from "../systems/drops.ts";
 import { S } from "../core/state.ts";
@@ -44,6 +44,7 @@ export function assetTable() {
   for (const k in GARAGE_IMG) t["buildings/" + k + ".png"] = () => GARAGE_IMG[k];   // 로봇 차고 두 단계 + 셔터
   for (const k in SIGN_IMG) t["signs/" + k + ".png"] = () => SIGN_IMG[k];
   for (const k in TAB_IMG) t["signs/tab_" + k + ".png"] = () => TAB_IMG[k];
+  for (const k in CAT_IMG) t["ui/tab/" + k + ".png"] = () => CAT_IMG[k];   // 상점 분류 아이콘
   t["sky/sun.png"] = () => sunImg;
   t["sky/cloud.png"] = () => cloudImg;
   t["tiles/chest.png"] = () => chestTile;

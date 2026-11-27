@@ -141,5 +141,7 @@ export const UIK = Object.fromEntries(["window", "row", "row_on", "tab", "tab_on
 export const GARAGE_IMG = { garage_0: sprite(1, 1, () => {}), garage_1: sprite(1, 1, () => {}), shutter: sprite(1, 1, () => {}) };
 export const GARAGE_FX = { w: 234, h: 170, door: [106, 86, 92, 72], floor: 12 };   // make-pixellab-building.py 출력값: 문 구멍(잘린 그림 기준) · 문턱 높이
 // 마을 창 탭 이름도 그림으로 (signs/tab_<탭>_<on|off>.png). 1배로 그림
+// 상점 분류 아이콘 (PixelLab, ui/tab/<키>.png). 없는 키는 예전 ICON 을 씀 → catIcon()
+export const CAT_IMG = Object.fromEntries(["pick", "rocket", "drill", "fuel", "crate", "engine", "tracks", "special", "fuelcan"].map((k) => [k, sprite(1, 1, () => {})]));
 export const TAB_IMG = {};
 for (const k of ["shop", "craft", "furnace", "sell"]) for (const st of ["on", "off"]) TAB_IMG[k + "_" + st] = sprite(1, 1, () => {});

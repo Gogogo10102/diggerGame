@@ -39,6 +39,11 @@ PICKS = {
              6: "iron_bit", 15: "silver_bit", 18: "dia_bit", 32: "ruby_bit", 36: "mithril_drill"},
     "drive": {1: "track1", 17: "track2", 34: "track3", 29: "track4", 57: "track5", 58: "track6", 55: "track7", 64: "track8"},
 }
+# 상점 분류 아이콘(탭 띠): 시트 tabs.png → ui/tab/<분류 icon 키>.png (아이템 그림과 따로, 2026-11-28)
+TAB_PICKS = {
+    "tabs": {1: "pick", 10: "rocket", 23: "drill", 25: "fuel", 40: "crate", 41: "engine", 49: "tracks", 57: "special"},
+}
+TAB_OUT = os.path.join(ROOT, "public/assets/ui/tab")
 # 시트에 없는 색은 비슷한 칸의 색만 바꿔서: 아이템 id → (시트, 칸, 색상(도), 채도 배율)
 RECOLOR = {
     "gold_bit": ("gear", 11, 45, 2.2),       # 은 톱날 → 금빛
@@ -67,6 +72,14 @@ def main(only):
             if iid in CONSUMABLE:
                 c.save(os.path.join(UI, iid + ".png"))
             print(f"{name} #{n} → items/{iid}.png")
+    os.makedirs(TAB_OUT, exist_ok=True)
+    for name, picks in TAB_PICKS.items():
+        if only and name not in only:
+            continue
+        sheet = Image.open(os.path.join(SRC, name + ".png")).convert("RGBA")
+        for n, key in picks.items():
+            cell(sheet, n).save(os.path.join(TAB_OUT, key + ".png"))
+            print(f"{name} #{n} → ui/tab/{key}.png")
     for iid, (name, n, hue, sat) in RECOLOR.items():
         if only and name not in only:
             continue

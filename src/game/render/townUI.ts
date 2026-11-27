@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./draw.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { FX_NAME, TAB_IMG, UIK, fxNum, fxText } from "../art/buildings.ts";
+import { CAT_IMG, FX_NAME, TAB_IMG, UIK, fxNum, fxText } from "../art/buildings.ts";
 import { itemIcon } from "../art/itemIcons.ts";
 import { ICON, oreIcon } from "../art/sprites.ts";
 import { TILE, won } from "../core/config.ts";
@@ -359,7 +359,7 @@ export function drawShopModal(vw, vh) {
   SHOP_TABS.forEach((c, i) => {
     const x = f.cx + i * (cw + cg), on = i === S.shopTab, is = low || cw < 44 ? 16 : 32;
     kit(on ? "tab_on" : "tab", x, f.cy, cw, chh);
-    drawPx(ICON[c.icon], x + Math.floor((cw - is) / 2), f.cy + Math.floor((chh - is) / 2), is);
+    drawPx(catIcon(c.icon), x + Math.floor((cw - is) / 2), f.cy + Math.floor((chh - is) / 2), is);
     shopBtn.push({ x, y: f.cy, w: cw, h: chh, act: "tab", arg: i });
   });
   // 가진 개수 (제목 옆)
@@ -426,6 +426,8 @@ export function drawShopModal(vw, vh) {
   if (sv < maxS - 0.02) shopEdge(f.cx + f.cw, top, ch, -1);
   shopBar(f, cat, barY, barH, maxS > 0 ? { sv, max: maxS, per, len } : 0);
 }
+// 상점 분류 아이콘: PixelLab 그림(ui/tab)이 있으면 그것, 없으면 예전 아이콘
+const catIcon = (k) => (CAT_IMG[k] && CAT_IMG[k].width > 1 ? CAT_IMG[k] : ICON[k]);
 // 잠긴 상품의 안내: 로봇 장비는 로봇을 차고에서 사야 해서 그렇게 알려 줌
 const reqText = (it) => (it.req === "robot" ? "필요: 로봇 (차고에서 구매)" : "필요: " + ITEMS[it.req].name);
 // 상점 가로 스크롤: S.shopScroll = 목표(카드 번호, 정수) · S.shopScrollV = 지금 그리는 자리(부드럽게 따라감)
@@ -570,7 +572,7 @@ function drawFly(fly, now) {
 function drawShopList(vw, vh) {
   const cat = SHOP_TABS[S.shopTab];
   S.shopStrip = null;                                                // (휴대폰 목록은 위아래 목록 + 쪽)
-  const f = townFrame(vw, vh, cat.name, SHOP_TABS.map((c) => ({ name: c.name, icon: c.icon, img: ICON[c.icon] })), S.shopTab, "tab",
+  const f = townFrame(vw, vh, cat.name, SHOP_TABS.map((c) => ({ name: c.name, icon: c.icon, img: catIcon(c.icon) })), S.shopTab, "tab",
     "[ ] 건물 이동 · ←→ 분류 · ↑↓ 고르기 · Enter 구매 · Esc 닫기");
   // 한 쪽에 몇 줄: 창 높이에 맞춰 3~9줄 (예전엔 4줄 고정이라 빈 자리가 남아도 쪽을 넘겨야 했음)
   const len = cat.ids.length;
