@@ -2,7 +2,7 @@
 import "./dom.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { CRAFT_ICON, itemIcon } from "../art/itemIcons.ts";
 import { ICON, getMiner, oreIcon } from "../art/sprites.ts";
-import { TILE } from "../core/config.ts";
+import { TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { EQUIP_FIXED, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, SLOT_BASE, STAT, cargoCap, cargoCount, equipSlot, equipToggle, maxFuel, slotItem, worn } from "../core/stats.ts";
@@ -41,7 +41,7 @@ export function renderInventory(note) {
   inf.appendChild(el("div", "msg", "Lv." + L.lv + (titleName() ? "  「" + titleName() + "」" : "")));
   inf.appendChild(barEl(L.lv >= MAX_LV ? 1 : L.cur / L.need, "#ffd34d"));
   inf.appendChild(el("div", "dim sm", L.lv >= MAX_LV ? "최고 레벨" : "경험치 " + Math.floor(L.cur) + " / " + L.need));
-  inf.appendChild(el("div", "dim sm", "$" + P.money + "  ·  연료 " + Math.ceil(P.fuel) + "/" + maxFuel() + "  ·  화물 " + cargoCount() + "/" + cargoCap()));
+  inf.appendChild(el("div", "dim sm", won(P.money) + "  ·  연료 " + Math.ceil(P.fuel) + "/" + maxFuel() + "  ·  화물 " + cargoCount() + "/" + cargoCap()));
   card.appendChild(inf);
   root.appendChild(card);
   // 장비 슬롯 (가진 장비가 있는 칸은 눌러서 낄 것을 고름 → 아래 '고르기' 칸)

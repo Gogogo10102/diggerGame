@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./overlay.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { HH, SURF, T, TILE } from "../core/config.ts";
+import { HH, SURF, T, TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { ZOOMS, maxFuel, say, zoomName } from "../core/stats.ts";
@@ -138,7 +138,7 @@ export function renderStats() {
   const tb = el("table");
   const rows = [
     ["최대 깊이", (Math.floor(st.maxDepth) + 1) + " m"],
-    ["총 수익", "$" + st.earned],
+    ["총 수익", won(st.earned)],
     ["플레이 시간", fmtTime(S.acct.playTime)],
     ["광부 레벨", "Lv." + levelOf(S.acct.xp).lv],
     ["칭호", titleName() || "없음"],

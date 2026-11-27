@@ -27,7 +27,14 @@ export const FONT_S = "'Galmuri11','NeoDunggeunmo','Apple SD Gothic Neo','Malgun
 export const FONT = FONT_M;                                    // 예전 코드 호환용
 export function fontPx(size) { return !size ? 16 : size <= 12 ? 12 : size < 24 ? 16 : size < 40 ? 32 : 48; }
 export function setFont(size) { const px = fontPx(size); ctx.font = px + "px " + (px === 12 ? FONT_S : FONT_M); return px; }
-try { document.fonts.load("16px NeoDunggeunmo"); document.fonts.load("12px Galmuri11"); } catch (e) {}
+// 글꼴 파일은 게임과 같이 올림(public/assets/fonts, 라이선스 파일 포함) → CDN 이 막힌 곳에서도 같은 모양
+try {
+  for (const [fam, file] of [["NeoDunggeunmo", "neodgm.woff2"], ["Galmuri11", "Galmuri11.woff2"]]) {
+    const ff = new FontFace(fam, "url(assets/fonts/" + file + ") format('woff2')", { display: "block" });
+    document.fonts.add(ff);
+    ff.load().catch(() => {});
+  }
+} catch (e) { /* 테스트 환경(FontFace 없음) */ }
 
 export function txt(s: string, x: number, y: number, col?: string, size?: number, align?: CanvasTextAlign, shadow?: string) {
   align = align || "left";

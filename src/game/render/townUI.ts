@@ -3,7 +3,7 @@ import "./draw.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { TAB_IMG, UIK, fxNum, fxText } from "../art/buildings.ts";
 import { itemIcon } from "../art/itemIcons.ts";
 import { ICON, oreIcon } from "../art/sprites.ts";
-import { TILE } from "../core/config.ts";
+import { TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { EQUIP_FIXED, STAT, worn } from "../core/stats.ts";
@@ -50,7 +50,7 @@ export function fitText(s, maxW, size) {
   while (s.length > 1 && ctx.measureText(s + "…").width > maxW) s = s.slice(0, -1);
   return s + "…";
 }
-const money = (n) => "$" + Number(n).toLocaleString("en-US");
+const money = (n) => won(n);                                     // 원 (한국식 9만 5천원)
 
 // ---- PixelLab UI 부품 (ui/kit/*.png, tools/make-ui-kit.py) ----
 //  9조각: 모서리는 그대로, 변·가운데는 되풀이해 깔아 늘림 (도트·리벳이 늘어나 보이지 않게). [위, 오른, 아래, 왼] 여백
@@ -303,6 +303,26 @@ function townRow(x, y, w, h, sel, k) {
   ctx.fillStyle = k % 2 ? SY.row2 : SY.row; ctx.fillRect(x, y, w, h);
   if (sel) { ctx.fillStyle = SY.y; ctx.fillRect(x, y, w, 2); ctx.fillRect(x, y + h - 2, w, 2); ctx.fillRect(x, y, 2, h); ctx.fillRect(x + w - 2, y, 2, h); }
 }
+// 줄 안 글 두 줄(이름 16px + 설명 12px)을 줄 판의 가운데에. PixelLab 줄 판은 위아래 테두리(나무·철)가 두꺼워서
+//   판 안쪽 높이가 모자라면 한 줄로: 이름 뒤에 설명을 작게 이어 씀 (테두리 위로 글자가 올라가지 않게)
+const ROW_2LINE = () => (kitOn() ? 46 : 34);
+function rowText(x, ry, inner, w, name, nameCol, desc, descCol) {
+  if (inner >= ROW_2LINE()) {
+    const t = ry + Math.floor((inner - 31) / 2);
+    txt(fitText(name, w, 16), x, t, nameCol, 16);
+    txt(fitText(desc, w, 12), x, t + 19, descCol, 12);
+    return;
+  }
+  const t = ry + Math.floor((inner - 16) / 2);
+  const nm = fitText(name, w, 16);
+  txt(nm, x, t, nameCol, 16);
+  setFont(16);
+  const nw = Math.ceil(ctx.measureText(nm).width) + 10;
+  if (desc && w - nw > 40) txt(fitText(desc, w - nw, 12), x + nw, t + 3, descCol, 12);
+}
+// 줄 판 오른쪽 끝 여백 (PixelLab 줄 판은 오른쪽 끝이 둥근 테두리라 조금 더 띄움)
+const ROW_PAD = () => (kitOn() ? 14 : 8);
+
 // 아이콘 칸 (파인 칸 + 그림)
 function iconSlot(img, x, y, s, alpha) {
   if (kit("slot", x, y, s, s)) { drawPx(img, x + 4, y + 4, s - 8, alpha); return; }
@@ -358,11 +378,7 @@ export function drawShopModal(vw, vh) {
     const cur = cat.slot ? STAT[cat.slot] : null;                   // 장비 칸: 고유 값 + 지금 능력치 (비교)
     const sub = locked ? "필요: " + ITEMS[it.req].name : it.cons ? it.desc : fxText(it.fx, cat.slot) + (cat.slot && !on ? "  (지금 " + fxNum(cat.slot, cur) + ")" : "");
     const cnt = it.cons ? "  x" + (P.inv[id] || 0) : "";
-    if (inner >= 36) {
-      const t = ry + Math.floor((inner - 34) / 2);
-      txt(fitText(it.name + cnt, nameW, 16), lx, t, locked ? SY.mute : SY.txt, 16);
-      txt(fitText(sub, nameW, 12), lx, t + 21, locked ? SY.warn : poor ? SY.red : SY.dim, 12);
-    } else txt(fitText(it.name + cnt, nameW, 16), lx, ry + Math.floor((inner - 16) / 2), locked ? SY.mute : SY.txt, 16);
+    rowText(lx, ry, inner, nameW, it.name + cnt, locked ? SY.mute : SY.txt, sub, locked ? SY.warn : poor ? SY.red : SY.dim);
     shopBtn.push({ x: f.cx, y: ry, w: bx - f.cx - 4, h: inner, act: "sel", i });
   }
   if (pages > 1) pager(f, page, pages, "page");
@@ -456,9 +472,8 @@ function drawSellModal(vw, vh) {
     const b2x = f.cx + f.cw - 6 - bw, b1x = b2x - 6 - bw;
     uiBtn(b1x, by2, bw, bh, "1개", bh >= 40 ? money(unit) : null, "go", have >= 1, "sell", [id, 1]);
     uiBtn(b2x, by2, bw, bh, "전부", bh >= 40 ? money(unit * have) : null, "go", have >= 1, "sell", [id, Infinity]);
-    const nameW = b1x - 8 - lx, t = ry + Math.floor((inner - 34) / 2);
-    txt(fitText(matName(id) + "  x" + have, nameW, 16), lx, t, have > 0 ? SY.txt : SY.mute, 16);
-    txt(fitText("개당 " + money(unit) + (BARS[id] ? " · 원석보다 35% 비쌈" : ""), nameW, 12), lx, t + 21, have > 0 ? SY.gold : SY.mute, 12);
+    const nameW = b1x - 8 - lx;
+    rowText(lx, ry, inner, nameW, matName(id) + "  x" + have, have > 0 ? SY.txt : SY.mute, "개당 " + money(unit) + (BARS[id] ? " · 원석보다 35% 비쌈" : ""), have > 0 ? SY.gold : SY.mute);
     shopBtn.push({ x: f.cx, y: ry, w: b1x - f.cx - 4, h: inner, act: "sellsel", i });
   }
   if (pages > 1) {
@@ -486,9 +501,8 @@ function drawOrders(vw, vh) {
     const lx = f.cx + 6 + ib + 10, bw = f.narrow ? 70 : 92, bh = Math.min(inner - 6, 44);
     const bx = f.cx + f.cw - 6 - bw, by2 = ry + Math.floor((inner - bh) / 2);
     uiBtn(bx, by2, bw, bh, "납품", bh >= 40 ? money(o.pay) : null, "go", ok, "order", k);
-    const nameW = bx - 8 - lx, t = ry + Math.floor((inner - 34) / 2);
-    txt(fitText(matName(o.k) + " " + o.n + "개", nameW, 16), lx, t, SY.txt, 16);
-    txt(fitText("가진 것 " + have + " / " + o.n + "  ·  보상 " + money(o.pay) + " · 경험치 " + o.xp, nameW, 12), lx, t + 21, ok ? SY.green : SY.dim, 12);
+    const nameW = bx - 8 - lx;
+    rowText(lx, ry, inner, nameW, matName(o.k) + " " + o.n + "개", SY.txt, "가진 것 " + have + " / " + o.n + "  ·  보상 " + money(o.pay) + " · 경험치 " + o.xp, ok ? SY.green : SY.dim);
     shopBtn.push({ x: f.cx, y: ry, w: bx - f.cx - 4, h: inner, act: "sellsel", i: SELL_KEYS.length + k });
     const fl = S.orderFlash;
     if (fl && fl.k === k && fl.t > 0) {                                // 방금 끝낸 줄: 초록 반짝 + '완료!' (새 의뢰가 그 자리로)
@@ -511,12 +525,13 @@ export function drawFurnaceModal(vw, vh) {
 
   // 상태 카드: 아이콘 · 진행 상황 · 강화 버튼
   const cardH = f.short ? 48 : 66, ib = f.short || f.narrow ? 32 : 48;
-  ctx.fillStyle = SY.row; ctx.fillRect(f.cx, f.cy, f.cw, cardH);
-  drawPx(ICON.furnace, f.cx + 8, f.cy + Math.floor((cardH - ib) / 2), ib);
+  if (!kit("row", f.cx, f.cy, f.cw, cardH)) { ctx.fillStyle = SY.row; ctx.fillRect(f.cx, f.cy, f.cw, cardH); }
+  const cp = kitOn() ? 12 : 8;                                         // 줄 판 테두리만큼 안쪽으로
+  drawPx(ICON.furnace, f.cx + cp, f.cy + Math.floor((cardH - ib) / 2), ib);
   const bw = f.narrow ? 84 : 104, bh = cardH - 14;
   const upLabel = !nx ? "최고 단계" : bh >= 40 ? "강화" : "강화 " + money(nx.cost);
-  uiBtn(f.cx + f.cw - 8 - bw, f.cy + 7, bw, bh, upLabel, nx && bh >= 40 ? money(nx.cost) : null, "gold", !!nx && P.money >= nx.cost, nx ? "fup" : null);
-  const x0 = f.cx + 8 + ib + 12, tw = f.cw - (x0 - f.cx) - bw - 20, t0 = f.cy + (f.short ? 4 : 8);
+  uiBtn(f.cx + f.cw - cp - bw, f.cy + 7, bw, bh, upLabel, nx && bh >= 40 ? money(nx.cost) : null, "gold", !!nx && P.money >= nx.cost, nx ? "fup" : null);
+  const x0 = f.cx + cp + ib + 12, tw = f.cw - (x0 - f.cx) - bw - cp - 12, t0 = f.cy + (f.short ? 4 : 8);
   const qTxt = "대기 " + F.q.length + "/" + L.cap, qInline = !f.narrow;
   const lvInfo = "속도 x" + L.speed + (L.save ? " · 석탄 " + Math.round(L.save * 100) + "% 절약" : "");
   if (F.q.length) {
@@ -540,22 +555,19 @@ export function drawFurnaceModal(vw, vh) {
   BAR_KEYS.forEach((k, i) => {
     const B = BARS[k], ry = ly + i * rh, can = furnaceCan(k);
     townRow(f.cx, ry, f.cw, inner, i === S.furnaceSel, i);
-    let lx = f.cx + 10;
+    let lx = f.cx + (kitOn() ? 14 : 10);
     const iy = ry + Math.floor((inner - 24) / 2);
     drawPx(oreIcon[B.ore], lx, iy, 24, can > 0 ? 1 : 0.55); lx += 26;
     txt("→", lx + 2, ry + Math.floor((inner - 16) / 2), "#ff9a4d", 16); lx += 22;
     drawPx(barIcon[k], lx, iy, 24); lx += 34;
-    const rightW = 92, nameW = f.cx + f.cw - 12 - rightW - lx;
-    if (inner >= 34) {
-      const t = ry + Math.floor((inner - 32) / 2);
-      txt(fitText(B.name, nameW, 16), lx, t, SY.txt, 16);
-      txt(fitText(TILE[B.ore].name + " " + ORE_PER_BAR + " + 석탄 " + B.coal + " · " + B.time + "초", nameW, 12), lx, t + 19, SY.dim, 12);
-      txt("보유 " + (P.bars[k] || 0), f.cx + f.cw - 12, t, SY.blue, 16, "right");
-      txt("넣기 가능 " + can, f.cx + f.cw - 12, t + 19, can > 0 ? SY.green : SY.mute, 12, "right");
-    } else {
-      txt(fitText(B.name, nameW, 16), lx, ry + Math.floor((inner - 16) / 2), SY.txt, 16);
-      txt("보유 " + (P.bars[k] || 0), f.cx + f.cw - 12, ry + Math.floor((inner - 16) / 2), SY.blue, 16, "right");
-    }
+    const rx2 = f.cx + f.cw - ROW_PAD(), rightW = 96, nameW = rx2 - rightW - lx;
+    const recipe = TILE[B.ore].name + " " + ORE_PER_BAR + " + 석탄 " + B.coal + " · " + B.time + "초";
+    rowText(lx, ry, inner, nameW, B.name, SY.txt, recipe, SY.dim);
+    if (inner >= ROW_2LINE()) {
+      const t = ry + Math.floor((inner - 31) / 2);
+      txt("보유 " + (P.bars[k] || 0), rx2, t, SY.blue, 16, "right");
+      txt("넣기 가능 " + can, rx2, t + 19, can > 0 ? SY.green : SY.mute, 12, "right");
+    } else txt("보유 " + (P.bars[k] || 0) + " · 가능 " + can, rx2, ry + Math.floor((inner - 12) / 2), can > 0 ? SY.green : SY.blue, 12, "right");
     shopBtn.push({ x: f.cx, y: ry, w: f.cw, h: inner, act: "fsel", i });
   });
 

@@ -1,7 +1,7 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../save/config.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { sfx } from "../core/sound.ts";
-import { ORE_COL, TILE } from "../core/config.ts";
+import { ORE_COL, TILE, won } from "../core/config.ts";
 import { CHAR_IDS, ICON, minerPreview, oreIcon } from "../art/sprites.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -75,12 +75,13 @@ addQuests("close", "아슬아슬", [1, 5, 20], ["간 큰 광부", "벼랑 끝 �
 addQuests("level", "광부 레벨", [5, 10, 20, 30], ["새내기 광부", "든든한 광부", "노련한 광부", "광부 명장"], () => (S.acct ? levelOf(S.acct.xp).lv : 0), "레벨 달성", [300, 1500, 8000, 30000]);
 QUESTS.forEach((q) => { q.xp = Math.max(10, Math.round(q.money * 0.15)); });
 const QLABEL = {
-  depth: (n) => "깊이 " + n + "m 도달", craft: (n) => "장비 " + n + "개 제작", earn: (n) => "누적 수익 $" + n, types: (n) => "광물 " + n + "종 채굴",
+  depth: (n) => "깊이 " + n + "m 도달", craft: (n) => "장비 " + n + "개 제작", earn: (n) => "누적 수익 " + won(n), types: (n) => "광물 " + n + "종 채굴",
   cave: (n) => "동굴 " + n + "개 발견", chest: (n) => "보물 상자 " + n + "개 열기", smelt: (n) => "주괴 " + n + "개 제련", dirt: (n) => "흙 " + n + "개 파기",
   all: (n) => "광물 " + n + "개 채굴", trip: (n) => "광물 싣고 " + n + "번 귀환", bomb: (n) => "다이너마이트 " + n + "번 사용",
   close: (n) => "연료 10% 미만으로 " + n + "번 귀환", level: (n) => "광부 레벨 " + n + " 달성", order: (n) => "마을 의뢰 " + n + "개 완료", combo: (n) => "광물 연속 채굴 콤보 x" + n,
 };
-export function questLabel(q) { const n = q.need.toLocaleString(); return QLABEL[q.group] ? QLABEL[q.group](n) : q.unit + " " + n + "개"; }
+// 돈(earn)은 숫자 그대로 넘겨 won() 이 원으로
+export function questLabel(q) { const n = q.group === "earn" ? q.need : q.need.toLocaleString(); return QLABEL[q.group] ? QLABEL[q.group](n) : q.unit + " " + n + "개"; }
 export const QUEST_BY = {}; QUESTS.forEach((q) => { QUEST_BY[q.id] = q; });
 S.questT = 0;
 // ---- 캐릭터(로봇) 종류: 해금 조건 (그림은 sprites.ts 의 CHAR_IDS · tools/chars.py) ----
@@ -125,8 +126,8 @@ export function checkQuests(quiet) {
   if (quiet) say("업적 " + got.length + "개 달성!");
   else {
     const q = got[got.length - 1];
-    pushBanner("칭호 획득: " + q.title, q.gname + " · " + q.need + q.unit + " · 보상 $" + q.money, ICON.trophy, "#ffd34d");
-    say("업적 달성! 보상 $" + got.reduce((a, b) => a + b.money, 0));
+    pushBanner("칭호 획득: " + q.title, q.gname + " · " + q.need + q.unit + " · 보상 " + won(q.money), ICON.trophy, "#ffd34d");
+    say("업적 달성! 보상 " + won(got.reduce((a, b) => a + b.money, 0)));
     floaters.push({ x: P.x, y: P.y - 60, text: "칭호: " + q.title, color: "#ffd34d", life: 2.2 });
   }
   addXP(xp);
@@ -149,7 +150,7 @@ export function onMined(id) {                                   // 광물/흙을
   S.acct.stats.mined[id] = (S.acct.stats.mined[id] || 0) + 1;
   if (ORE_COL[id]) addXP(bumpCombo(id));
   if (S.acct.stats.mined[id] === 1 && ORE_COL[id] && oreIcon[id]) {          // 처음 캔 광물: 도감에 새로 올라감
-    pushBanner("새 광물 발견! " + TILE[id].name, "판매가 $" + TILE[id].value + " · 가방 도감에 기록됐어요", oreIcon[id], ORE_COL[id][0]);
+    pushBanner("새 광물 발견! " + TILE[id].name, "판매가 " + won(TILE[id].value) + " · 가방 도감에 기록됐어요", oreIcon[id], ORE_COL[id][0]);
     sfx("ore", { pitch: 1.5 });
   }
   addXP(XP_ORE[id] || 0);

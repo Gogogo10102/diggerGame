@@ -7,6 +7,17 @@ export const T = 64;            // 화면상 타일 크기(px). 16x16 타일 그
 export const AS = T / 16;       // 타일·건물 그림 배율(4). 캐릭터 그림은 2배 그대로 → 확대 배율이 0.5 단위면 둘 다 도트가 안 깨짐
 export const PX = T / 32;       // 속도·중력 같은 px 단위 숫자의 배율 (타일 32px 시절 기준값 × PX → 칸당 걸리는 시간은 그대로)
 export const W = 384, H = 2400; // 월드 크기(타일): 왼쪽은 마을, 오른쪽은 광산 터. 32x32 구역 단위로 다가가면 생성 (core/world.ts)
+//  돈 표시 (원, 한국식): 9만 5천원 · 9만 8,089원 · 4,200원 · 5천원 · 1억 2,000만원
+export function won(n) {
+  n = Math.round(Number(n) || 0);
+  if (n < 0) return "-" + won(-n);
+  const eok = Math.floor(n / 1e8), man = Math.floor((n % 1e8) / 1e4), rest = n % 1e4;
+  const p = [];
+  if (eok) p.push(eok.toLocaleString("ko-KR") + "억");
+  if (man) p.push(man.toLocaleString("ko-KR") + "만");
+  if (rest || !p.length) p.push(rest && rest % 1000 === 0 ? rest / 1000 + "천" : rest.toLocaleString("ko-KR"));
+  return p.join(" ") + "원";
+}
 export const SURF = 6;          // 지표면 행
 export const HW = 12, HH = 12;  // 플레이어 충돌 반폭/반높이
 export const SEED = 1234;

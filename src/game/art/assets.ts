@@ -80,12 +80,22 @@ export async function loadAssets() {
   // 목록 형식: { files: { 경로: 지문 } } (예전 형식: [경로, ...]). 지문을 주소 뒤에 붙여 예전 그림 캐시를 피함
   const entries = Array.isArray(list) ? list.map((p) => [p, ""]) : Object.entries((list && list.files) || {});
   let n = 0;
+  const kitUrl = {};
   await Promise.all(entries.map(async ([path, ver]) => {
     const get = table[path];
     if (!get) return;
-    try { const img = await loadImage("assets/" + path + (ver ? "?v=" + ver : "")); const cv = get(); if (cv) { applyImage(cv, img); n++; } }
+    const url = "assets/" + path + (ver ? "?v=" + ver : "");
+    try { const img = await loadImage(url); const cv = get(); if (cv) { applyImage(cv, img); n++; if (path.startsWith("ui/kit/")) kitUrl[path.slice(7, -4)] = url; } }
     catch (e) { console.warn("그림 파일을 못 읽었어요:", path); }
   }));
+  // HTML 창(인벤토리·메뉴 등)도 같은 UI 부품으로: CSS 변수 --k-<이름> 에 그림 주소를 넣고 <html class="kit"> (style.css 의 .kit #ov …)
+  try {
+    if (kitUrl.window) {
+      const st = document.documentElement.style;
+      for (const k in kitUrl) st.setProperty("--k-" + k, "url(" + JSON.stringify(kitUrl[k]) + ")");
+      document.documentElement.classList.add("kit");
+    }
+  } catch (e) { /* 테스트 환경 */ }
   minerCache.clear();                                                   // 그림이 바뀌었으니 조립해 둔 캐릭터 그림을 다시 만듦
   clearPlayerCache();
   return n;

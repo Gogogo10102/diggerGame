@@ -79,6 +79,8 @@ docs/                  plan.md decisions.md
    테스트에서 굴을 직접 만들 때는 `WGEN.caveOff = true` 로 자연 동굴을 끈 월드를 씁니다(tests 의 login 이 기본으로 끔).
 
 ## 글꼴 · UI 규칙
+- **글꼴 파일은 게임에 같이 올림**(`public/assets/fonts`: neodgm.woff2 · Galmuri11.woff2 + 라이선스, 2026-11-27). util.ts 가 FontFace 로 불러옴(CDN 안 씀 → 막힌 곳·테스트 화면에서도 같은 모양).
+- **돈은 원**: `won(n)`(config.ts) → "9만 5천원" · "9만 8,089원" · "4,200원". `$` 쓰지 않기.
 - 글자 크기는 **12 / 16 / 32px 만** 씁니다. 12px = 갈무리11, 16·32px = Neo둥근모. 도트 글꼴은 설계 크기의 정수배가 아니면 흐려집니다.
   캔버스는 `txt(글, x, y, 색, 크기)` 를 쓰면 자동으로 가까운 단계에 맞춰집니다. 글자 폭을 잴 때는 `setFont(크기)` 후 `measureText`.
 - 도트 그림은 `drawPx(그림, x, y, 칸크기)` 로 정수 배율로만 키웁니다(1.5배 금지).
@@ -95,6 +97,8 @@ docs/                  plan.md decisions.md
 - **마을 창 UI 부품 = PixelLab**(2026-11-27): 'Create UI'로 한 장에 뽑은 시트 `tools/ref/pixellab/ui/kit.png`(256x256, 배치표 = make-ui-kit.py 의 `LAYOUT`)
   → `python3 tools/make-ui-kit.py` 가 투명 바탕으로 떨어진 덩어리를 찾아 가까운 배치 이름으로 잘라 `ui/kit/<이름>.png`(1배) 13개: window·row·row_on·tab·tab_on·btn·btn_off·slot·slot2·detail·close·price·bar. 버튼에 박힌 글자는 도구가 지움.
   townUI.ts 의 `kit(이름, x, y, w, h)` 가 9조각으로 그림(모서리 그대로, 변·가운데는 되풀이해 깔기 → 리벳이 늘어나지 않음, 여백 `UIK_IN`). 그림이 없으면(테스트·불러오기 전) 예전 철판 그림(`kitOn()` 거짓).
+  HTML 창(인벤토리·메뉴·설정 등)도 같은 부품: 불러오면 `<html class="kit">` + CSS 변수 `--k-<이름>`(assets.ts) → style.css 의 `.kit #ov …` 가 border-image 9조각으로.
+  줄 안 글 두 줄(이름 16 + 설명 12)은 `rowText()`: 줄 판 안쪽이 낮으면 한 줄로(테두리 위로 글자가 안 올라가게), 오른쪽 끝 여백 `ROW_PAD()`.
   창 = window, 위 탭·왼쪽 분류 = tab/tab_on, 목록 줄 = row(고른 줄은 노란 테두리), 아이콘 칸 = slot, 버튼 = btn/btn_off + 왼쪽 색 띠(뜻) + 흰 글씨, 닫기 = close. 같은 배치로 다시 뽑아 kit.png 만 바꾸면 그대로 적용.
 - 마을 창(상점·제작·용광로·판매)은 `render/townUI.ts` 의 공용 틀 `townFrame(…, 분류목록, 고른분류, 분류동작)` 을 씁니다.
   "왼쪽 분류 → 오른쪽 목록(줄마다 버튼)" 흐름을 지켜 주세요. 상세 칸이 필요하면 `townFooter`.
