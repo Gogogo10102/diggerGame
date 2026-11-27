@@ -1,6 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./draw.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { TAB_IMG, UIK, fxNum, fxText } from "../art/buildings.ts";
+import { FX_NAME, TAB_IMG, UIK, fxNum, fxText } from "../art/buildings.ts";
 import { itemIcon } from "../art/itemIcons.ts";
 import { ICON, oreIcon } from "../art/sprites.ts";
 import { TILE, won } from "../core/config.ts";
@@ -342,7 +342,88 @@ function pager(f, page, pages, act) {
 // ---------------------------------------------------------------------
 //  상점: 왼쪽 분류 → 오른쪽 목록 (줄마다 구매 버튼)
 // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+//  상점 (PC·넓은 화면, 시안 B 2026-11-27): 위 = 분류 아이콘 띠 · 가운데 = 장비 큰 카드 4장(아이콘 · 이름 · 값 · 버튼) · 아래 = 안내 띠 + 쪽
+//  좁은 화면(휴대폰 세로)·UI 부품이 없을 때는 아래 drawShopList (왼쪽 분류 + 목록 줄)
+// ---------------------------------------------------------------------
+const SHOP_CARDS = 4;
 export function drawShopModal(vw, vh) {
+  if (!kitOn() || vw < 560) return drawShopList(vw, vh);             // vw 는 이미 UI 배율로 나눈 크기
+  const cat = CATS[S.shopTab], len = cat.ids.length;
+  const f = townFrame(vw, vh, cat.name, null, 0, null, "[ ] 건물 이동 · ←→ 분류 · ↑↓ 고르기 · 1~4 / Enter 구매·장착 · Esc 닫기");
+  if (f.narrow) return;                                              // (townFrame 이 좁다고 판단하면 위에서 걸러짐)
+  const low = f.short;
+  // 분류 아이콘 띠
+  const n = CATS.length, cg = 4, cw = Math.floor((f.cw - cg * (n - 1)) / n), chh = low ? 36 : 48;
+  CATS.forEach((c, i) => {
+    const x = f.cx + i * (cw + cg), on = i === S.shopTab, is = low || cw < 44 ? 16 : 32;
+    kit(on ? "tab_on" : "tab", x, f.cy, cw, chh);
+    drawPx(ICON[c.icon], x + Math.floor((cw - is) / 2), f.cy + Math.floor((chh - is) / 2), is);
+    shopBtn.push({ x, y: f.cy, w: cw, h: chh, act: "tab", arg: i });
+  });
+  // 가진 개수 (제목 옆)
+  if (!cat.cons) {
+    const own = cat.ids.filter((id) => P.items[id]).length;
+    setFont(16);
+    const tw2 = Math.ceil(ctx.measureText(cat.name).width);
+    txt(len + "개 중 " + own + "개 가짐", f.rx + 4 + tw2 + 12, f.ry + 7, SY.dim, 12, "left", SY.ink);
+  }
+  // 카드
+  S.shopPer = SHOP_CARDS;
+  const pages = Math.ceil(len / SHOP_CARDS), page = Math.floor(S.shopSel / SHOP_CARDS);
+  const barH = 34, barY = f.ry + f.rh - barH, top = f.cy + chh + 10, ch = barY - 10 - top, gap = 10;   // 아래 띠는 판 맨 아래(안내 줄 자리까지)
+  const cwid = Math.floor((f.cw - gap * (SHOP_CARDS - 1)) / SHOP_CARDS);
+  const ss = Math.max(40, Math.min(88, ch - (low ? 120 : 190)));      // 아이콘 칸: 카드 높이에서 글·버튼 자리를 빼고 남는 만큼
+  const ib = ss >= 72 ? 64 : 32;
+  for (let k = 0; k < SHOP_CARDS; k++) {
+    const i = page * SHOP_CARDS + k;
+    if (i >= len) break;
+    const id = cat.ids[i], it = ITEMS[id], x = f.cx + k * (cwid + gap), mid = x + Math.floor(cwid / 2);
+    const owned = !it.cons && !!P.items[id], on = owned && (worn(id) || EQUIP_FIXED[id]);
+    const locked = !it.cons && !owned && !!it.req && !P.items[it.req];
+    const poor = !owned && !locked && P.money < it.cost, sel = i === S.shopSel;
+    kit("detail", x, top, cwid, ch);
+    if (sel) { ctx.fillStyle = SY.y; ctx.fillRect(x, top, cwid, 2); ctx.fillRect(x, top + ch - 2, cwid, 2); ctx.fillRect(x, top, 2, ch); ctx.fillRect(x + cwid - 2, top, 2, ch); }
+    let y = top + (low ? 14 : 22);
+    kit("slot", mid - Math.floor(ss / 2), y, ss, ss);
+    drawPx(itemIcon(id), mid - ib / 2, y + Math.floor((ss - ib) / 2), ib, locked ? 0.35 : 1);
+    if (!S.usedTouch && !low) keycap(x + 16, top + 16, String(k + 1));
+    y += ss + (low ? 6 : 12);
+    txt(fitText(it.name + (it.cons ? "  x" + (P.inv[id] || 0) : ""), cwid - 28, 16), mid, y, locked ? SY.mute : SY.txt, 16, "center", SY.ink);
+    y += 22;
+    if (cat.slot) {                                                  // 장비 칸: 능력치 이름 + 값 (지금보다 좋으면 초록 + 차이)
+      const v = it.fx[cat.slot], cur = STAT[cat.slot], better = !on && v > cur + 1e-9;
+      if (!low) { txt(FX_NAME[cat.slot], mid, y, SY.dim, 12, "center", SY.ink); y += 18; }
+      txt(fxNum(cat.slot, v) + (better ? "  (+" + fxNum(cat.slot, v - cur) + ")" : ""), mid, y, better ? SY.green : on ? SY.y : SY.txt, 16, "center", SY.ink);
+      y += 22;
+    } else {
+      txt(fitText(it.cons ? it.desc : fxText(it.fx), cwid - 28, 12), mid, y, SY.dim, 12, "center", SY.ink);
+      y += 18;
+    }
+    // 버튼 (카드 아래)
+    const bh = low ? 36 : 46, bx = x + 16, bw = cwid - 32, by = top + ch - bh - (low ? 12 : 18), price = money(it.cost);
+    if (locked && y + 14 <= by - 4) txt(fitText("필요: " + ITEMS[it.req].name, cwid - 28, 12), mid, y, SY.warn, 12, "center", SY.ink);   // 자리가 있을 때만
+    if (on) uiBtn(bx, by, bw, bh, "장착 중", null, "steel", false, null);
+    else if (owned) uiBtn(bx, by, bw, bh, "장착", null, "gold", true, "buy", id);
+    else if (locked) uiBtn(bx, by, bw, bh, "잠김", bh >= 40 ? price : null, "go", false, "buy", id);
+    else uiBtn(bx, by, bw, bh, bh >= 40 ? "구매" : price, bh >= 40 ? price : null, "go", !poor, "buy", id);
+    shopBtn.push({ x, y: top, w: cwid, h: by - top - 2, act: "sel", i });
+  }
+  // 아래 띠: 안내 + 쪽
+  const by = barY;
+  kit("bar", f.cx, by, f.cw, barH);
+  const tip = S.msgT > 0 ? S.msg : cat.cons ? "소모품은 여러 개 살 수 있어요 · 아래 슬롯(1~8)으로 사용" : cat.slot ? "한 칸에 하나만 껴요 · 가진 장비는 [장착]으로 바꿔 끼기" : "산 장비는 바로 장착 · 빼려면 인벤토리 장비 탭";
+  const pw = pages > 1 ? 150 : 0;
+  txt(fitText(tip, f.cw - 48 - pw, 12), f.cx + 22, by + Math.floor((barH - 12) / 2), S.msgT > 0 ? SY.gold : SY.dim, 12, "left", SY.ink);
+  if (pages > 1) {
+    const px = f.cx + f.cw - 22 - pw, pb = barH - 8;
+    uiBtn(px, by + 4, 44, pb, "<", null, "plain", page > 0, "page", -1);
+    txt((page + 1) + " / " + pages, px + pw / 2, by + Math.floor((barH - 12) / 2), SY.txt, 12, "center", SY.ink);
+    uiBtn(px + pw - 44, by + 4, 44, pb, ">", null, "plain", page < pages - 1, "page", 1);
+  }
+}
+// 좁은 화면: 왼쪽 분류 + 목록 줄 (예전 상점)
+function drawShopList(vw, vh) {
   const cat = CATS[S.shopTab];
   const f = townFrame(vw, vh, cat.name, CATS.map((c) => ({ name: c.name, icon: c.icon, img: ICON[c.icon] })), S.shopTab, "tab",
     "[ ] 건물 이동 · ←→ 분류 · ↑↓ 고르기 · Enter 구매 · Esc 닫기");
