@@ -105,7 +105,8 @@ docs/                  plan.md decisions.md
   아래 = 넣기 1개/5개/최대·비우기·강화. 좁은 화면(휴대폰 세로)은 화로 아래에 상태·대기열, 낮은 화면(가로)은 칸·화로를 작게(`low`).
 - **상점 = 카드(시안 B, 2026-11-27)**: 넓은 화면 + UI 부품이 있으면 `drawShopModal` 이 위 분류 아이콘 띠 · 장비 큰 카드 4장(`SHOP_CARDS`, 5개짜리 분류는 5장: 아이콘 칸 · 이름 · 능력치 값 + 지금보다 좋으면 초록 차이 · 구매/장착/장착 중/잠김 버튼) · 아래 안내 띠 + 쪽.
   **상점 탭 = `SHOP_TABS`(consumables.ts, 2026-11-28) 9개**: 곡괭이·백팩 로켓·톱니·탱크·화물·엔진·구동계·기타(조명+특수)·소모품. 장비 칸 분류 `CATS` 는 그대로 두고 상점에서만 묶음 → 카드 능력치는 아이템의 `SLOT_OF[id]` 로. 로봇 본체는 상점에 없고 **차고에서 E 로 구매**(`toggleMech`, 안내 버튼 '로봇 사기 · 1,500원').
-  상점 분류 아이콘 = `ui/tab/<분류 icon 키>.png`(PixelLab 시트 `tabs.png` → make-pixellab-items.py 의 `TAB_PICKS`, `CAT_IMG`·`catIcon()`). 아이템·HUD 아이콘(`ui/icon`)과 따로라 서로 안 바뀜. 소모품(`fuelcan`)은 아직 예전 그림.
+  상점 분류 아이콘 = `ui/tab/<분류 icon 키>.png`(PixelLab 시트 `tabs.png` → make-pixellab-items.py 의 `TAB_PICKS`, `CAT_IMG`·`catIcon()`). 아이템·HUD 아이콘(`ui/icon`)과 따로라 서로 안 바뀜. 소모품(`fuelcan`)은 다이너마이트 묶음(시트 `tabs2` #1).
+  소모품 탭 '내 가방'은 3칸씩 넉넉히(칸 사이 10, 판 테두리 18 띄움).
   **카드는 한 화면에 4장, 나머지는 옆으로 밀기**(2026-11-28, 쪽 넘기기 없음): 끌기(`S.shopDrag`, input.ts)·휠·아래 띠 < > 로 한 장씩(`shopScrollBy`), 목표 `S.shopScroll`·그리는 자리 `S.shopScrollV`(부드럽게 따라감), 키보드로 고른 카드는 보이게 밀림.
   카드·목록에 번호(키캡)·'구매'·'잠김' 글자 없음 → 버튼에 가격만(못 사면 꺼진 버튼), 가진 것은 장착/장착 중. 숫자키 구매도 없앰(Enter).
   좁은 화면(UI 폭 560 미만 = 휴대폰 세로)이나 부품이 없으면 예전 목록(`drawShopList`).
@@ -152,7 +153,9 @@ docs/                  plan.md decisions.md
   예전 세 건물 그림(`make-buildings.py`, `BLD_FX`)은 쓰지 않음. 표지판·탭은 `tools/make-signs.py`.
 - 광물 id: 2 구리, 3 철, 4 금, 5 다이아, 6 석탄, 8 은, 9 에메랄드, 10 루비, 11 미스릴.
 - **드릴 아이콘**(`items/<드릴 id>.png` 15개 + `ui/icon/drill.png`)은 `python3 tools/make-drill-icons.py` (확정 도안 v2, 등급 4 × 진화 4 중 고른 표는 파일 안 MAP).
-- 현재 원석·주괴 그림은 **임시 확정(v1)** 입니다. 나중에 다시 작업 예정.
+- **원석 아이콘·떨어진 광물·주괴 = PixelLab**(2026-11-28): 시트 `ores.png`(원석 8)·`bars.png`(미스릴 원석 + 주괴) → make-pixellab-items.py 의 `ORE_PICKS`·`BAR_PICKS` → `ores/icon/<id>`(32) · `ores/drop/<id>`(같은 그림을 24로 줄임) · `bars/<키>`.
+  미스릴은 시트의 하늘색이 다이아와 겹쳐 게임 미스릴 색(민트 167도)으로 바꿈(`ORE_RECOLOR`·`BAR_RECOLOR`). 땅속 광물 알갱이(`ores/world`)는 그대로.
+  곡괭이 5단계 아이템 = 기본 곡괭이(`tabs` #1)의 회색 머리만 단계 색으로(`PICK_TINT`, 손잡이는 나무 그대로). 제작 탭 분류 아이콘 = `ui/tab/craft_<icon>.png`(시트 `tabs2`).
 - **아이템 그림 = PixelLab(2026-11-28~, 바꾸는 중)**: 'Create images from style references (Pro)' 에 32px 스타일 그림(`tools/ref/pixellab/items/style_*.png`)을 넣고 분류마다 한 번 → 8x8 시트(32px 칸 64개)를
   `tools/ref/pixellab/items/<분류>.png` 로 두고, 고른 칸 번호를 `tools/make-pixellab-items.py` 의 `PICKS` 에 적은 뒤 `python3 tools/make-pixellab-items.py` → `items/<id>.png`(소모품은 `ui/icon/` 도). 지금: 백팩 로켓 5종(2026-11-28 '강화 백팩 로켓' `rocket1b` 추가) · 탱크 · 화물(철 상자 → 기계 큐브) · 엔진 · 조명 · 특수 · 소모품 · 제작(동력·외장·보조·탐사). 시트 이름 = `fuel`·`crate`·`engine`·`lamp`·`special`·`cons`·`c_<제작 분류>`.
   **드릴 → 톱니, 궤도 → 구동계**(2026-11-28): 로봇 팔이 톱니바퀴라 '드릴'을 톱니(시트 `gear`, 제작은 '톱날')로, 다리 부품은 로봇 외형이 안 바뀌어서 몸속 부품 '구동계'(시트 `drive`)로. 이름만 바꾸고 id·icon 키(`drill`·`tracks`)·세이브는 그대로.
@@ -172,7 +175,7 @@ docs/                  plan.md decisions.md
   색: 구리는 PixelLab 인페인팅 결과(`tools/ref/pixellab/ores/copper_ref.png` vs 원래 흙 `dirt_base.png`)에서 뽑은 색, 나머지는 `ORE_COL`(철만 `COL_OVERRIDE`, 은과 구분).
   **보석(다이아·에메랄드·루비)**은 `ores/<id>_ref.png`(같은 흙 칸에 인페인팅)가 있을 때만 그 색으로 작은 결정(2~4칸) 7~8개(같은 배치). 원본 색이 너무 어두우면(루비) ORE_COL 밝은 단계를 더해 밝힘. 다이아·에메랄드·루비 모두 있음.
   반짝이는 광물의 반짝임 자리(`ORE_FLECK_SPARK`)와 알갱이 자리(`ORE_FLECK_BOX`)는 도구가 출력하는 값을 `sprites.ts` 에 붙여 넣음(배치를 바꾸면 다시).
-  위 칸을 파서 윗면 무늬(풀·판돌, 두께 `WANG_TOP`)가 생기면 그 두께에 걸치는 알갱이는 통째로 안 그림(draw.ts) → 광물이 윗단 밖으로 삐져나오지 않음. 광물 아이콘·떨어진 광물은 아직 예전 그림.
+  위 칸을 파서 윗면 무늬(풀·판돌, 두께 `WANG_TOP`)가 생기면 그 두께에 걸치는 알갱이는 통째로 안 그림(draw.ts) → 광물이 윗단 밖으로 삐져나오지 않음.
   make-hires.py 를 다시 돌리면 덮어쓰니 그 뒤에 이 도구를 다시 돌릴 것.
 - **사람 광부 · 로봇 그림 = PixelLab 원본**(`tools/ref/pixellab/`): `east.png`·`west.png`(서 있기 56x56) · `walk_east.gif`(걷기 8장 80x80) · `robot_se.png`·`robot_sw.png`(로봇 72x72)
   · `robot_walk_se.gif`(로봇 걷기 8장) · `robot_jump_se.gif`(로봇 점프 9장: 웅크림 → 백팩 로켓 점화 → 착지, 불꽃이 그림에 들어 있음)

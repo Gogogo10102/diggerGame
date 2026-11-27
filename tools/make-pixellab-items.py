@@ -42,7 +42,27 @@ PICKS = {
 # 상점 분류 아이콘(탭 띠): 시트 tabs.png → ui/tab/<분류 icon 키>.png (아이템 그림과 따로, 2026-11-28)
 TAB_PICKS = {
     "tabs": {1: "pick", 10: "rocket", 23: "drill", 25: "fuel", 40: "crate", 41: "engine", 49: "tracks", 57: "special"},
+    "tabs2": {1: "fuelcan",   # 소모품 = 다이너마이트 묶음 (빨간 기름통이 탱크와 헷갈려서)
+              15: "craft_drill", 23: "craft_engine", 35: "craft_lamp", 47: "craft_tracks", 55: "craft_special"},   # 제작 분류: 톱날·동력·보조·외장·탐사
 }
+# 원석 아이콘 (2026-11-28): ores/icon/<광물id>.png (32) + 바닥에 떨어진 것 ores/drop/<id>.png (24, 같은 그림을 줄임)
+ORE_PICKS = {
+    "ores": {8: 6, 16: 2, 21: 3, 27: 8, 38: 4, 47: 9, 49: 10, 61: 5},   # 석탄·구리·철·은·금·에메랄드·루비·다이아
+}
+# 주괴: bars/<키>.png
+BAR_PICKS = {
+    "bars": {15: "cu", 29: "fe", 36: "ag", 41: "au"},
+}
+# 미스릴은 시트의 하늘색이 다이아와 겹쳐서 게임 미스릴 색(민트, ORE_COL 11 ≈ 167도)으로 바꿈
+ORE_RECOLOR = {11: ("bars", 2, 167, 1.0)}
+BAR_RECOLOR = {"mi": ("bars", 50, 167, 1.0)}
+# 곡괭이 5단계 (2026-11-28): 분류 아이콘 시트의 기본 곡괭이(tabs #1)에서 손잡이(갈색)는 그대로, 회색 머리만 단계 색으로
+#   (PixelLab 이 '다이아 곡괭이'를 손잡이까지 파랗게 그려서) 아이템 id → (색상, 채도, 밝기 배율)
+PICK_SRC = ("tabs", 1)
+PICK_TINT = {"pick_iron": (25, 0.25, 0.85), "pick_steel": (210, 0.18, 1.05), "pick_gold": (45, 0.85, 1.15),
+             "pick_dia": (188, 0.75, 1.15), "pick_mith": (167, 0.6, 1.15)}
+ORE_OUT = os.path.join(ROOT, "public/assets/ores")
+BAR_OUT = os.path.join(ROOT, "public/assets/bars")
 TAB_OUT = os.path.join(ROOT, "public/assets/ui/tab")
 # 시트에 없는 색은 비슷한 칸의 색만 바꿔서: 아이템 id → (시트, 칸, 색상(도), 채도 배율)
 RECOLOR = {
@@ -80,6 +100,50 @@ def main(only):
         for n, key in picks.items():
             cell(sheet, n).save(os.path.join(TAB_OUT, key + ".png"))
             print(f"{name} #{n} → ui/tab/{key}.png")
+    def save_ore(oid, c):
+        c.save(os.path.join(ORE_OUT, "icon", f"{oid}.png"))
+        d = c.resize((24, 24), Image.BOX)                              # 떨어진 광물은 24px: 고르게 줄이고 반투명 가장자리는 잘라 또렷하게
+        d.putalpha(d.split()[3].point(lambda v: 255 if v >= 110 else 0))
+        d.save(os.path.join(ORE_OUT, "drop", f"{oid}.png"))
+    for name, picks in ORE_PICKS.items():
+        if only and name not in only:
+            continue
+        sheet = Image.open(os.path.join(SRC, name + ".png")).convert("RGBA")
+        for n, oid in picks.items():
+            save_ore(oid, cell(sheet, n))
+            print(f"{name} #{n} → ores/icon·drop/{oid}.png")
+    for oid, (name, n, hue, sat) in ORE_RECOLOR.items():
+        if only and name not in only:
+            continue
+        save_ore(oid, recolor(cell(Image.open(os.path.join(SRC, name + ".png")).convert("RGBA"), n), hue, sat))
+        print(f"{name} #{n} (색 {hue}도) → ores/icon·drop/{oid}.png")
+    for name, picks in BAR_PICKS.items():
+        if only and name not in only:
+            continue
+        sheet = Image.open(os.path.join(SRC, name + ".png")).convert("RGBA")
+        for n, key in picks.items():
+            cell(sheet, n).save(os.path.join(BAR_OUT, key + ".png"))
+            print(f"{name} #{n} → bars/{key}.png")
+    for key, (name, n, hue, sat) in BAR_RECOLOR.items():
+        if only and name not in only:
+            continue
+        recolor(cell(Image.open(os.path.join(SRC, name + ".png")).convert("RGBA"), n), hue, sat).save(os.path.join(BAR_OUT, key + ".png"))
+        print(f"{name} #{n} (색 {hue}도) → bars/{key}.png")
+    if not only or PICK_SRC[0] in only:
+        import colorsys
+        base = cell(Image.open(os.path.join(SRC, PICK_SRC[0] + ".png")).convert("RGBA"), PICK_SRC[1])
+        for iid, (hue, sat, vk) in PICK_TINT.items():
+            im = base.copy()
+            px = im.load()
+            for y in range(im.size[1]):
+                for x in range(im.size[0]):
+                    r, g, b, a = px[x, y]
+                    h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+                    if a and s < 0.25 and v > 0.15:                  # 회색 = 곡괭이 머리 (손잡이 갈색·검은 테두리는 그대로)
+                        r2, g2, b2 = colorsys.hsv_to_rgb(hue / 360, sat, min(1, v * vk))
+                        px[x, y] = (round(r2 * 255), round(g2 * 255), round(b2 * 255), a)
+            im.save(os.path.join(OUT, iid + ".png"))
+            print(f"{PICK_SRC[0]} #{PICK_SRC[1]} (머리 색 {hue}도) → items/{iid}.png")
     for iid, (name, n, hue, sat) in RECOLOR.items():
         if only and name not in only:
             continue
