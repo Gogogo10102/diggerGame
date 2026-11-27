@@ -104,7 +104,7 @@ docs/                  plan.md decisions.md
   가운데 = 화로 판 [넣은 원석 칸 + 개수] / 불꽃(`furnaceFlame`, 재련 중이면 흔들림) / [석탄 칸] → 진행 화살표(`furnaceArrow`) → [나온 주괴 칸 + 보유 개수], 오른쪽에 상태·대기열 칸 ·
   아래 = 넣기 1개/5개/최대·비우기·강화. 좁은 화면(휴대폰 세로)은 화로 아래에 상태·대기열, 낮은 화면(가로)은 칸·화로를 작게(`low`).
 - **상점 = 카드(시안 B, 2026-11-27)**: 넓은 화면 + UI 부품이 있으면 `drawShopModal` 이 위 분류 아이콘 띠 · 장비 큰 카드 4장(`SHOP_CARDS`, 5개짜리 분류는 5장: 아이콘 칸 · 이름 · 능력치 값 + 지금보다 좋으면 초록 차이 · 구매/장착/장착 중/잠김 버튼) · 아래 안내 띠 + 쪽.
-  **상점 탭 = `SHOP_TABS`(consumables.ts, 2026-11-28) 9개**: 곡괭이·백팩 로켓·드릴·탱크·화물·엔진·궤도·기타(조명+특수)·소모품. 장비 칸 분류 `CATS` 는 그대로 두고 상점에서만 묶음 → 카드 능력치는 아이템의 `SLOT_OF[id]` 로. 로봇 본체는 상점에 없고 **차고에서 E 로 구매**(`toggleMech`, 안내 버튼 '로봇 사기 · 1,500원').
+  **상점 탭 = `SHOP_TABS`(consumables.ts, 2026-11-28) 9개**: 곡괭이·백팩 로켓·톱니·탱크·화물·엔진·구동계·기타(조명+특수)·소모품. 장비 칸 분류 `CATS` 는 그대로 두고 상점에서만 묶음 → 카드 능력치는 아이템의 `SLOT_OF[id]` 로. 로봇 본체는 상점에 없고 **차고에서 E 로 구매**(`toggleMech`, 안내 버튼 '로봇 사기 · 1,500원').
   곡괭이 탭 아이콘 = 기본 곡괭이(`ui/icon/pick.png` = `player/pick.png` 복사, make-icons.py 를 다시 돌리면 덮어씀).
   **카드는 한 화면에 4장, 나머지는 옆으로 밀기**(2026-11-28, 쪽 넘기기 없음): 끌기(`S.shopDrag`, input.ts)·휠·아래 띠 < > 로 한 장씩(`shopScrollBy`), 목표 `S.shopScroll`·그리는 자리 `S.shopScrollV`(부드럽게 따라감), 키보드로 고른 카드는 보이게 밀림.
   카드·목록에 번호(키캡)·'구매'·'잠김' 글자 없음 → 버튼에 가격만(못 사면 꺼진 버튼), 가진 것은 장착/장착 중. 숫자키 구매도 없앰(Enter).
@@ -155,7 +155,8 @@ docs/                  plan.md decisions.md
 - 현재 원석·주괴 그림은 **임시 확정(v1)** 입니다. 나중에 다시 작업 예정.
 - **아이템 그림 = PixelLab(2026-11-28~, 바꾸는 중)**: 'Create images from style references (Pro)' 에 32px 스타일 그림(`tools/ref/pixellab/items/style_*.png`)을 넣고 분류마다 한 번 → 8x8 시트(32px 칸 64개)를
   `tools/ref/pixellab/items/<분류>.png` 로 두고, 고른 칸 번호를 `tools/make-pixellab-items.py` 의 `PICKS` 에 적은 뒤 `python3 tools/make-pixellab-items.py` → `items/<id>.png`(소모품은 `ui/icon/` 도). 지금: 백팩 로켓 5종(2026-11-28 '강화 백팩 로켓' `rocket1b` 추가) · 탱크 · 화물(철 상자 → 기계 큐브) · 엔진 · 조명 · 특수 · 소모품 · 제작(동력·외장·보조·탐사). 시트 이름 = `fuel`·`crate`·`engine`·`lamp`·`special`·`cons`·`c_<제작 분류>`.
-  **드릴(상점·제작)·궤도는 보류**: 로봇 팔이 톱니바퀴라 드릴 그림이 안 맞고, 다리 그림은 로봇 외형이 안 바뀌어서 → 톱니·속 부품 시트를 받으면 넣기(`legs.png`·`drill.png`·`c_drill.png` 는 받아 둔 원본).
+  **드릴 → 톱니, 궤도 → 구동계**(2026-11-28): 로봇 팔이 톱니바퀴라 '드릴'을 톱니(시트 `gear`, 제작은 '톱날')로, 다리 부품은 로봇 외형이 안 바뀌어서 몸속 부품 '구동계'(시트 `drive`)로. 이름만 바꾸고 id·icon 키(`drill`·`tracks`)·세이브는 그대로.
+  시트에 없는 색(금·에메랄드 톱날)은 도구의 `RECOLOR` 가 비슷한 칸의 색상만 바꿔 만듦. `legs.png`·`drill.png`·`c_drill.png` 는 안 쓰는 받아 둔 원본.
   make-icons.py 를 다시 돌리면 덮어쓰니 그 뒤에 이 도구를 다시 돌릴 것.
 - 아이템·소모품·화면 아이콘(`items/`, `ui/icon/`)은 `python3 tools/make-icons.py` 로 다시 만들 수 있습니다(밝은 플랫 스타일, 기본 32px · `--size 16` 이면 예전 크기. 드릴 아이콘은 건드리지 않음). 고친 뒤 `npm run assets:manifest`.
 - 흙·뒷벽·돌·풀·장식·균열·광물(땅속/아이콘/떨어진 것)·주괴·해·구름·캐릭터 부품은 `python3 tools/make-hires.py` 가 만듭니다.

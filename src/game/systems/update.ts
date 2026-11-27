@@ -262,11 +262,11 @@ export function toggleMech() {
       const it = ITEMS.robot;
       if (P.money < it.cost) { say("로봇은 " + won(it.cost) + " 이에요 · 광물을 팔아 모아 오세요"); sfx("error"); return true; }
       buyItem("robot");
-      say("로봇을 샀어요! [E] 로 타요 · 드릴·엔진·궤도는 상점에서");
+      say("로봇을 샀어요! [E] 로 타요 · 톱니·엔진·구동계는 상점에서");
       return true;
     }
     P.mech = true; P.climbing = false; sfx("ignite");
-    say("로봇에 탔어요! 드릴로 빠르게 캐고 ↑ 로 날아요");
+    say("로봇에 탔어요! 톱니로 빠르게 캐고 ↑ 로 날아요");
   }
   S.dig = null;
   saveNow(true, true);
@@ -517,7 +517,7 @@ export function update(dt) {
     const id = tiles[tgt[1] * W + tgt[0]];
     const info = TILE[id];
     if ((id === 12 || id === 13 || id === 16) && S.stoneHintT <= 0) {
-      say(id === 12 ? "단단한 돌이에요! 다이너마이트가 필요해요" : id === 16 ? "희귀 광물을 감싼 경암이에요. 드릴이 좋을수록 빨리 뚫려요" : "건물 아래 기초는 부술 수 없어요. 옆 빈 땅에서 내려가세요");
+      say(id === 12 ? "단단한 돌이에요! 다이너마이트가 필요해요" : id === 16 ? "희귀 광물을 감싼 경암이에요. 톱니가 좋을수록 빨리 뚫려요" : "건물 아래 기초는 부술 수 없어요. 옆 빈 땅에서 내려가세요");
       S.stoneHintT = 6;
     }
     if (info.hard !== Infinity && (P.fuel > 0 || !P.mech)) {           // 사람은 곡괭이라 연료 없이도 캠

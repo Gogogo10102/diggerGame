@@ -22,7 +22,7 @@ import { closeMenu } from "./menu.ts";
 import { el, mkBtn, showOv } from "./overlay.ts";
 
 // 장비 칸 능력치 짧은 이름 (칸 아래 작은 글씨)
-const FX_NAME_INV = { pick: "곡괭이 채굴력", drill: "드릴 채굴력", fuel: "최대 연료", cargo: "화물칸", thrust: "로봇 추진력", speed: "로봇 이동 속도", light: "시야", rocket: "로켓 추진력" };
+const FX_NAME_INV = { pick: "곡괭이 채굴력", drill: "톱니 채굴력", fuel: "최대 연료", cargo: "화물칸", thrust: "로봇 추진력", speed: "로봇 이동 속도", light: "시야", rocket: "로켓 추진력" };
 const FX_SHORT = (k) => ({ pick: "채굴력", drill: "채굴력", fuel: "연료", cargo: "화물칸", thrust: "추진력", speed: "속도", light: "시야", rocket: "추진력" }[k] || "");
 // ---- 인벤토리: 착용 중인 아이템을 그림으로 한눈에 ----
 export function renderInventory(note) {

@@ -322,10 +322,10 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t9.key("KeyE"); await t9.tick();
   ok(t9.ev("state") === "shop", "상점 열림");
   t9.ev("P.money = 100000");
-  ok(t9.ev("SHOP_TABS.length") === 9 && t9.ev("SHOP_TABS.map((t) => t.name).join()") === "곡괭이,백팩 로켓,드릴,탱크,화물,엔진,궤도,기타,소모품", "상점 탭 9개 (조명+특수 = 기타, 로봇은 차고)");
+  ok(t9.ev("SHOP_TABS.length") === 9 && t9.ev("SHOP_TABS.map((t) => t.name).join()") === "곡괭이,백팩 로켓,톱니,탱크,화물,엔진,구동계,기타,소모품", "상점 탭 9개 (조명+특수 = 기타, 로봇은 차고)");
   ok(t9.ev("SHOP_TABS[7].ids.length") === 16 && !t9.ev("SHOP_TABS.some((t) => t.ids.includes('robot'))"), "기타 = 조명 8 + 특수 8 · 상점에 로봇 없음");
   t9.key("ArrowRight"); t9.key("ArrowRight");
-  ok(t9.ev("shopTab") === 2, "드릴 탭으로 이동");
+  ok(t9.ev("shopTab") === 2, "톱니 탭으로 이동");
   t9.key("ArrowDown"); t9.key("ArrowDown"); t9.key("ArrowDown"); t9.key("ArrowDown");
   ok(t9.ev("shopSel") === 4, "아래로 4칸 → 2쪽 첫 항목");
   t9.key("Enter"); await t9.tick();
@@ -608,7 +608,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   // 인벤토리: 그림 슬롯 + 장착
   t29.ev("P.items.laser_drill = true; P.items.lamp1 = true; recalcStats()");
   t29.key("KeyI"); await t29.tick();
-  ok(t29.ev("state") === "menu" && t29.texts().some((x) => x.includes("장착 장비")) && t29.texts().some((x) => x.includes("에메랄드 레이저 드릴")), "인벤토리에 장착한 장비가 표시됨");
+  ok(t29.ev("state") === "menu" && t29.texts().some((x) => x.includes("장착 장비")) && t29.texts().some((x) => x.includes("에메랄드 톱날")), "인벤토리에 장착한 장비가 표시됨");
   t29.key("Escape"); await t29.tick();
   // 제작 트리
   ok(t29.ev("RECIPE_CATS.length") === 5 && t29.ev("RECIPE_CATS.every((c) => c.nodes.length === c.ids.length && c.cols >= 2)"), "제작 분류 5개, 모두 트리 배치");

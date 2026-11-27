@@ -54,8 +54,8 @@ export const HOT = ["fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x", "la
 //   조명 + 특수 = 기타 · 로봇 본체는 상점에서 빼고 차고에서 삼(update.ts toggleMech)
 //   카드의 능력치 칸은 탭이 아니라 그 아이템의 분류(SLOT_OF)로 판단
 export const SHOP_TABS = [
-  ["곡괭이", "pick", ["pick"]], ["백팩 로켓", "rocket", ["rocket"]], ["드릴", "drill", ["drill"]],
-  ["탱크", "fuel", ["fuel"]], ["화물", "crate", ["crate"]], ["엔진", "engine", ["engine"]], ["궤도", "tracks", ["tracks"]],
+  ["곡괭이", "pick", ["pick"]], ["백팩 로켓", "rocket", ["rocket"]], ["톱니", "drill", ["drill"]],
+  ["탱크", "fuel", ["fuel"]], ["화물", "crate", ["crate"]], ["엔진", "engine", ["engine"]], ["구동계", "tracks", ["tracks"]],
   ["기타", "special", ["lamp", "special"]], ["소모품", "fuelcan", ["fuelcan"]],
 ].map(([name, icon, keys]) => {
   const cs = keys.map((k) => CATS.find((c) => c.icon === k));

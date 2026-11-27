@@ -37,18 +37,18 @@ addCat("백팩 로켓", "rocket", [
   ["rocket4", "플라즈마 백팩", { rocket: 1.75 }, 12000],
 ], true, "rocket");
 addCat("로봇", "robot", [
-  ["robot", "드릴 로봇", { robot: 1 }, 1500],
+  ["robot", "굴착 로봇", { robot: 1 }, 1500],
 ], true);
 // 아래 드릴 · 엔진 · 궤도는 로봇 장비 (로봇을 사야 살 수 있음). 탱크(연료) · 화물 · 조명 · 특수는 사람·로봇 공용
-addCat("드릴", "drill", [
-  ["steel_drill", "강철 드릴", { drill: 1.4 }, 80, "robot"],
-  ["ti_drill", "티타늄 드릴", { drill: 2.0 }, 320],
-  ["dia_drill", "다이아 드릴", { drill: 3.0 }, 1200],
-  ["plasma_drill", "플라즈마 드릴", { drill: 3.8 }, 3200],
-  ["sonic_drill", "소닉 드릴", { drill: 4.8 }, 8500],
-  ["gravity_drill", "중력 드릴", { drill: 6.0 }, 22000],
-  ["antimatter_drill", "반물질 드릴", { drill: 7.5 }, 55000],
-  ["singularity_drill", "특이점 드릴", { drill: 9.5 }, 140000],
+addCat("톱니", "drill", [   // 예전 "드릴" — 로봇 팔이 톱니바퀴라 이름도 톱니 (id·icon 키는 세이브 때문에 그대로)
+  ["steel_drill", "강철 톱니", { drill: 1.4 }, 80, "robot"],
+  ["ti_drill", "티타늄 톱니", { drill: 2.0 }, 320],
+  ["dia_drill", "다이아 톱니", { drill: 3.0 }, 1200],
+  ["plasma_drill", "플라즈마 톱니", { drill: 3.8 }, 3200],
+  ["sonic_drill", "소닉 톱니", { drill: 4.8 }, 8500],
+  ["gravity_drill", "중력 톱니", { drill: 6.0 }, 22000],
+  ["antimatter_drill", "반물질 톱니", { drill: 7.5 }, 55000],
+  ["singularity_drill", "특이점 톱니", { drill: 9.5 }, 140000],
 ], true, "drill");
 addCat("탱크", "fuel", [
   ["aux_tank", "보조 탱크", { fuel: 80 }, 60],
@@ -80,15 +80,15 @@ addCat("엔진", "engine", [
   ["engine7", "반중력 엔진", { thrust: 4.3 }, 80000],
   ["engine8", "초광속 엔진", { thrust: 5.3 }, 200000],
 ], true, "thrust");
-addCat("궤도", "tracks", [
-  ["track1", "고속 궤도", { speed: 1.15 }, 120, "robot"],
-  ["track2", "강화 궤도", { speed: 1.35 }, 500],
-  ["track3", "터보 궤도", { speed: 1.6 }, 1500],
-  ["track4", "합금 궤도", { speed: 1.8 }, 4000],
-  ["track5", "자기부상 궤도", { speed: 2.0 }, 10500],
-  ["track6", "호버 궤도", { speed: 2.25 }, 26000],
-  ["track7", "반중력 궤도", { speed: 2.55 }, 65000],
-  ["track8", "차원 도약 궤도", { speed: 2.9 }, 160000],
+addCat("구동계", "tracks", [   // 예전 "궤도" — 다리를 바꾸면 외형이 안 바뀌어서 몸속 부품으로
+  ["track1", "고속 서보 모터", { speed: 1.15 }, 120, "robot"],
+  ["track2", "강화 기어박스", { speed: 1.35 }, 500],
+  ["track3", "유압 액추에이터", { speed: 1.6 }, 1500],
+  ["track4", "합금 관절 모터", { speed: 1.8 }, 4000],
+  ["track5", "자기부상 코일", { speed: 2.0 }, 10500],
+  ["track6", "호버 안정기", { speed: 2.25 }, 26000],
+  ["track7", "반중력 모듈", { speed: 2.55 }, 65000],
+  ["track8", "차원 도약 장치", { speed: 2.9 }, 160000],
 ], true, "speed");
 addCat("조명", "lamp", [
   ["lamp1", "헤드램프", { light: 1.3 }, 90],

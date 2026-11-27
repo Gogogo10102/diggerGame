@@ -18,14 +18,14 @@ export function addRecipeCat(name, icon, list) {
   RECIPE_CATS.push(cat);
 }
 // 분류마다 제작 트리가 있어서, 선행 장비(req)를 먼저 만들어야 위 단계를 만들 수 있습니다.
-addRecipeCat("드릴", "drill", [
-  ["laser_drill", "에메랄드 레이저 드릴", { drill: 0.8 }, { 9: 6, 3: 12 }, 900, "iron_bit"],
-  ["dia_bit", "다이아 비트", { drill: 1.2, lucky: 0.1 }, { 5: 6, 9: 4, 3: 20 }, 2500, "laser_drill"],
-  ["mithril_drill", "미스릴 드릴", { drill: 2.0, lucky: 0.15 }, { 11: 5, 5: 6 }, 6000, "dia_bit"],
-  ["iron_bit", "철 비트", { drill: 0.4 }, { 3: 10, 6: 8 }, 120],
-  ["silver_bit", "은 비트", { drill: 0.6, lucky: 0.05 }, { 8: 8, 3: 10 }, 350, "iron_bit"],
-  ["gold_bit", "금 코팅 비트", { drill: 0.9, sell: 0.1 }, { 4: 8, 8: 6 }, 900, "silver_bit"],
-  ["ruby_bit", "루비 레이저", { drill: 1.5, lucky: 0.05 }, { 10: 6, 4: 8 }, 3000, "laser_drill"],
+addRecipeCat("톱날", "drill", [
+  ["laser_drill", "에메랄드 톱날", { drill: 0.8 }, { 9: 6, 3: 12 }, 900, "iron_bit"],
+  ["dia_bit", "다이아 톱날", { drill: 1.2, lucky: 0.1 }, { 5: 6, 9: 4, 3: 20 }, 2500, "laser_drill"],
+  ["mithril_drill", "미스릴 톱날", { drill: 2.0, lucky: 0.15 }, { 11: 5, 5: 6 }, 6000, "dia_bit"],
+  ["iron_bit", "철 톱날", { drill: 0.4 }, { 3: 10, 6: 8 }, 120],
+  ["silver_bit", "은 톱날", { drill: 0.6, lucky: 0.05 }, { 8: 8, 3: 10 }, 350, "iron_bit"],
+  ["gold_bit", "금 코팅 톱날", { drill: 0.9, sell: 0.1 }, { 4: 8, 8: 6 }, 900, "silver_bit"],
+  ["ruby_bit", "루비 톱날", { drill: 1.5, lucky: 0.05 }, { 10: 6, 4: 8 }, 3000, "laser_drill"],
 ]);
 addRecipeCat("동력", "engine", [
   ["coal_boiler", "석탄 보일러", { fuel: 30, eff: 0.1 }, { 6: 20, 3: 5 }, 100],
