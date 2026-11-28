@@ -39,6 +39,7 @@ addEventListener("keydown", (e) => {
     else if (e.code === "Digit5") furnaceAct("smelt", 5);
     else if (e.code === "Enter" || e.code === "Space") furnaceAct("smelt", Infinity);
     else if (e.code === "KeyU") furnaceAct("up");
+    else if (e.code === "KeyK") furnaceAct("skill");                 // 성공률 강화 (숙련)
     else if (e.code === "Backspace" || e.code === "Delete") furnaceAct("clear");
     return;
   }
@@ -228,6 +229,7 @@ function stageDown(e) {
       else if (b.act === "fsel") S.furnaceSel = b.i;
       else if (b.act === "smelt") { if (b.i !== undefined) S.furnaceSel = b.i; furnaceAct("smelt", b.arg); }
       else if (b.act === "fup") furnaceAct("up");
+      else if (b.act === "fskill") furnaceAct("skill");
       else if (b.act === "fclear") furnaceAct("clear");
       else if (b.act === "close") closeShop();
       return;

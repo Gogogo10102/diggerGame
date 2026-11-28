@@ -6,7 +6,7 @@ import { P } from "./player.ts";
 import { S } from "./state.ts";
 import { LOOK } from "../data/consumables.ts";
 import { solid } from "./world.ts";
-import { CATS, ITEMS } from "../data/items.ts";
+import { CATS, ITEMS, itemLv } from "../data/items.ts";
 import { cv } from "../render/util.ts";
 import { updateDebris } from "../systems/collapseFx.ts";
 import { lsSet } from "../ui/inventory.ts";
@@ -30,7 +30,7 @@ export function slotItem(cat) {                                 // 그 칸에 �
   for (const id of cat.ids) if (P.items[id]) top = id;
   return top;
 }
-export const worn = (id) => !!P.items[id] && (SLOT_OF[id] ? slotItem(SLOT_OF[id]) === id : !(P.off && P.off[id]));
+export const worn = (id) => !!P.items[id] && (SLOT_OF[id] ? slotItem(SLOT_OF[id]) === id : !!ITEMS[id].lv || !(P.off && P.off[id]));
 //  바꾼 뒤 화물이 용량을 넘으면 되돌리고 이유를 돌려줌 (성공이면 "")
 function equipCheck(undo) {
   recalcStats();
@@ -48,7 +48,7 @@ export function equipSlot(cat, id) {
 }
 //  특수·제작 장비 하나씩 끼고 빼기 (장비 칸 장비면 그 칸에 끼기/빼기)
 export function equipToggle(id) {
-  if (!P.items[id] || EQUIP_FIXED[id]) return "";
+  if (!P.items[id] || EQUIP_FIXED[id] || ITEMS[id].lv) return "";   // 레벨 장비는 늘 켜져 있음 (끼고 뺄 수 없음)
   if (SLOT_OF[id]) return equipSlot(SLOT_OF[id], worn(id) ? null : id);
   const was = !!P.off[id];
   if (was) delete P.off[id]; else P.off[id] = true;
@@ -60,15 +60,27 @@ export function equipNew(id) {
   else delete P.off[id];
 }
 
+// 캔 광물 1칸에서 나오는 개수: 행운이 1.3 이면 2개 확정 + 30% 확률로 1개 더
+export const oreYield = () => { const L = Math.max(0, STAT.lucky); return 1 + Math.floor(L) + (Math.random() < L % 1 ? 1 : 0); };
+
 // ---- 능력치: 장비 칸 값 + 보너스(특수·제작) + 레벨 ----
 export const STAT = { drill: 1, fuel: FUEL_BASE, cargo: 10, thrust: 1, speed: 1, light: 1, eff: 1, sell: 1, lucky: 0, pick: PICK_BASE, rocket: 0 };
 export function recalcStats() {
   const s = { drill: 0, fuel: 0, cargo: 0, thrust: 0, speed: 0, light: 0, eff: 0, sell: 0, lucky: 0, pick: 0, rocket: 0, robot: 0 };
   const v = { ...SLOT_BASE };
   for (const c of CATS) if (c.slot) { const id = slotItem(c); if (id) v[c.slot] = ITEMS[id].fx[c.slot]; }
+  let sellMul = 1;                                                 // 레벨 장비(골드): 장비끼리 곱함 (고글 Lv.100 ×3 · 분석기 ×4 …)
   for (const id in P.items) {
+    const it = ITEMS[id];
+    if (it.lv) {                                                     // 레벨 장비는 늘 켜져 있음, 효과 = 레벨 1당 값 × 레벨
+      const lv = itemLv(id);
+      if (it.fx.sell) sellMul *= 1 + it.fx.sell * lv;
+      if (it.fx.lucky) s.lucky += it.fx.lucky * lv;
+      if (it.fx.eff) s.eff += it.fx.eff * lv;
+      continue;
+    }
     if (SLOT_OF[id] || !worn(id)) continue;
-    for (const k in ITEMS[id].fx) s[k] += ITEMS[id].fx[k];
+    for (const k in it.fx) s[k] += it.fx[k];
   }
   STAT.drill = v.drill + s.drill + (S.MINER_LV - 1) * 0.012;
   STAT.fuel = v.fuel + s.fuel;
@@ -77,8 +89,8 @@ export function recalcStats() {
   STAT.speed = v.speed + s.speed;
   STAT.light = v.light + s.light;
   STAT.eff = Math.max(0.4, 1 - s.eff);   // 연료 소모 배율
-  STAT.sell = 1 + s.sell + (S.MINER_LV - 1) * 0.004;
-  STAT.lucky = Math.min(0.9, s.lucky);   // 광물을 하나 더 얻을 확률
+  STAT.sell = (1 + s.sell + (S.MINER_LV - 1) * 0.004) * sellMul;   // 판매가(골드 획득량) 배율
+  STAT.lucky = s.lucky;                  // 광물이 더 나올 기대값 (1 넘으면 여러 개, oreYield)
   STAT.pick = v.pick + s.pick + (S.MINER_LV - 1) * 0.006;   // 사람: 곡괭이
   STAT.rocket = v.rocket + s.rocket;     // 사람: 백팩 로켓 추진력 (0 = 로켓 없음 → 못 낢)
   {                                      // 로봇 외형: 장비 단계에 따라 달라짐

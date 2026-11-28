@@ -28,7 +28,7 @@ PICKS = {
     "crate": {25: "cargo1", 29: "cargo2", 40: "cargo3", 41: "cargo4", 33: "cargo5", 43: "cargo6", 49: "cargo7", 62: "cargo8"},   # 나무 상자 대신 철 상자 → 기계 큐브 (로봇 몸 안 적재함 느낌)
     "engine": {2: "engine1", 15: "engine2", 18: "engine3", 26: "engine4", 35: "engine5", 43: "engine6", 50: "engine7", 61: "engine8"},
     "lamp": {2: "lamp1", 13: "lamp2", 18: "lamp3", 31: "lamp4", 33: "lamp5", 44: "lamp6", 49: "lamp7", 63: "lamp8"},
-    "special": {2: "eco1", 13: "appraiser", 17: "eco2", 27: "market_ana", 35: "luck_ant", 45: "auction", 49: "superwire", 58: "exchange"},
+    "special": {2: "eco1", 13: "appraiser", 17: "eco2", 27: "market_ana", 35: "luck_ant", 39: "luck_ant2", 38: "luck_ant3", 45: "auction", 49: "superwire", 58: "exchange"},   # 행운 2·3단계 = 클로버 수신탑 · 보석 행운탑 (2026-11-28)
     "c_engine": {2: "coal_boiler", 10: "ruby_core", 21: "mithril_reactor", 25: "copper_coil", 33: "gold_cell", 41: "diamond_cell", 52: "void_engine"},
     "c_tracks": {1: "copper_motor", 10: "steel_frame", 20: "mithril_armor", 26: "turbo_motor", 34: "ion_thruster", 41: "silver_plating", 49: "diamond_hull"},
     "c_lamp": {1: "silver_lens", 22: "gold_scale", 19: "lucky_charm", 26: "emerald_lens", 34: "diamond_scope", 47: "merchant_ring", 57: "clover_gem"},

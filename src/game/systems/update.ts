@@ -3,13 +3,13 @@ import "./town.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, HW, inB, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, bannerQ, bombs, canFly, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, pushBanner, say, spawn, updateFx } from "../core/stats.ts";
+import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, oreYield, bannerQ, bombs, canFly, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, pushBanner, say, spawn, updateFx } from "../core/stats.ts";
 import { ICON, dirtTiles, gasTile } from "../art/sprites.ts";
 
 // 보물 상자 열기: 깊을수록 많은 돈 + 25% 확률로 소모품 하나. 처음 열면 알림
 export function openChest(c, r) {
   const d = Math.max(0, r - SURF), x = (c + 0.5) * T, y = (r + 0.5) * T;
-  const money = Math.round((60 + d * 1.6) * (0.7 + Math.random() * 0.6));
+  const money = Math.round((600 + d * 16) * (0.7 + Math.random() * 0.6) * STAT.sell);   // 경제 개편(2026-11-28): 10배 + 골드 획득량 레벨
   P.money += money;
   if (S.acct) { S.acct.stats.earned = (S.acct.stats.earned || 0) + money; S.acct.stats.chests = (S.acct.stats.chests || 0) + 1; }
   let bonus = "";
@@ -379,7 +379,6 @@ export function update(dt) {
   if (S.acct) { S.acct.playTime += dt; S.saveT += dt; if (S.saveT >= 15) saveNow(true, true); }   // 15초마다 자동 저장
   if (S.msgT > 0) S.msgT -= dt;
   if (S.bannerT > 0) S.bannerT -= dt;
-  if (S.comboT > 0) { S.comboT -= dt; if (S.comboT <= 0) S.combo = 0; }   // 콤보 시간이 지나면 끊김
   if (S.bannerT <= 0 && bannerQ.length) { S.banner = bannerQ.shift(); S.bannerText = S.banner.title; S.bannerT = BANNER_T; }
   animMiner(dt);
   updateTutorial(dt);
@@ -550,12 +549,12 @@ export function update(dt) {
         discoverCave(tgt[0], tgt[1]);                              // 뚫은 칸 옆이 숨은 동굴이면 동굴 전체가 드러남
         if (info.value > 0) {
           const ox = (tgt[0] + 0.5) * T, oy = (tgt[1] + 0.5) * T;
-          const lucky = STAT.lucky > 0 && Math.random() < STAT.lucky;
-          for (let n = 0; n < (lucky ? 2 : 1); n++) {
+          const cnt = oreYield(), lucky = cnt > 1;                 // 행운: 한 칸에서 여러 개
+          for (let n = 0; n < cnt; n++) {
             if (cargoCount() < cargoCap()) P.cargo[id] = (P.cargo[id] || 0) + 1;
             else spawnDrop(id, ox, oy, 1);                       // 화물칸이 가득 → 그 자리에 떨어짐
           }
-          if (lucky) floaters.push({ x: P.x, y: P.y - 42, text: "행운! +1", color: "#ffd34d", life: 1.1 });
+          if (lucky) floaters.push({ x: P.x, y: P.y - 42, text: "행운! +" + (cnt - 1), color: "#ffd34d", life: 1.1 });
           if (cargoCount() >= cargoCap() && drops.length && drops[drops.length - 1].age === 0) {
             say("화물칸이 가득 찼어요! 캔 광물은 땅에 떨어져요 (60초 안에 주우세요)");
             floaters.push({ x: P.x, y: P.y - 24, text: "FULL", color: "#ff6b6b", life: 1.1 });

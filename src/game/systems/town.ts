@@ -5,7 +5,7 @@ import { TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { STAT, equipNew, equipToggle, maxFuel, recalcStats, say, worn } from "../core/stats.ts";
-import { ITEMS } from "../data/items.ts";
+import { CATS, ITEMS, LV_MAX, itemLv, lvCost, reqMet } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
 import { BARS, barValue, isBar, matHave, matName, matTake } from "./furnace.ts";
@@ -32,6 +32,7 @@ export function craftItem(id) {
   for (const m in it.mats) matTake(m, it.mats[m]);
   P.money -= it.cost;
   P.items[id] = true;
+  if (it.lv) P.lv[id] = 1;
   equipNew(id);
   recalcStats();
   if (it.fx.fuel) P.fuel = maxFuel();
@@ -83,6 +84,20 @@ export function sellStash() {
   say("창고 광물 판매 +" + won(gain)); sfx("sell");
   saveNow(true);
 }
+// 레벨 장비(특수) 레벨 올리기: 가진 장비를 또 사면 Lv +1 (최대 LV_MAX), Lv.100 이면 같은 줄의 다음 장비가 열림
+export function levelUp(id) {
+  const it = ITEMS[id], lv = itemLv(id);
+  if (lv >= LV_MAX) return townFail(it.name + " 은(는) 최대 레벨이에요");
+  const c = lvCost(id, lv);
+  if (P.money < c) return townFail("돈이 부족합니다 (" + won(c) + " 필요)");
+  P.money -= c;
+  P.lv[id] = lv + 1;
+  recalcStats();
+  const nx = CATS.find((cat) => cat.ids.includes(id)).ids.find((k) => ITEMS[k].req === id);
+  if (P.lv[id] >= LV_MAX && nx) { say(it.name + " Lv." + LV_MAX + "! 다음 장비 " + ITEMS[nx].name + " 이(가) 열렸어요"); sfx("levelup"); }
+  else { say(it.name + " Lv." + P.lv[id]); sfx("buy"); }
+  saveNow(true, true);
+}
 export function buyItem(id) {
   const it = ITEMS[id];
   if (!it) return;
@@ -96,6 +111,7 @@ export function buyItem(id) {
     saveNow(true, true);
     return;
   }
+  if (it.lv && P.items[id]) return levelUp(id);     // 레벨 장비: 또 사면 레벨 업
   if (P.items[id]) {                                // 가진 장비: 장착 (상점 버튼 '장착')
     if (worn(id)) return townFail("이미 장착 중이에요");
     const err = equipToggle(id);
@@ -104,10 +120,11 @@ export function buyItem(id) {
     saveNow(true, true);
     return;
   }
-  if (it.req && !P.items[it.req]) return townFail(it.req === "robot" ? "먼저 차고에서 로봇을 사야 해요" : "먼저 " + ITEMS[it.req].name + " 구매 필요");
+  if (!reqMet(id)) return townFail(it.req === "robot" ? "먼저 차고에서 로봇을 사야 해요" : ITEMS[it.req].lv ? ITEMS[it.req].name + " 을(를) Lv." + LV_MAX + " 까지 올려야 열려요" : "먼저 " + ITEMS[it.req].name + " 구매 필요");
   if (P.money < it.cost) return townFail("돈이 부족합니다 (" + won(it.cost) + " 필요)");
   P.money -= it.cost;
   P.items[id] = true;
+  if (it.lv) P.lv[id] = 1;
   equipNew(id);
   recalcStats();
   if (it.fx.fuel) P.fuel = maxFuel();               // 연료통을 사면 가득 채움
@@ -121,7 +138,7 @@ export function buyItem(id) {
 // ---------------------------------------------------------------------
 export const ORDER_N = 3, ORDER_BONUS = 1.6;
 S.orderFlash = null;
-export const orderRerollCost = () => 40 + Math.round(Math.min(2000, (S.acct ? S.acct.stats.maxDepth : 0)) * 0.6);
+export const orderRerollCost = () => Math.round((400 + Math.min(2000, (S.acct ? S.acct.stats.maxDepth : 0)) * 6) * STAT.sell);   // 10배 + 골드 획득량 (벌이에 맞춰)
 function orderPool() {
   const ores = SELL_KEYS.slice(0, SELL_ORES).filter((id) => minedOf(id) > 0);
   const bars = SELL_KEYS.slice(SELL_ORES).filter((k) => minedOf(BARS[k].ore) > 0 && S.acct && (S.acct.stats.smelted || 0) > 0);
@@ -132,11 +149,13 @@ export function makeOrder(avoid = []) {
   const list = pool.length ? pool : orderPool();
   const k = list[Math.floor(Math.random() * list.length)];
   const unit = BARS[k] ? barValue(k) : TILE[k].value;
-  const V = 100 + Math.min(2400, S.acct ? S.acct.stats.maxDepth : 0) * 2;   // 의뢰 하나의 크기(판매가 기준): 깊이 들어갈수록 큼
+  const V = 1000 + Math.min(2400, S.acct ? S.acct.stats.maxDepth : 0) * 20;   // 의뢰 하나의 크기(판매가 기준): 깊이 들어갈수록 큼
   const n = Math.max(2, Math.min(30, Math.round(V / unit * (0.7 + Math.random() * 0.6))));
   const pay = Math.round(n * unit * ORDER_BONUS / 5) * 5;
-  return { k, n, pay, xp: Math.max(5, Math.round(pay * 0.06)) };
+  return { k, n, pay, xp: Math.max(5, Math.round(pay * 0.006)) };   // 값이 10배가 돼서 경험치 비율은 1/10
 }
+// 의뢰 보상도 골드 획득량(판매가 배율)을 받음 — 저장은 기본값, 보여 줄 때·받을 때 곱함
+export const orderPay = (o) => Math.round(o.pay * STAT.sell);
 export function ensureOrders() {
   if (!S.acct) return;
   if (!Array.isArray(S.acct.orders)) S.acct.orders = [];
@@ -148,13 +167,14 @@ export function deliverOrder(i) {
   if (!o) return;
   if (matHave(o.k) < o.n) return townFail(matName(o.k) + "이(가) " + (o.n - matHave(o.k)) + "개 모자라요");
   matTake(o.k, o.n);
-  P.money += o.pay;
-  S.acct.stats.earned += o.pay;
+  const got = orderPay(o);
+  P.money += got;
+  S.acct.stats.earned += got;
   S.acct.stats.orders = (S.acct.stats.orders || 0) + 1;
   addXP(o.xp);
   S.acct.orders[i] = makeOrder(S.acct.orders.map((x) => x.k));
   S.orderFlash = { k: i, t: 0.6 };                                  // 그 줄이 잠깐 초록으로 반짝이고 새 의뢰가 들어옴
-  say("의뢰 완료! +" + won(o.pay) + " · 경험치 +" + o.xp); sfx("sell"); sfx("levelup", { pitch: 1.5, vol: 0.35 });
+  say("의뢰 완료! +" + won(got) + " · 경험치 +" + o.xp); sfx("sell"); sfx("levelup", { pitch: 1.5, vol: 0.35 });
   checkQuests();
   saveNow(true, true);
 }

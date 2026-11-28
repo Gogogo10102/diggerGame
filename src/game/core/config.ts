@@ -28,18 +28,19 @@ export const MINE_COL = 13;                                       // 여기부�
 export const inTown = (c) => c >= 1 && c < MINE_COL;             // 마을 땅(기초석, 못 팜)
 export const inB = (k, c) => c >= BUILD_COLS[k][0] && c <= BUILD_COLS[k][1];
 
+// 광물 값(value, 원)은 2026-11-28 경제 개편으로 10배 (장비 3천원~120억원에 맞춤)
 // 타일 종류: 0 공기, 1 흙, 2 구리, 3 철, 4 금, 5 다이아, 7 암반, 17 보물 상자
 export const TILE = {
   1: { name: "흙",     hard: 0.35, value: 0 },
-  2: { name: "구리",   hard: 0.55, value: 10 },
-  3: { name: "철",     hard: 0.75, value: 25 },
-  4: { name: "금",     hard: 1.00, value: 80 },
-  5: { name: "다이아", hard: 1.60, value: 300 },
-  6: { name: "석탄",   hard: 0.45, value: 6 },
-  8: { name: "은",     hard: 0.85, value: 50 },
-  9: { name: "에메랄드", hard: 1.25, value: 140 },
-  10: { name: "루비",   hard: 1.45, value: 200 },
-  11: { name: "미스릴", hard: 2.00, value: 600 },
+  2: { name: "구리",   hard: 0.55, value: 100 },
+  3: { name: "철",     hard: 0.75, value: 250 },
+  4: { name: "금",     hard: 1.00, value: 800 },
+  5: { name: "다이아", hard: 1.60, value: 3000 },
+  6: { name: "석탄",   hard: 0.45, value: 60 },
+  8: { name: "은",     hard: 0.85, value: 500 },
+  9: { name: "에메랄드", hard: 1.25, value: 1400 },
+  10: { name: "루비",   hard: 1.45, value: 2000 },
+  11: { name: "미스릴", hard: 2.00, value: 6000 },
   14: { name: "나무 지지대", hard: Infinity, value: 0 },   // 지나갈 수 있는 설치물
   15: { name: "강철 지지대", hard: Infinity, value: 0 },
   13: { name: "기초석", hard: Infinity, value: 0 },    // 건물 아래 땅 (부술 수 없음)
