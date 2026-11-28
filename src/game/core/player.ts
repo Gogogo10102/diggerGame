@@ -8,7 +8,7 @@ import { HH, SURF, T } from "./config.ts";
 export const P = {
   x: 6 * T + T / 2, y: SURF * T - HH - 1,
   vx: 0, vy: 0,
-  fuel: 60, hp: 100, money: 0,
+  fuel: 60, hp: 100, money: 0, tele: null, made: {},
   cargo: {},
   items: {},            // 구매/제작한 아이템 { id: true }
   eq: {},               // 장비 칸마다 낀 장비 { 분류icon: id | "" } ("" = 안 낌. 기록이 없는 칸은 가진 것 중 가장 높은 단계)

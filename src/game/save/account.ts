@@ -3,7 +3,7 @@ import "./worldSave.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 
 import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, LAYERS, MINE_COL, SURF, T, TILE, W, inB } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { FUEL_BASE, SLOT_OF, bannerQ, bombs, flashes, floaters, maxFuel, maxHp, parts, recalcStats, say } from "../core/stats.ts";
+import { FUEL_BASE, SLOT_OF, bannerQ, bombs, flashes, floaters, maxFuel, maxHp, parts, recalcStats, say, teleId } from "../core/stats.ts";
 import { fixFoundation, genWorld, legacySeen, regenT, rub, rubSet, warn } from "../core/world.ts";
 import { HOT } from "../data/consumables.ts";
 import { ITEMS, LV_MAX } from "../data/items.ts";
@@ -29,7 +29,7 @@ export function snapshot() {
   return withChunksSettled(() => ({
     ver: SAVE_VER, id: S.acct.id, name: S.acct.name, created: S.acct.created, updated: Date.now(),
     seed: S.acct.seed, playTime: Math.floor(S.acct.playTime), stats: S.acct.stats,
-    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, hp: P.hp, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, eq: P.eq, off: P.off, lv: P.lv, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
+    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, hp: P.hp, tele: P.tele, made: P.made, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, eq: P.eq, off: P.off, lv: P.lv, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
     settings: { showHelp: S.showHelp, miniOn: S.miniOn === undefined ? null : S.miniOn },
     world: encodeWorld(),
     stones: 1, worldV: 2,
@@ -108,6 +108,15 @@ export function applyAccount(d) {
     if (n > 0) P.inv[id] = n;
   }
   P.fuel = Number.isFinite(pl.fuel) ? Math.min(maxFuel(), pl.fuel) : maxFuel();
+  {                                                               // 텔레포터 (2026-11-28): 가진 것의 내구도 · 설치한 열 (없으면 -1). 만든 적 있는 제작 장비 기록
+    const tid = teleId(), t = pl.tele && typeof pl.tele === "object" ? pl.tele : null, mx = tid ? ITEMS[tid].dur : 0;
+    const end = (e, ground) => (e && Number.isFinite(e.c) && Number.isFinite(e.r) && e.c >= 1 && e.c < W - 1 && e.r >= 0 && e.r < H - 2 && (e.r < SURF) === ground ? { c: Math.floor(e.c), r: Math.floor(e.r) } : null);
+    P.tele = tid ? { dur: t && Number.isFinite(t.dur) ? Math.max(1, Math.min(mx, Math.floor(t.dur))) : mx,
+      a: t ? end(t.a, true) || (Number.isFinite(t.c) && t.c >= MINE_COL ? { c: Math.floor(t.c), r: SURF - 1 } : null) : null,   // (잠깐 있던 {dur, c} 형식은 지상 패드로)
+      b: t ? end(t.b, false) : null } : null;
+    P.made = {}; if (pl.made && typeof pl.made === "object") for (const k in pl.made) if (ITEMS[k] && ITEMS[k].craft) P.made[k] = 1;
+    for (const k in P.items) if (ITEMS[k] && ITEMS[k].craft) P.made[k] = 1;
+  }
   P.hp = Number.isFinite(pl.hp) ? Math.max(0, Math.min(maxHp(), pl.hp)) : maxHp();   // 체력 (2026-11-28, 옛 세이브는 가득)
   P.layerMax = Math.max(0, Math.min(LAYERS.length - 1, pl.layerMax | 0));
   P.facing = pl.facing < 0 ? -1 : 1;

@@ -4,7 +4,7 @@ import { sfx } from "../core/sound.ts";
 import { ORE_ORDER, TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { STAT, equipNew, equipToggle, maxFuel, recalcStats, say, worn } from "../core/stats.ts";
+import { STAT, equipNew, equipToggle, maxFuel, recalcStats, say, teleId, worn } from "../core/stats.ts";
 import { CATS, ITEMS, LV_MAX, itemLv, lvCost, reqMet } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
@@ -26,12 +26,15 @@ export function craftItem(id) {
   const it = ITEMS[id];
   if (!it || !it.craft) return;
   if (P.items[id]) return townFail("이미 제작한 장비예요");
-  if (it.req && !P.items[it.req]) return townFail("먼저 " + ITEMS[it.req].name + " 제작");
+  if (it.fx.tele && teleId()) return townFail("텔레포터는 하나만 가질 수 있어요 (다 닳아 부서지면 새로 만들어요)");
+  if (it.req && !P.items[it.req] && !(P.made && P.made[it.req])) return townFail("먼저 " + ITEMS[it.req].name + " 제작");   // 부서져 사라진 텔레포터도 만든 적 있으면 됨
   for (const m in it.mats) if (matHave(m) < it.mats[m]) return townFail(matName(m) + "이(가) 부족해요" + (isBar(m) ? " (용광로에서 재련)" : ""));
   if (P.money < it.cost) return townFail("돈이 부족해요 (" + won(it.cost) + ")");
   for (const m in it.mats) matTake(m, it.mats[m]);
   P.money -= it.cost;
   P.items[id] = true;
+  P.made = P.made || {}; P.made[id] = 1;
+  if (it.fx.tele) P.tele = { dur: it.dur, c: -1 };                 // 텔레포터: 새것 (아직 설치 안 함)
   if (it.lv) P.lv[id] = 1;
   equipNew(id);
   recalcStats();

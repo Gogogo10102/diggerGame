@@ -3,7 +3,7 @@ import "./town.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, HW, inB, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, oreYield, bannerQ, bombs, canFly, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, maxHp, pushBanner, say, spawn, teleMax, updateFx } from "../core/stats.ts";
+import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, oreYield, bannerQ, bombs, canFly, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, maxHp, pushBanner, recalcStats, say, spawn, teleId, teleMax, updateFx } from "../core/stats.ts";
 import { ICON, dirtTiles, gasTile } from "../art/sprites.ts";
 
 // 보물 상자 열기: 깊을수록 많은 돈 + 25% 확률로 소모품 하나. 처음 열면 알림
@@ -445,7 +445,6 @@ export function update(dt) {
   S.questT += dt; if (S.questT >= 1) { S.questT = 0; checkQuests(false); }
 
   if (S.hurtT > 0) S.hurtT -= dt;
-  if (S.teleCD > 0) S.teleCD -= dt;
   if (S.hurtFlash > 0) S.hurtFlash -= dt;
   if (P.dead > 0) {
     P.dead -= dt;
@@ -706,39 +705,66 @@ export function useRecall(id) {
   say("마을 귀환서를 읽었어요! (남은 " + P.inv[id] + "개)");
   saveNow(true, true);
 }
-// ---- 텔레포트 (2026-11-28): 제작한 텔레포터로 마을 ↔ 땅속. 갈 수 있는 곳 = 50m 단위(500m 아래는 100m)로, 텔레포터 최대 깊이와 가 본 가장 깊은 곳 중 얕은 쪽까지 ----
-export const TELE_STEP = 50, TELE_CD = 30;                       // 깊이 단위(m) · 한 번 쓰면 다시 충전되는 시간(초)
-S.teleCD = 0;
-export function teleStops() {
-  const lim = Math.min(teleMax(), S.acct ? Math.floor(S.acct.stats.maxDepth) : 0), out = [];
-  for (let d = TELE_STEP; d <= lim; d += d < 500 ? TELE_STEP : 100) out.push(d);   // 500m 까지는 50m, 그 아래는 100m 단위 (버튼이 너무 많아지지 않게)
-  return out;
+// ---- 텔레포터 (2026-11-28): 한 쌍의 패드. 지상에 하나, 땅속에 하나 깔면 둘이 이어짐 → 패드 앞에서 [E]·이동 버튼으로 반대쪽으로 ----
+//  - 한 번에 하나만 가질 수 있음 · 지상 패드는 광산 터 땅 위, 땅속 패드는 텔레포터 최대 깊이(tele, m)까지
+//  - 내구도: 깔기·옮겨 깔기 TELE_PLACE, 한 번 이동할 때 1. 0 이 되면 부서져 사라짐 → 다시 제작
+//  P.tele = { dur, a: 지상 {c, r} | null, b: 땅속 {c, r} | null }  (r = 패드가 놓인 칸 = 서 있는 칸)
+export const TELE_PLACE = 2;
+export const teleDurMax = (id) => (id && ITEMS[id] ? ITEMS[id].dur || 0 : 0);
+const feetRow = () => Math.floor((P.y + HH - 1) / T);
+export const atEnd = (e) => !!e && Math.abs(P.x - (e.c + 0.5) * T) < T * 1.2 && Math.abs(feetRow() - e.r) <= 1;
+// 지금 서 있는 패드: "a" · "b" · "" (텔레포터가 있을 때만)
+export const atPad = () => (!teleId() || !P.tele || P.dead > 0 ? "" : atEnd(P.tele.a) ? "a" : atEnd(P.tele.b) ? "b" : "");
+// 지금 자리에 깔 수 있나: 돌려줌 = [어느 쪽 "a"|"b", 못 까는 이유(없으면 "")]
+export function teleCanPlace() {
+  const c = Math.floor(P.x / T), r = feetRow(), d = r - SURF;
+  if (!teleId()) return ["", "텔레포터가 없어요 · 제작소 '이동'에서 만들어요"];
+  if (!P.grounded) return ["", "땅 위에 서서 깔아야 해요"];
+  if (r < SURF) return c < MINE_COL || c >= W - 2 ? ["a", "마을 땅에는 못 깔아요 · 광산 터(차고 오른쪽)에 까세요"] : ["a", ""];
+  if (d > teleMax()) return ["b", "이 텔레포터는 " + teleMax() + "m 까지만 깔 수 있어요 (지금 " + d + "m)"];
+  return ["b", ""];
 }
-// 도착 자리: 지금 열(광산 터면) 근처에서 발밑이 단단한 빈칸을 찾고, 없으면 2칸 높이 굴을 파 둠 (암반은 안 팜)
-export function teleSpot(depth) {
-  const r0 = SURF + depth, cur = Math.floor(P.x / T);
-  const c0 = Math.max(MINE_COL + 2, Math.min(W - 4, cur > MINE_COL + 1 ? cur : MINE_COL + 6));
-  ensureRect(c0 - 8, r0 - 8, c0 + 8, r0 + 8);
-  const ok = (c, r) => c > 0 && c < W - 1 && r > SURF && r < H - 3 && tiles[r * W + c] === 0 && solid(c, r + 1);
-  for (let k = 0; k <= 6; k++) for (let dr = -k; dr <= k; dr++) for (const dc of [-k, k]) if (ok(c0 + dc, r0 + dr)) return [c0 + dc, r0 + dr];
-  for (const rr of [r0, r0 - 1]) if (tiles[rr * W + c0] !== 7) tiles[rr * W + c0] = 0;
-  return [c0, r0];
+// 내구도를 n 만큼 씀. 다 쓰면 부서져 사라짐 (돌려줌: 부서졌으면 true)
+export function teleWear(n) {
+  const id = teleId();
+  if (!id || !P.tele) return false;
+  P.tele.dur = Math.max(0, P.tele.dur - n);
+  if (P.tele.dur > 0) return false;
+  delete P.items[id]; P.tele = null; recalcStats();
+  pushBanner("텔레포터가 부서졌어요", "내구도를 다 썼어요 · 제작소 '이동'에서 다시 만들어요", ICON.tele, "#b8a8ff");
+  sfx("break");
+  return true;
 }
-export function teleportTo(depth) {
-  if (P.dead > 0 || !(teleMax() > 0)) return say("텔레포터가 없어요 · 제작소 '이동'에서 만들어요");
-  if (S.teleCD > 0) return say("텔레포터 충전 중… " + Math.ceil(S.teleCD) + "초");
-  const town = depth <= 0;
-  if (town && Math.floor(P.y / T) < SURF) return say("이미 마을이에요");
-  if (!town && !teleStops().includes(depth)) return say(depth + "m 는 아직 못 가요 (최대 " + Math.min(teleMax(), Math.floor(S.acct ? S.acct.stats.maxDepth : 0)) + "m)");
+export function placeTele() {
+  const [k, why] = teleCanPlace();
+  if (why) return say(why);
+  const c = Math.floor(P.x / T), r = feetRow();
+  if (!P.tele) P.tele = { dur: teleDurMax(teleId()), a: null, b: null };
+  const old = P.tele[k];
+  if (old && old.c === c && old.r === r) return say("이미 여기에 깔려 있어요");
+  P.tele[k] = { c, r };
+  sfx("buy");
+  floaters.push({ x: P.x, y: P.y - 40, text: (old ? "옮겨 깖" : "설치") + " · 내구도 -" + TELE_PLACE, color: "#b8a8ff", life: 1.3 });
+  const other = P.tele[k === "a" ? "b" : "a"];
+  if (!teleWear(TELE_PLACE)) say((k === "a" ? "지상" : "땅속 " + (r - SURF) + "m") + " 패드 설치! " + (other ? "두 패드가 이어졌어요 · 패드 앞에서 이동" : (k === "a" ? "이제 땅속에도 하나 까세요" : "이제 지상에도 하나 까세요")) + " (내구도 " + P.tele.dur + ")");
+  saveNow(true, true);
+}
+// 패드 앞에서: 반대쪽 패드로 이동 (내구도 1)
+export function useTele() {
+  const k = atPad();
+  if (!k) return say("텔레포터 패드 앞에서 쓸 수 있어요");
+  const to = P.tele[k === "a" ? "b" : "a"];
+  if (!to) return say(k === "a" ? "땅속에 패드를 아직 안 깔았어요" : "지상에 패드를 아직 안 깔았어요");
+  ensureRect(to.c - 4, to.r - 4, to.c + 4, to.r + 4);
+  for (const rr of [to.r, to.r - 1]) if (tiles[rr * W + to.c] !== 7 && tiles[rr * W + to.c] !== 0 && rr >= SURF) tiles[rr * W + to.c] = 0;   // 그새 흙이 덮였으면 치움
   for (let i = 0; i < 16; i++) floaters.push({ x: P.x + (Math.random() - 0.5) * 40, y: P.y - Math.random() * 40, text: "*", color: i % 2 ? "#b8a8ff" : "#9fd8ff", life: 0.5 + Math.random() * 0.5 });
-  if (town) { P.x = 6 * T + T / 2; P.y = SURF * T - HH - 1; S.inShop = true; }
-  else { const [c, r] = teleSpot(depth); P.x = (c + 0.5) * T; P.y = (r + 1) * T - HH - 1; }
+  P.x = (to.c + 0.5) * T; P.y = (to.r + 1) * T - HH - 1;
   P.vx = P.vy = 0; P.climbing = false; S.rocketOn = false; S.dig = null; S.lastRevealKey = ""; S.graceT = 1; S.fallTop = null;
   ladderQ.length = 0;
-  S.teleCD = TELE_CD;
   if (S.acct) S.acct.stats.teleports = (S.acct.stats.teleports || 0) + 1;
   sfx("teleport");
-  floaters.push({ x: P.x, y: P.y - 40, text: town ? "마을 도착!" : depth + "m 도착!", color: "#b8a8ff", life: 1.4 });
+  floaters.push({ x: P.x, y: P.y - 40, text: to.r < SURF ? "지상 도착!" : (to.r - SURF) + "m 도착!", color: "#b8a8ff", life: 1.4 });
+  if (!teleWear(1)) say("텔레포트! 내구도 " + P.tele.dur + "/" + teleDurMax(teleId()));
   saveNow(true, true);
 }
 export function respawn() {
