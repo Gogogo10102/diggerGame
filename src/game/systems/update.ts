@@ -301,6 +301,17 @@ export function useConsumable(id) {
   }
   saveNow(true, true);
 }
+// 약한 광물이 부서짐: 아무것도 안 남고 반짝이는 가루만. 처음 몇 번은 안내 (사람으로 캐야 해요)
+export function shatterOre(id, c, r, quiet) {
+  const x = (c + 0.5) * T, y = (r + 0.5) * T;
+  for (let k = 0; k < 14; k++) spawn(x + (Math.random() - 0.5) * 24, y + (Math.random() - 0.5) * 24, (Math.random() - 0.5) * 160 * PX, -(40 + Math.random() * 90) * PX, 0.5 + Math.random() * 0.4, ORE_COL[id][k % 3], 3, 500 * PX);
+  floaters.push({ x, y: y - 20, text: TILE[id].name + " 부서짐…", color: "#ff9a8a", life: 1.3 });
+  if (S.acct) S.acct.stats.shattered = (S.acct.stats.shattered || 0) + 1;
+  if (!quiet && (S.fragHintN || 0) < 3 && S.stoneHintT <= 0) {
+    S.fragHintN = (S.fragHintN || 0) + 1; S.stoneHintT = 6;
+    say(TILE[id].name + "은(는) 약해서 톱니에 부서져요. 로봇에서 내려 곡괭이로 캐세요");
+  }
+}
 export function explode(b) {
   const R = b.rad;
   let got = 0, lost = 0, broke = 0;
@@ -313,7 +324,8 @@ export function explode(b) {
     tiles[r * W + c] = 0;
     seen[r * W + c] = 1;
     broke++;
-    if (id < 12 && id !== 7) onMined(id);
+    if (TILE[id].fragile) { shatterOre(id, c, r, true); chips(c, r, id, 5, 1.5); continue; }   // 약한 광물은 폭발에도 부서짐
+    if ((id < 12 || ORE_COL[id]) && id !== 7) onMined(id);
     if (id === 17) { onMined(id); openChest(c, r); }               // 폭파해도 상자는 열림
     if (id === 18) floaters.push({ x: (c + 0.5) * T, y: r * T, text: "가스 연소!", color: "#ffb020", life: 1.1 });   // 폭파하면 가스는 타서 없어짐
     chips(c, r, id, 5, 1.5);
@@ -539,15 +551,17 @@ export function update(dt) {
       }
       if (S.dig.t >= hardOf(id, S.dig.r) / drillMult()) {
         tiles[tgt[1] * W + tgt[0]] = 0;
-        onMined(id);
+        const shatter = P.mech && info.fragile;                    // 약한 광물(호박·오팔·고대 호박)은 로봇 톱니에 부서짐 → 사람 곡괭이로만
+        if (!shatter) onMined(id);
         chips(tgt[0], tgt[1], id, 12, 1.4, digDir);
         for (let k = 0; k < 4; k++) puff((tgt[0] + 0.2 + Math.random() * 0.6) * T, (tgt[1] + 0.2 + Math.random() * 0.6) * T, (Math.random() - 0.5) * 40 * PX, -(4 + Math.random() * 14) * PX, 5 + Math.random() * 5, dustCol(tgt[1]), 0.7 + Math.random() * 0.4);
         S.dig = null;
         if (id === 17) openChest(tgt[0], tgt[1]);
         else if (id === 18) releaseGas(tgt[0], tgt[1]);
-        else if (info.value > 0) sfx("ore", { pitch: 0.8 + Math.min(0.9, Math.log10(1 + info.value) * 0.3) }); else sfx("break");
+        else if (info.value > 0 && !shatter) sfx("ore", { pitch: 0.8 + Math.min(0.9, Math.log10(1 + info.value) * 0.3) }); else sfx("break");
         discoverCave(tgt[0], tgt[1]);                              // 뚫은 칸 옆이 숨은 동굴이면 동굴 전체가 드러남
-        if (info.value > 0) {
+        if (shatter) shatterOre(id, tgt[0], tgt[1]);
+        else if (info.value > 0) {
           const ox = (tgt[0] + 0.5) * T, oy = (tgt[1] + 0.5) * T;
           const cnt = oreYield(), lucky = cnt > 1;                 // 행운: 한 칸에서 여러 개
           for (let n = 0; n < cnt; n++) {

@@ -1437,5 +1437,37 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t90.key("Digit8"); t90.run(2);
   ok(t90.ev("P.y") > t90.ev("SURF * T"), "없으면 아무 일 없음");
 
+  console.log("[48] 새 광물 12종 (지층마다 1~2개) · 약한 광물은 로봇 톱니·폭발에 부서짐");
+  const t95 = boot(path, { w: 1000, h: 640 }); t95.run(5); await login(t95, "NewOre"); t95.run(5);
+  const NEW = [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31];
+  ok(t95.ev("[20,21,22,23,24,25,26,27,28,29,30,31].every((id) => TILE[id] && TILE[id].value > 0 && ORE_COL[id] && oreIcon[id] && ORE_SPR[id] && oreDrop[id] && VEIN_SIZE[id] && XP_ORE[id] && QUEST_ORE[id])"), "새 광물마다 타일·색·아이콘·땅속 그림·떨어진 그림·광맥 크기·경험치·업적");
+  ok(t95.ev("ORE_ORDER.length") === 21 && t95.ev("ORE_IDS.length") === 21 && t95.ev("SELL_ORES") === 21, "광물 21종: 통계·판매 목록에 모두");
+  ok(t95.ev("ORE_ORDER.every((id, i) => i === 0 || TILE[ORE_ORDER[i - 1]].value <= TILE[id].value)"), "목록은 싼 것 → 비싼 것 순서");
+  ok(t95.ev("TILE[21].fragile && TILE[27].fragile && TILE[29].fragile && !TILE[20].fragile"), "호박·오팔·고대 호박은 약한 광물");
+  ok(t95.ev("TILE[31].value") === 2000000 && t95.ev("TILE[20].value") === 120, "값: 석영 120원 ~ 별 조각 200만원");
+  // 지층마다 제 깊이에서 가장 많이: 광맥 분포 확인 (oreProb 최대 구간)
+  const peakOk = t95.ev("ORE_GEN.filter((g) => g.v2).every((g) => oreProb(g, (g.rs + g.re) / 2) === g.peak && oreProb(g, g.start - 1) === 0)");
+  ok(peakOk, "새 광물은 시작 깊이 전엔 안 나오고 제 지층에서 가장 많이");
+  const cnt95 = JSON.parse(t95.ev("(() => { WGEN.feat.clear(); const c = {}; for (let cy = 0; cy < 75; cy++) for (let cx = 0; cx < 12; cx++) for (const v of chunkFeatures(cx, cy).veins) if (v.id >= 20) c[v.id] = (c[v.id] || 0) + v.cells.length; return JSON.stringify(c); })()"));
+  for (const id of NEW) ok(cnt95[id] > 0, "맵에 광맥 생김: " + t95.ev("TILE[" + id + "].name") + " " + cnt95[id] + "칸");
+  // 약한 광물: 로봇으로 캐면 부서짐 (화물 X), 사람 곡괭이로는 캠
+  const fragRoom = (id) => t95.ev("(() => { graceT = 99; ensureRect(20, SURF, 50, SURF + 40); for (let r = SURF + 14; r <= SURF + 30; r++) for (let c = 24; c <= 40; c++) tiles[r*W+c] = 1; for (let r = SURF + 18; r <= SURF + 20; r++) for (let c = 26; c <= 34; c++) tiles[r*W+c] = 0; tiles[(SURF + 20) * W + 35] = " + id + "; P.x = 34 * T + T / 2; P.y = (SURF + 21) * T - HH - 1; P.vx = P.vy = 0; P.fuel = maxFuel(); P.facing = 1; P.cargo = {}; })()");
+  fragRoom(21); t95.ev("P.items.robot = true; P.mech = true; recalcStats(); keys.ArrowRight = true");
+  for (let i = 0; i < 400 && t95.ev("tiles[(SURF + 20) * W + 35]") !== 0; i++) t95.run(1);
+  t95.ev("keys.ArrowRight = false"); t95.run(1);
+  ok(t95.ev("tiles[(SURF + 20) * W + 35]") === 0 && !t95.ev("P.cargo[21]"), "로봇 톱니로 캔 호박은 부서져서 화물에 안 들어옴");
+  ok(t95.ev("acct.stats.shattered") === 1 && !t95.ev("acct.stats.mined[21]"), "부서진 수만 세고 채굴 기록엔 안 남음");
+  ok(t95.ev("msg").includes("곡괭이"), "처음엔 '곡괭이로 캐세요' 안내");
+  fragRoom(21); t95.ev("P.mech = false; recalcStats(); keys.ArrowRight = true");
+  for (let i = 0; i < 900 && t95.ev("tiles[(SURF + 20) * W + 35]") !== 0; i++) t95.run(1);
+  t95.ev("keys.ArrowRight = false"); t95.run(1);
+  ok(t95.ev("P.cargo[21]") >= 1 && t95.ev("acct.stats.mined[21]") === 1, "사람 곡괭이로 캐면 호박이 화물에");
+  fragRoom(27); t95.ev("P.cargo = {}; tiles[(SURF + 20) * W + 36] = 26; explode({ c: 35, r: SURF + 20, rad: 2 })");
+  ok(t95.ev("tiles[(SURF + 20) * W + 35]") === 0 && !t95.ev("P.cargo[27]") && t95.ev("P.cargo[26]") === 1, "폭발: 오팔은 부서지고 수정 결정(튼튼함)은 화물에");
+  ok(t95.ev("acct.stats.mined[26]") === 1, "폭발로 얻은 새 광물도 채굴 기록 (예전엔 id 12 미만만)");
+  // 판매: 새 광물도 팔림 · 골드 배율 적용
+  const m95 = t95.ev("P.money = 0; P.stash = { 31: 1 }; acct.stats.mined[31] = 1; sellItem(31, 1); P.money");
+  ok(!t95.ev("P.stash[31]") && m95 === t95.ev("Math.round(2000000 * STAT.sell)"), "별 조각도 창고에서 팔림 (골드 배율 적용 " + m95 + "원)");
+
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });

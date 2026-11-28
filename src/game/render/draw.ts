@@ -3,7 +3,7 @@ import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { BLD_FX, GARAGE_FX, GARAGE_IMG, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
 import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PLAYER_MINE_CELLS, PLAYER_MINE_DOWN_CELLS, ROCKET_CELLS, ROCKET_NOZZLE, playerCell, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
-import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W, won } from "../core/config.ts";
+import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, ORE_ORDER, PX, SURF, T, TILE, W, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
@@ -800,7 +800,7 @@ export function drawHotbar(vw, vh) {
 
 // 가진 광물 칸: 화물칸에 든 광물을 아이콘 + 개수로 (새로 주우면 잠깐 노랗게 반짝)
 //   center=true 면 x 가 가운데, 아니면 왼쪽 끝. 돌려주는 값: 칸의 아래 y
-const ORE_BAR_IDS = [6, 2, 3, 8, 4, 9, 5, 10, 11];
+const ORE_BAR_IDS = ORE_ORDER, TITLE_ORES = [6, 2, 3, 8, 4, 9, 5, 10, 11];   // 타이틀 화면 줄은 예전 9개만 (21개는 너무 길어서)
 const ORE_BAR_LAST = {}, ORE_BAR_FLASH = {};
 function drawOreBar(x, y, maxW, center) {
   const have = ORE_BAR_IDS.filter((id) => (P.cargo[id] || 0) > 0);
@@ -1072,7 +1072,7 @@ export function drawStick() {
 // 어둠 색(지층별): 지층 바탕색을 아주 어둡게 → 깊이마다 공기 색이 다르게 느껴짐
 const DARK_COL = LAYERS.map((L) => { const v = parseInt(L.base.slice(1), 16); return [((v >> 16) & 255) * 0.09 + 2, ((v >> 8) & 255) * 0.09 + 2, (v & 255) * 0.09 + 5].map(Math.round); });
 const decoGlows = [];                                             // [월드 x, 월드 y, 색] 이번 프레임에 보이는 빛나는 동굴 장식
-const GLOW_ORES = { 5: 1, 9: 1, 10: 1, 11: 1 };                 // 어둠 속에서 빛나는 광물: 다이아 · 에메랄드 · 루비 · 미스릴
+const GLOW_ORES = { 5: 1, 9: 1, 10: 1, 11: 1, 23: 1, 25: 1, 26: 1, 27: 1, 30: 1, 31: 1 };   // 어둠 속에서 빛나는 광물: 다이아 · 에메랄드 · 루비 · 미스릴 + 사파이어 · 화염석 · 수정 · 오팔 · 공허석 · 별 조각
 const hexA = (hex, a) => { const v = parseInt(hex.slice(1), 16); return "rgba(" + ((v >> 16) & 255) + "," + ((v >> 8) & 255) + "," + (v & 255) + "," + Math.max(0, a).toFixed(3) + ")"; };
 
 // 건물 그림에서 창문(주황·노란빛 픽셀, 그림 아래쪽 60%)만 골라 밝은 불빛 그림으로. 고해상도 그림일 때만, 한 번 만들어 둠
@@ -1217,7 +1217,7 @@ export function drawTitle(vw, vh) {
   const cy = btnPx(bx, y, bw, bh, "green", pressed);
   btnTxt(label, vw / 2, cy - 8, 16);
   // 아래: 광물 줄 (천천히 출렁) + 조작 안내
-  const ids = ORE_BAR_IDS, gap = vw < 420 ? 36 : 44, rowW = ids.length * gap;
+  const ids = TITLE_ORES, gap = vw < 420 ? 36 : 44, rowW = ids.length * gap;
   const oy = vh - 92;
   ids.forEach((id, i) => blit(oreIcon[id], Math.floor((vw - rowW) / 2 + i * gap + (gap - 32) / 2), oy + Math.round(Math.sin(now * 2 + i * 0.7) * 2) * 2, 32, 32));
   const help = S.usedTouch ? "화면 어디서나 드래그해서 조작" : "←→ 이동 · ↑ 점프 · ↓ 곡괭이 · 7 사다리 · E 건물 · I 가방 · M 지도";

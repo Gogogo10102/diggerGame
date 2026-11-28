@@ -158,6 +158,10 @@ docs/                  plan.md decisions.md
   그림 아래 끝(돌 기단 밑)이 땅 표면 → 건물은 기단째 땅 위에 섬. 화덕 불빛·굴뚝 연기 자리는 `TOWN_FX`(그림 크기가 같을 때만), 창문 불빛은 `windowMask`.
   예전 세 건물 그림(`make-buildings.py`, `BLD_FX`)은 쓰지 않음. 표지판·탭은 `tools/make-signs.py`.
 - 광물 id: 2 구리, 3 철, 4 금, 5 다이아, 6 석탄, 8 은, 9 에메랄드, 10 루비, 11 미스릴.
+  **새 광물(2026-11-28)** 20 석영 · 21 호박 · 22 자수정 · 23 사파이어 · 24 흑요석 · 25 화염석 · 26 수정 결정 · 27 오팔 · 28 아다만트 · 29 고대 호박 · 30 공허석 · 31 별 조각(지층마다 1~2개, 120원 ~ 200만원).
+  표시 순서는 `ORE_ORDER`(config.ts, 값 순) → 통계 `ORE_IDS`·판매 `SELL_KEYS`·화물 칸. 분포는 world.ts `ORE_GEN` 의 `v2` 줄: 광맥은 **다른 난수**(salt 0x0e2a)로 따로 만들어 기존 광맥 배치는 그대로.
+  `TILE[id].fragile`(호박·오팔·고대 호박) = 약한 광물: 로봇 톱니·폭발에 부서져 아무것도 안 남음(`shatterOre`, update.ts) → 사람 곡괭이로만.
+  그림은 아직 닮은 광물 모양(`ORE_SHAPE_OF`, sprites.ts)을 제 색으로 칠한 대체 그림 + 땅속 알갱이(make-pixellab-ores.py, `NEW_GEMS` 는 결정 모양). PixelLab 아이콘이 오면 `ores/icon/<id>.png` 로.
 - **드릴 아이콘**(`items/<드릴 id>.png` 15개 + `ui/icon/drill.png`)은 `python3 tools/make-drill-icons.py` (확정 도안 v2, 등급 4 × 진화 4 중 고른 표는 파일 안 MAP).
 - **원석 아이콘·떨어진 광물·주괴 = PixelLab**(2026-11-28): 시트 `ores.png`(원석 8)·`bars.png`(미스릴 원석 + 주괴) → make-pixellab-items.py 의 `ORE_PICKS`·`BAR_PICKS` → `ores/icon/<id>`(32) · `ores/drop/<id>`(같은 그림을 24로 줄임) · `bars/<키>`.
   미스릴은 시트의 하늘색이 다이아와 겹쳐 게임 미스릴 색(민트 167도)으로 바꿈(`ORE_RECOLOR`·`BAR_RECOLOR`). 땅속 광물 알갱이(`ores/world`)는 그대로.
