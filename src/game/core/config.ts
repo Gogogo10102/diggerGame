@@ -18,6 +18,13 @@ export function won(n) {
   if (rest || !p.length) p.push(rest && rest % 1000 === 0 ? rest / 1000 + "천" : rest.toLocaleString("ko-KR"));
   return p.join(" ") + "원";
 }
+//  큰 개수 줄여 쓰기 (창고·화물 칸): 9,999 · 1.2만 · 34만 · 3.4억 · 12조
+export function cnum(n) {
+  n = Math.floor(Number(n) || 0);
+  if (n < 1e4) return n.toLocaleString("ko-KR");
+  const f = (v, u) => (v < 10 ? (Math.floor(v * 10) / 10).toString() : Math.floor(v).toLocaleString("ko-KR")) + u;
+  return n < 1e8 ? f(n / 1e4, "만") : n < 1e12 ? f(n / 1e8, "억") : f(n / 1e12, "조");
+}
 export const SURF = 6;          // 지표면 행
 export const HW = 12, HH = 12;  // 플레이어 충돌 반폭/반높이
 export const SEED = 1234;

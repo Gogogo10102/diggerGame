@@ -154,7 +154,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t.btn("시작").click(); await t.tick(6);
   ok(t.ev("state") === "play" && t.ev("acct.name") === "Broken", "월드가 손상돼도 시드로 복구해서 시작");
   ok(!t.ev("!!P.items.fake_item") && t.ev("!!P.items.cargo1"), "알 수 없는 아이템은 버리고 유효한 아이템만 복원");
-  ok(t.ev("STAT.cargo") === 18, "복원된 아이템으로 능력치 재계산");
+  ok(t.ev("STAT.cargo") === 6 && t.ev("STAT.stack") === 200, "복원된 아이템으로 능력치 재계산 (화물 6칸 × 200)");
 
   console.log("[8] 기존 기능 회귀: 상점/판매/죽음");
   t.ev("P.money = 100000; P.cargo = {}; P.x = 4 * T + 16; P.y = 4 * T; P.vx = 0; P.vy = 0; nearItems = false");
@@ -639,8 +639,9 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t30.run(60);
   ok(t30.ev("drops.length") >= 1 && t30.ev("drops[0].vy") === 0, "떨어진 광물이 바닥에 놓임");
   // 자리가 생기면 위로 지나가서 주움
-  t30.ev("P.cargo = { 6: cargoCap() - 5 }; P.x = drops[0].x; P.y = drops[0].y - 4; P.vx = P.vy = 0"); t30.run(10);
-  ok(t30.ev("drops.length") === 0 && t30.ev("P.cargo[3]") >= 1, "자리가 있으면 주워짐");
+  t30.ev("P.cargo = { 6: cargoCap() - cargoStack() }; P.x = drops[0].x; P.y = drops[0].y - 4; P.vx = P.vy = 0"); t30.run(10);
+  ok(t30.ev("drops.length") === 0 && t30.ev("P.cargo[3]") >= 1, "빈 칸이 생기면 주워짐");
+  ok(t30.ev("(() => { const a = P.cargo; P.cargo = { 6: cargoCap() - 5 }; const r = [cargoRoom(6), cargoRoom(3)]; P.cargo = a; return r.join(); })()") === "5,0", "칸마다 한 광물: 석탄 칸이 덜 찼어도 철은 못 넣음");
   // 버리기: 바로 다시 줍지 않고, 멀어졌다 돌아오면 주움
   t30.ev("P.cargo = { 2: 4 }"); t30.ev("discardOre(2, 3)");
   ok(t30.ev("P.cargo[2]") === 1 && t30.ev("drops.length") === 1 && t30.ev("drops[0].n") === 3, "광물 3개 버리기");
@@ -917,7 +918,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t50.ev("seen[" + target.r + " * W + " + target.c + "]") === 0, "동굴은 처음엔 안 보임");
   t50.ev("keys.ArrowLeft = true"); for (let i = 0; i < 600 && t50.ev("tiles[" + target.r + " * W + " + (target.c + 1) + "]") !== 0; i++) t50.run(1); t50.ev("keys.ArrowLeft = false");
   ok(t50.ev("acct.stats.caves") === t50.ev("stats0") + 1 && t50.ev("seen[" + target.r + " * W + " + target.c + "]") === 1, "흙을 뚫고 들어가면 동굴 발견 (통계 +1, 동굴 전체가 보임)");
-  ok(t50.ev("msg").includes("동굴 발견"), "동굴 발견 안내");
+  ok(t50.ev("msg").includes("동굴 발견"), "동굴 발견 안내 (" + t50.ev("msg") + ")");
   // 자연 동굴은 떨어지지 않음
   t50.ev("chunks.length = 0; for (let k = 0; k < 10; k++) scanFloating(0.5)");
   // (월드에 따라 판 칸에 닿은 작은 흙덩이는 떨어질 수 있음 → 판 칸 근처 덩어리만 허용)
@@ -933,9 +934,11 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t60.canvasTexts().some((x) => /^\d+\/\d+$/.test(x)), "연료·화물 칸 막대 옆 숫자");
   ok(t60.canvasTexts().some((x) => x === "1m" || /^\d+m$/.test(x)), "깊이 표시");
   t60.ev("sfxLoop('thrust', true); sfxLoop('drill', true, { hard: true }); sfxLoop('drill', false)"); ok(true, "이어지는 소리(추진·드릴)도 소리 장치 없이 오류 없음");
-  ok(t60.canvasTexts().includes("광물 없음"), "위 가운데 광물 칸: 비었으면 '광물 없음'");
+  ok(t60.canvasTexts().includes("화물 0/" + t60.ev("cargoSlots()") + "칸"), "아래 가운데 화물 칸 줄: 쓴 칸 / 전체 칸");
   t60.ev("P.cargo = { 2: 7, 6: 12 }"); t60.run(1);
-  ok(t60.canvasTexts().includes("7") && t60.canvasTexts().includes("12") && !t60.canvasTexts().includes("광물 없음"), "광물 칸에 가진 광물 개수 표시");
+  ok(t60.canvasTexts().includes("7") && t60.canvasTexts().includes("12") && t60.canvasTexts().includes("화물 2/" + t60.ev("cargoSlots()") + "칸"), "화물 칸마다 광물 개수 (마인크래프트처럼)");
+  t60.ev("P.cargo = { 6: cargoStack() + 3 }"); t60.run(1);
+  ok(t60.ev("cargoCells().map((c) => c.n).join()") === t60.ev("cargoStack()") + ",3", "한 칸이 차면 다음 칸으로 넘침");
   t60.ev("P.cargo = {}"); t60.run(1);
   ok(t60.ev("getMiner('side', 0, -1).width") === 40 && t60.ev("getMiner('down', 0, 0).width") === 40, "미니 굴착기 그림 40x40 (드릴 포함)");
   // 상점: 왼쪽 분류 → 오른쪽 목록, 줄마다 구매 버튼
@@ -1009,7 +1012,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
     const tt = boot(path, { w: 1000, h: 640 }); tt.run(5);
     const tx = tt.canvasTexts();
     ok(tt.ev("S.state") === "title" && tx.some((x) => x.includes("아무 키나 눌러 시작")) && tx.some((x) => x.includes("땅속 끝까지")), "타이틀: 부제 + 시작 버튼");
-    ok(!tx.some((x) => x.includes("광물 없음")), "타이틀에선 HUD 를 숨김");
+    ok(!tx.some((x) => x.startsWith("화물 ")), "타이틀에선 HUD 를 숨김");
     ok(tt.ev("!!S.titleLogo && S.titleLogo.width > 0"), "타이틀 로고 그림을 만듦");
   }
   // ---- 업적 추가 · 이름표 ----
@@ -1387,8 +1390,8 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   delete svEq.player.eq; delete svEq.player.off; t70.ev("applyAccount(" + JSON.stringify(svEq) + ")");
   ok(t70.ev("LOOK.pick") === 3 && t70.ev("STAT.rocket") === 1.05 && Math.abs(t70.ev("STAT.eff") - 0.998) < 1e-9, "예전 세이브는 칸마다 가장 높은 단계를 낌");
   // 화물칸: 실은 게 넘치면 작은 칸으로 못 바꿈
-  t70.ev("buyItem('cargo1'); P.cargo = { 2: 15 }");
-  ok(t70.ev("equipSlot(CATS.find((c) => c.icon === 'crate'), null)").includes("화물") && t70.ev("cargoCap()") === 18, "화물이 넘치면 작은 화물칸으로 못 바꿈");
+  t70.ev("buyItem('cargo1'); P.cargo = { 2: 1000 }");
+  ok(t70.ev("equipSlot(CATS.find((c) => c.icon === 'crate'), null)").includes("화물") && t70.ev("STAT.cargo") === 6, "화물이 넘치면 작은 화물칸으로 못 바꿈");
   t70.ev("P.cargo = {}; buyItem('pick_dia')");
   ok(t70.ev("LOOK.pick") === 4 && Math.abs(t70.ev("STAT.pick") - (2.3 + lvP)) < 1e-9, "새 곡괭이를 사면 그걸 낌 (2.3)");
   // 인벤토리 화면: 곡괭이 칸을 누르면 고르기 칸

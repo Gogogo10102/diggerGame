@@ -48,12 +48,12 @@ addRecipeCat("보조", "lamp", [
 ]);
 addRecipeCat("외장", "tracks", [
   ["copper_motor", "구리 모터", { speed: 0.15, thrust: 0.1 }, { 2: 15, 3: 6 }, 15000],
-  ["steel_frame", "강철 화물 프레임", { cargo: 20 }, { 3: 20, 6: 10 }, 30000],
-  ["mithril_armor", "미스릴 외장", { speed: 0.3, thrust: 0.4, cargo: 40 }, { 11: 5, 5: 5 }, 600000, "silver_plating"],
+  ["steel_frame", "강철 화물 프레임", { cargo: 1 }, { 3: 20, 6: 10 }, 30000],
+  ["mithril_armor", "미스릴 외장", { speed: 0.3, thrust: 0.4, cargo: 2 }, { 11: 5, 5: 5 }, 600000, "silver_plating"],
   ["turbo_motor", "터보 모터", { speed: 0.3, thrust: 0.15 }, { 4: 6, 3: 15 }, 70000, "copper_motor"],
   ["ion_thruster", "이온 추진기", { thrust: 0.5, speed: 0.2 }, { 9: 6, 5: 3 }, 350000, "turbo_motor"],
-  ["silver_plating", "은 도금 프레임", { cargo: 25 }, { 8: 12, 3: 20 }, 90000, "steel_frame"],
-  ["diamond_hull", "다이아 선체", { cargo: 50, speed: 0.1 }, { 5: 8, 11: 3 }, 900000, "mithril_armor"],
+  ["silver_plating", "은 도금 프레임", { cargo: 1 }, { 8: 12, 3: 20 }, 90000, "steel_frame"],
+  ["diamond_hull", "다이아 선체", { cargo: 3, speed: 0.1 }, { 5: 8, 11: 3 }, 900000, "mithril_armor"],
 ], true);
 addRecipeCat("탐사", "special", [
   ["scout_goggles", "탐사 고글", { light: 0.2, lucky: 0.03 }, { 2: 10, 8: 4 }, 18000],

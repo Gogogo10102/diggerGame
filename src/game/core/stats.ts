@@ -19,7 +19,7 @@ export const PICK_BASE = 0.5;                     // 기본 곡괭이 채굴력 
 // ---- 장비 칸: 분류마다 하나만 껴서 그 장비의 고유 값이 곧 능력치 (items.ts 의 slot 분류) ----
 //  P.eq[분류 icon] = 낀 장비 id ("" = 안 낌 → 기본값). 기록이 없으면 가진 것 중 가장 높은 단계(예전 세이브·처음)
 //  특수·제작 장비는 낀 값에 더해지는 보너스 → 하나씩 끼고 뺌 (P.off = 빼 둔 것)
-export const SLOT_BASE = { pick: PICK_BASE, rocket: 0, drill: 1, fuel: FUEL_BASE, cargo: 10, thrust: 1, speed: 1, light: 1 };
+export const SLOT_BASE = { pick: PICK_BASE, rocket: 0, drill: 1, fuel: FUEL_BASE, cargo: 4, stack: 50, thrust: 1, speed: 1, light: 1 };   // 화물 = 칸 4 × 칸당 50개 (2026-11-28)
 export const SLOT_OF = {};                                       // 장비 id → 장비 칸 분류
 for (const c of CATS) if (c.slot) for (const id of c.ids) SLOT_OF[id] = c;
 export const EQUIP_FIXED = { robot: true };                     // 탈것은 빼는 대상이 아님
@@ -34,8 +34,8 @@ export const worn = (id) => !!P.items[id] && (SLOT_OF[id] ? slotItem(SLOT_OF[id]
 //  바꾼 뒤 화물이 용량을 넘으면 되돌리고 이유를 돌려줌 (성공이면 "")
 function equipCheck(undo) {
   recalcStats();
-  const n = Object.values(P.cargo).reduce((a, b) => a + b, 0);
-  if (n > STAT.cargo) { undo(); recalcStats(); return "화물이 " + n + "개라 더 작은 화물칸으로 못 바꿔요 (먼저 팔거나 버려요)"; }
+  const n = cargoUsed();
+  if (n > STAT.cargo) { undo(); recalcStats(); return "화물이 " + n + "칸이라 더 작은 화물칸으로 못 바꿔요 (먼저 보관하거나 팔아요)"; }
   if (P.fuel > STAT.fuel) P.fuel = STAT.fuel;                   // 작은 탱크로 바꾸면 넘친 연료는 버림
   return "";
 }
@@ -65,11 +65,11 @@ export const oreYield = () => { const L = Math.max(0, STAT.lucky); return 1 + Ma
 
 // ---- 능력치: 장비 칸 값 + 보너스(특수·제작) + 레벨 ----
 export const HP_BASE = 100;            // 최대 체력 기본값 (2026-11-28 체력 추가)
-export const STAT = { drill: 1, fuel: FUEL_BASE, cargo: 10, thrust: 1, speed: 1, light: 1, eff: 1, sell: 1, lucky: 0, pick: PICK_BASE, rocket: 0, hp: HP_BASE };
+export const STAT = { drill: 1, fuel: FUEL_BASE, cargo: 4, stack: 50, thrust: 1, speed: 1, light: 1, eff: 1, sell: 1, lucky: 0, pick: PICK_BASE, rocket: 0, hp: HP_BASE };
 export function recalcStats() {
   const s = { drill: 0, fuel: 0, cargo: 0, thrust: 0, speed: 0, light: 0, eff: 0, sell: 0, lucky: 0, pick: 0, rocket: 0, robot: 0, hp: 0, tele: 0 };
   const v = { ...SLOT_BASE };
-  for (const c of CATS) if (c.slot) { const id = slotItem(c); if (id) v[c.slot] = ITEMS[id].fx[c.slot]; }
+  for (const c of CATS) if (c.slot) { const id = slotItem(c); if (id) { v[c.slot] = ITEMS[id].fx[c.slot]; if (ITEMS[id].fx.stack) v.stack = ITEMS[id].fx.stack; } }
   let sellMul = 1;                                                 // 레벨 장비(골드): 장비끼리 곱함 (고글 Lv.100 ×3 · 분석기 ×4 …)
   for (const id in P.items) {
     const it = ITEMS[id];
@@ -85,7 +85,8 @@ export function recalcStats() {
   }
   STAT.drill = v.drill + s.drill + (S.MINER_LV - 1) * 0.012;
   STAT.fuel = v.fuel + s.fuel;
-  STAT.cargo = v.cargo + s.cargo;
+  STAT.cargo = v.cargo + s.cargo;        // 화물 칸 수 (제작 장비는 칸을 더함)
+  STAT.stack = v.stack;                  // 칸당 쌓는 수 (화물 장비 단계)
   STAT.thrust = v.thrust + s.thrust;
   STAT.speed = v.speed + s.speed;
   STAT.light = v.light + s.light;
@@ -115,7 +116,16 @@ export const maxHp = () => STAT.hp;
 // 텔레포터: 가진 것 중 가장 깊이 갈 수 있는 m (없으면 0). 끼고 빼기와 상관없이 가지고만 있으면 됨
 export const teleId = () => { for (const id in P.items) if (ITEMS[id] && ITEMS[id].fx && ITEMS[id].fx.tele) return id; return null; };   // 가진 텔레포터 (하나만)
 export const teleMax = () => { let m = 0; for (const id in P.items) { const t = ITEMS[id] && ITEMS[id].fx && ITEMS[id].fx.tele; if (t > m) m = t; } return m; };
-export const cargoCap = () => STAT.cargo;
+// ---- 화물 = 칸 × 칸당 쌓기 (2026-11-28, 마인크래프트처럼). 한 광물이 여러 칸을 쓸 수 있음 ----
+export const cargoSlots = () => STAT.cargo;
+export const cargoStack = () => STAT.stack;
+export const cargoCap = () => STAT.cargo * STAT.stack;             // 다 채우면 들어가는 총 개수
+export const cargoUsed = () => { let u = 0; for (const id in P.cargo) u += Math.ceil(P.cargo[id] / STAT.stack); return u; };   // 쓰는 칸 수
+// 이 광물을 더 넣을 수 있는 개수 (쓰던 칸의 빈자리 + 빈 칸)
+export const cargoRoom = (id) => { const n = P.cargo[id] || 0, part = n % STAT.stack ? STAT.stack - (n % STAT.stack) : 0; return part + Math.max(0, STAT.cargo - cargoUsed()) * STAT.stack; };
+export const cargoFull = () => cargoUsed() >= STAT.cargo && Object.keys(P.cargo).every((id) => P.cargo[id] % STAT.stack === 0);
+// 넣을 수 있는 만큼 넣고 넣은 개수를 돌려줌
+export function cargoAdd(id, n) { const k = Math.max(0, Math.min(n, cargoRoom(id))); if (k > 0) P.cargo[id] = (P.cargo[id] || 0) + k; return k; }
 // 지금 파는 힘: 로봇에 타 있으면 드릴, 사람이면 곡괭이
 export const drillMult = () => (P.mech ? STAT.drill : STAT.pick);
 export const canFly = () => P.mech || STAT.rocket > 0;
