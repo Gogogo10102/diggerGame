@@ -18,6 +18,13 @@ export function won(n) {
   if (rest || !p.length) p.push(rest && rest % 1000 === 0 ? rest / 1000 + "천" : rest.toLocaleString("ko-KR"));
   return p.join(" ") + "원";
 }
+//  큰 개수 줄여 쓰기 (창고·화물 칸): 9,999 · 1.2만 · 34만 · 3.4억 · 12조
+export function cnum(n) {
+  n = Math.floor(Number(n) || 0);
+  if (n < 1e4) return n.toLocaleString("ko-KR");
+  const f = (v, u) => (v < 10 ? (Math.floor(v * 10) / 10).toString() : Math.floor(v).toLocaleString("ko-KR")) + u;
+  return n < 1e8 ? f(n / 1e4, "만") : n < 1e12 ? f(n / 1e8, "억") : f(n / 1e12, "조");
+}
 export const SURF = 6;          // 지표면 행
 export const HW = 12, HH = 12;  // 플레이어 충돌 반폭/반높이
 export const SEED = 1234;
@@ -28,32 +35,34 @@ export const MINE_COL = 13;                                       // 여기부�
 export const inTown = (c) => c >= 1 && c < MINE_COL;             // 마을 땅(기초석, 못 팜)
 export const inB = (k, c) => c >= BUILD_COLS[k][0] && c <= BUILD_COLS[k][1];
 
-// 광물 값(value, 원)은 2026-11-28 경제 개편으로 10배 (장비 3천원~120억원에 맞춤)
+// 광물 값(value, 원) · 한 번 캘 때 나오는 개수(yield, 행운 0 기준) — 2026-11-28 방치형 개편:
+//   지층마다 그 지층 광물만 나옴(world.ts ORE_GEN) · 값은 지층마다 약 4배씩 · 얕은 광물일수록 한 번에 많이 (행운을 다 올리면 석탄 ~70개, 별 조각 ~3개, stats.ts oreYield)
+//   맞춘 기준: tools/econ-sim.py 로 끝까지 약 600번 왕복 (예전 경제와 비슷하게)
 // 타일 종류: 0 공기, 1 흙, 2 구리, 3 철, 4 금, 5 다이아, 7 암반, 17 보물 상자, 20~31 새 광물 (2026-11-28)
 export const TILE = {
   1: { name: "흙",     hard: 0.35, value: 0 },
-  2: { name: "구리",   hard: 0.55, value: 100 },
-  3: { name: "철",     hard: 0.75, value: 250 },
-  4: { name: "금",     hard: 1.00, value: 800 },
-  5: { name: "다이아", hard: 1.60, value: 3000 },
-  6: { name: "석탄",   hard: 0.45, value: 60 },
-  8: { name: "은",     hard: 0.85, value: 500 },
-  9: { name: "에메랄드", hard: 1.25, value: 1400 },
-  10: { name: "루비",   hard: 1.45, value: 2000 },
-  11: { name: "미스릴", hard: 2.00, value: 6000 },
+  2: { name: "구리",   hard: 0.55, value: 12, yield: 10 },
+  3: { name: "철",     hard: 0.75, value: 40, yield: 8 },
+  4: { name: "금",     hard: 1.00, value: 130, yield: 6 },
+  5: { name: "다이아", hard: 1.60, value: 600, yield: 5 },
+  6: { name: "석탄",   hard: 0.45, value: 8, yield: 10 },
+  8: { name: "은",     hard: 0.85, value: 50, yield: 8 },
+  9: { name: "에메랄드", hard: 1.25, value: 200, yield: 6 },
+  10: { name: "루비",   hard: 1.45, value: 500, yield: 5 },
+  11: { name: "미스릴", hard: 2.00, value: 2400, yield: 4 },
   // 새 광물 12종 (2026-11-28): 지층마다 1~2개. fragile = 약해서 로봇 톱니로 캐면 부서짐(사람 곡괭이로만)
-  20: { name: "석영",     hard: 0.50, value: 120 },
-  21: { name: "호박",     hard: 0.40, value: 700, fragile: true },
-  22: { name: "자수정",   hard: 1.20, value: 1800 },
-  23: { name: "사파이어", hard: 1.55, value: 4500 },
-  24: { name: "흑요석",   hard: 2.10, value: 12000 },
-  25: { name: "화염석",   hard: 2.20, value: 20000 },
-  26: { name: "수정 결정", hard: 2.30, value: 40000 },
-  27: { name: "오팔",     hard: 1.30, value: 70000, fragile: true },
-  28: { name: "아다만트", hard: 2.60, value: 150000 },
-  29: { name: "고대 호박", hard: 1.40, value: 250000, fragile: true },
-  30: { name: "공허석",   hard: 2.90, value: 600000 },
-  31: { name: "별 조각",  hard: 3.20, value: 2000000 },
+  20: { name: "석영",     hard: 0.50, value: 15, yield: 9 },
+  21: { name: "호박",     hard: 0.40, value: 60, yield: 6, fragile: true },
+  22: { name: "자수정",   hard: 1.20, value: 170, yield: 6 },
+  23: { name: "사파이어", hard: 1.55, value: 680, yield: 5 },
+  24: { name: "흑요석",   hard: 2.10, value: 2000, yield: 4 },
+  25: { name: "화염석",   hard: 2.20, value: 3000, yield: 4 },
+  26: { name: "수정 결정", hard: 2.30, value: 9200, yield: 3 },
+  27: { name: "오팔",     hard: 1.30, value: 17000, yield: 2, fragile: true },
+  28: { name: "아다만트", hard: 2.60, value: 35000, yield: 2 },
+  29: { name: "고대 호박", hard: 1.40, value: 62000, yield: 1.5, fragile: true },
+  30: { name: "공허석",   hard: 2.90, value: 150000, yield: 1.5 },
+  31: { name: "별 조각",  hard: 3.20, value: 600000, yield: 0.5 },
   14: { name: "나무 지지대", hard: Infinity, value: 0 },   // 지나갈 수 있는 설치물
   15: { name: "강철 지지대", hard: Infinity, value: 0 },
   13: { name: "기초석", hard: Infinity, value: 0 },    // 건물 아래 땅 (부술 수 없음)
@@ -89,7 +98,7 @@ export const ORE_COL = {
   31: ["#ffffff", "#fff6a8", "#d2b03e"],   // 별 조각: 흰 금빛
 };
 // 광물 순서(싼 것 → 비싼 것): 통계·판매·화물 칸 표시 순서. 새 광물(20~31)은 값 자리에 끼움
-export const ORE_ORDER = [6, 2, 20, 3, 8, 21, 4, 9, 22, 10, 5, 23, 11, 24, 25, 26, 27, 28, 29, 30, 31];
+export const ORE_ORDER = [6, 2, 20, 3, 8, 21, 4, 22, 9, 10, 5, 23, 24, 11, 25, 26, 27, 28, 29, 30, 31];
 // 지층 (깊이 m 기준)
 export const LAYERS = [
   { name: "흙층",     from: 0,    base: "#6b4a2f", hi: "#7d5a3a", lo: "#573b25", peb: "#8a8077" },

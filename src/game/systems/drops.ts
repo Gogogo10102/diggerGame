@@ -2,10 +2,10 @@
 import "./collapseFx.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { sfx } from "../core/sound.ts";
 import { ORE_ACCENT, ORE_SHAPE_OF, sprite } from "../art/sprites.ts";
-import { ORE_COL, PX, T, TILE } from "../core/config.ts";
+import { ORE_COL, PX, T, TILE, cnum } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { cargoCap, cargoCount, floaters, spawn } from "../core/stats.ts";
+import { cargoRoom, floaters, spawn } from "../core/stats.ts";
 import { solid } from "../core/world.ts";
 import { ctx, txt } from "../render/util.ts";
 import { saveNow } from "../save/account.ts";
@@ -177,7 +177,7 @@ export function updateDrops(dt) {
     const dist = Math.hypot(P.x - d.x, P.y - d.y);
     if (d.wait) { if (dist > 52) d.wait = false; continue; }
     if (P.dead > 0 || d.age < 0.35 || dist > 32) continue;
-    const room = cargoCap() - cargoCount();
+    const room = cargoRoom(d.id);
     if (room <= 0) { if (d.age > 0.5 && !(d.fullT > 0)) { floaters.push({ x: P.x, y: P.y - 24, text: "화물 가득", color: "#ff9a90", life: 0.9 }); d.fullT = 2; } if (d.fullT > 0) d.fullT -= dt; continue; }
     const k = Math.min(room, d.n);
     P.cargo[d.id] = (P.cargo[d.id] || 0) + k;

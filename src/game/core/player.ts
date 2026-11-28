@@ -14,6 +14,8 @@ export const P = {
   eq: {},               // 장비 칸마다 낀 장비 { 분류icon: id | "" } ("" = 안 낌. 기록이 없는 칸은 가진 것 중 가장 높은 단계)
   off: {},              // 빼 둔 특수·제작 장비 { id: true }
   lv: {},               // 레벨 장비(특수)의 레벨 { id: n } (items.ts 의 itemLv)
+  miners: {},           // 자동 채굴기 레벨 { 지층 번호: Lv } (town.ts, 2026-11-28 방치형)
+  minerAt: 0,           // 자동 채굴기를 마지막으로 받은 때 (Date.now ms, 0 = 아직)
   stash: {},            // 제작소 창고의 광물 { 광물id: 개수 }
   bars: {},             // 용광로에서 만든 주괴 { cu/fe/ag/au/mi: 개수 }
   inv: {},              // 소모품 { 아이템id: 개수 }

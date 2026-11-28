@@ -1,10 +1,11 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./input.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { sfx } from "../core/sound.ts";
-import { ORE_ORDER, TILE, won } from "../core/config.ts";
+import { LAYERS, ORE_ORDER, TILE, won } from "../core/config.ts";
+import { ORE_GEN } from "../core/world.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { STAT, equipNew, equipToggle, maxFuel, recalcStats, say, teleId, worn } from "../core/stats.ts";
+import { STAT, equipNew, equipToggle, maxFuel, oreMean, recalcStats, say, teleId, worn } from "../core/stats.ts";
 import { CATS, ITEMS, LV_MAX, itemLv, lvCost, reqMet } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
@@ -17,7 +18,6 @@ function townFail(m) { sfx("error"); return say(m); }
 
 // ---- 제작소: 열기 / 제작 / 창고 판매 ----
 export function openCraft() {
-  stashCargo();                                          // 화물 광물은 창고로 자동 보관
   S.state = "craft"; S.craftSel = 0; sfx("open");
   if (S.craftTab >= RECIPE_CATS.length) S.craftTab = 0;
   S.stick = null; touch.l = touch.r = touch.u = touch.d = false;
@@ -189,4 +189,53 @@ export function rerollOrders() {
   ensureOrders();
   say("새 의뢰를 받았어요 (-" + won(c) + ")"); sfx("buy");
   saveNow(true, true);
+}
+
+// ---- 자동 채굴기 (2026-11-28 방치형): 지층마다 하나, 그 지층 광물이 시간마다 창고에 쌓임 (실제로 캐지는 않는 계산) ----
+//  1시간에 MINER_DIGS × Lv 번 캔 것으로 쳐서, 지층 광물을 분포(peak) 비율로 나누고 개수는 oreMean(행운 포함)
+//  꺼 둔 동안도 쌓이지만 최대 MINER_CAP_H 시간까지. 받기 = 창고로 (가게 창고를 열 때 자동으로도)
+export const MINER_DIGS = 20, MINER_MAX = 100, MINER_UP = 1.12, MINER_CAP_H = 8;
+export const layerOres = (i) => ORE_GEN.filter((g) => g.start >= LAYERS[i].from && (i + 1 >= LAYERS.length || g.start < LAYERS[i + 1].from));
+// 지층 i 채굴기의 시간당 개수 { 광물 id: 개수 } (lv 를 주면 그 레벨 기준)
+export function minerRate(i, lv) {
+  const L = lv == null ? P.miners[i] || 0 : lv, gs = layerOres(i), tot = gs.reduce((a, g) => a + g.peak, 0), out = {};
+  if (!L || !tot) return out;
+  for (const g of gs) out[g.id] = MINER_DIGS * L * (g.peak / tot) * oreMean(g.id);
+  return out;
+}
+// 값(그 지층에서 한 번 캘 때의 평균 값 × 200) × 1.12^Lv, 앞 두 자리
+export function minerCost(i) {
+  const gs = layerOres(i), tot = gs.reduce((a, g) => a + g.peak, 0) || 1;
+  const dig = gs.reduce((a, g) => a + (g.peak / tot) * TILE[g.id].value * (TILE[g.id].yield || 1), 0);
+  const v = dig * 200 * Math.pow(MINER_UP, P.miners[i] || 0), p = Math.pow(10, Math.max(2, Math.floor(Math.log10(v)) - 1));
+  return Math.round(v / p) * p;
+}
+export const minerOpen = (i) => !!S.acct && S.acct.stats.maxDepth >= LAYERS[i].from + (i ? 1 : 0);   // 가 본 지층만
+// 지금까지 쌓인 것 { id: 개수 } (최대 MINER_CAP_H 시간)
+export function minerPending(now) {
+  const t = now || Date.now(), out = {};
+  if (!P.minerAt) return out;
+  const h = Math.min(MINER_CAP_H, Math.max(0, (t - P.minerAt) / 3600000));
+  for (const k in P.miners) { const r = minerRate(Number(k)); for (const id in r) out[id] = (out[id] || 0) + r[id] * h; }
+  return out;
+}
+export function minerCollect(now) {
+  const t = now || Date.now(), got = minerPending(t);
+  let n = 0;
+  for (const id in got) { const k = Math.floor(got[id]); if (k > 0) { P.stash[id] = (P.stash[id] || 0) + k; n += k; } }
+  P.minerAt = t;
+  return n;
+}
+export function minerUp(i) {
+  if (!minerOpen(i)) return townFail(LAYERS[i].name + "에 먼저 내려가 봐야 설치할 수 있어요");
+  const lv = P.miners[i] || 0;
+  if (lv >= MINER_MAX) return townFail("최대 레벨이에요");
+  const c = minerCost(i);
+  if (P.money < c) return townFail("돈이 모자라요 (" + won(c) + ")");
+  minerCollect();                                                  // 레벨이 바뀌기 전까지 쌓인 건 먼저 받음
+  P.money -= c; P.miners[i] = lv + 1;
+  sfx("buy");
+  say(LAYERS[i].name + " 자동 채굴기 " + (lv ? "Lv." + (lv + 1) : "설치") + "!");
+  saveNow(true, true);
+  return true;
 }

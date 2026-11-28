@@ -15,29 +15,30 @@ export const setRub = (i, v) => { rub[i] = v ? 1 : 0; if (v) rubSet.add(i); else
 export const regenT = new Float32Array(W * H);     // 광물 재생까지 남은 시간(초, 저장 안 함)
 export const warn = new Float32Array(W * H);       // 천장 불안정 누적 시간(초, 저장 안 함)
 // 광물 분포(깊이 m 기준): start부터 한두 개씩(trace) 나오기 시작 → rs~re 구간에서 가장 많이(peak) → end까지 줄어서 tail로 유지
+// 광물 분포 (2026-11-28 방치형 개편): 지층마다 그 지층 광물만 — 지층 경계 안에서만 나오고 다음 지층에선 안 나옴
+//   (이전 지층 광물이 필요하면 자동 채굴기로 모음). v2 = 새 광물(다른 난수로 광맥) · trace 0 = 경계 밖 0
 export const ORE_GEN = [
-  { id: 6,  start: 2,   rs: 4,   re: 50,  end: 150, peak: 0.090, tail: 0.012, trace: 0.02 },    // 석탄
-  { id: 2,  start: 0,   rs: 0,   re: 70,  end: 160, peak: 0.080, tail: 0.015, trace: 0.08 },    // 구리
-  { id: 3,  start: 20,  rs: 45,  re: 130, end: 260, peak: 0.060, tail: 0.015, trace: 0.004 },   // 철
-  { id: 8,  start: 50,  rs: 85,  re: 170, end: 290, peak: 0.040, tail: 0.012, trace: 0.003 },   // 은
-  { id: 4,  start: 90,  rs: 130, re: 230, end: 340, peak: 0.035, tail: 0.012, trace: 0.003 },   // 금
-  { id: 9,  start: 130, rs: 175, re: 290, end: 700, peak: 0.028, tail: 0.014, trace: 0.0025 },  // 에메랄드
-  { id: 5,  start: 175, rs: 235, re: 500, end: 1000, peak: 0.022, tail: 0.016, trace: 0.0025 }, // 다이아몬드
-  { id: 10, start: 230, rs: 290, re: 900, end: 1600, peak: 0.018, tail: 0.016, trace: 0.002 },  // 루비
-  { id: 11, start: 280, rs: 340, re: 2400, end: 2400, peak: 0.014, tail: 0.014, trace: 0.0015 }, // 미스릴 (깊을수록 계속)
-  // ---- 새 광물 (2026-11-28, v2) : 광맥은 다른 난수(chunkFeatures 의 salt 0x0e2a)로 만들어 기존 광맥 배치는 그대로 ----
-  { id: 20, v2: 1, start: 0,    rs: 6,    re: 50,   end: 110,  peak: 0.030, tail: 0.004, trace: 0.010 },  // 석영 (흙층)
-  { id: 21, v2: 1, start: 55,   rs: 70,   re: 130,  end: 170,  peak: 0.016, tail: 0.002, trace: 0.003 },  // 호박 (점토층, 사람만)
-  { id: 22, v2: 1, start: 130,  rs: 150,  re: 240,  end: 320,  peak: 0.020, tail: 0.004, trace: 0.003 },  // 자수정 (암석층)
-  { id: 23, v2: 1, start: 240,  rs: 265,  re: 430,  end: 560,  peak: 0.016, tail: 0.003, trace: 0.002 },  // 사파이어 (심층 코어)
-  { id: 24, v2: 1, start: 440,  rs: 470,  re: 780,  end: 950,  peak: 0.018, tail: 0.003, trace: 0.002 },  // 흑요석 (용암 지대)
-  { id: 25, v2: 1, start: 460,  rs: 500,  re: 780,  end: 900,  peak: 0.011, tail: 0.002, trace: 0.0015 }, // 화염석 (용암 지대)
-  { id: 26, v2: 1, start: 790,  rs: 830,  re: 1280, end: 1450, peak: 0.015, tail: 0.003, trace: 0.0015 }, // 수정 결정 (수정 동굴)
-  { id: 27, v2: 1, start: 820,  rs: 860,  re: 1250, end: 1400, peak: 0.007, tail: 0.001, trace: 0.001 },  // 오팔 (수정 동굴, 사람만)
-  { id: 28, v2: 1, start: 1290, rs: 1330, re: 1880, end: 2100, peak: 0.012, tail: 0.003, trace: 0.001 },  // 아다만트 (고대 화석층)
-  { id: 29, v2: 1, start: 1310, rs: 1360, re: 1880, end: 2000, peak: 0.006, tail: 0.001, trace: 0.0008 }, // 고대 호박 (고대 화석층, 사람만)
-  { id: 30, v2: 1, start: 1890, rs: 1930, re: 2400, end: 2400, peak: 0.010, tail: 0.010, trace: 0.001 },  // 공허석 (심연)
-  { id: 31, v2: 1, start: 1950, rs: 2050, re: 2400, end: 2400, peak: 0.003, tail: 0.003, trace: 0.0004 }, // 별 조각 (심연, 아주 드묾)
+  { id: 6, start: 0, rs: 0, re: 59, end: 59, peak: 0.06, tail: 0, trace: 0.06 },   // 석탄 (흙층)
+  { id: 2, start: 0, rs: 0, re: 59, end: 59, peak: 0.05, tail: 0, trace: 0.05 },   // 구리 (흙층)
+  { id: 20, v2: 1, start: 0, rs: 0, re: 59, end: 59, peak: 0.03, tail: 0, trace: 0.03 },   // 석영 (흙층)
+  { id: 3, start: 60, rs: 60, re: 139, end: 139, peak: 0.05, tail: 0, trace: 0.05 },   // 철 (점토층)
+  { id: 8, start: 60, rs: 60, re: 139, end: 139, peak: 0.035, tail: 0, trace: 0.035 },   // 은 (점토층)
+  { id: 21, v2: 1, start: 60, rs: 60, re: 139, end: 139, peak: 0.015, tail: 0, trace: 0.015 },   // 호박 (점토층)
+  { id: 4, start: 140, rs: 140, re: 249, end: 249, peak: 0.035, tail: 0, trace: 0.035 },   // 금 (암석층)
+  { id: 9, start: 140, rs: 140, re: 249, end: 249, peak: 0.025, tail: 0, trace: 0.025 },   // 에메랄드 (암석층)
+  { id: 22, v2: 1, start: 140, rs: 140, re: 249, end: 249, peak: 0.03, tail: 0, trace: 0.03 },   // 자수정 (암석층)
+  { id: 5, start: 250, rs: 250, re: 449, end: 449, peak: 0.025, tail: 0, trace: 0.025 },   // 다이아 (심층 코어)
+  { id: 10, start: 250, rs: 250, re: 449, end: 449, peak: 0.02, tail: 0, trace: 0.02 },   // 루비 (심층 코어)
+  { id: 23, v2: 1, start: 250, rs: 250, re: 449, end: 449, peak: 0.02, tail: 0, trace: 0.02 },   // 사파이어 (심층 코어)
+  { id: 11, start: 450, rs: 450, re: 799, end: 799, peak: 0.02, tail: 0, trace: 0.02 },   // 미스릴 (용암 지대)
+  { id: 24, v2: 1, start: 450, rs: 450, re: 799, end: 799, peak: 0.025, tail: 0, trace: 0.025 },   // 흑요석 (용암 지대)
+  { id: 25, v2: 1, start: 450, rs: 450, re: 799, end: 799, peak: 0.012, tail: 0, trace: 0.012 },   // 화염석 (용암 지대)
+  { id: 26, v2: 1, start: 800, rs: 800, re: 1299, end: 1299, peak: 0.025, tail: 0, trace: 0.025 },   // 수정 결정 (수정 동굴)
+  { id: 27, v2: 1, start: 800, rs: 800, re: 1299, end: 1299, peak: 0.008, tail: 0, trace: 0.008 },   // 오팔 (수정 동굴)
+  { id: 28, v2: 1, start: 1300, rs: 1300, re: 1899, end: 1899, peak: 0.018, tail: 0, trace: 0.018 },   // 아다만트 (고대 화석층)
+  { id: 29, v2: 1, start: 1300, rs: 1300, re: 1899, end: 1899, peak: 0.007, tail: 0, trace: 0.007 },   // 고대 호박 (고대 화석층)
+  { id: 30, v2: 1, start: 1900, rs: 1900, re: 2400, end: 2400, peak: 0.014, tail: 0.014, trace: 0.014 },   // 공허석 (심연)
+  { id: 31, v2: 1, start: 1900, rs: 1900, re: 2400, end: 2400, peak: 0.004, tail: 0.004, trace: 0.004 },   // 별 조각 (심연)
 ];
 export function oreProb(g, d) {
   if (d < g.start) return 0;

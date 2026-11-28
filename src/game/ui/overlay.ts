@@ -32,7 +32,9 @@ export function showOv(root) {
   if (wasClosing) ov.classList.remove("on");                          // 닫히던 중에 다시 열면 처음부터 톡
   while (ov.firstChild) ov.removeChild(ov.firstChild);
   const opening = !ov.classList.contains("on");                       // 처음 열 때만 톡 튀어나오게 (안에서 탭을 바꿀 땐 그대로)
-  const p = el("div", "pnl" + (String(root.className || "").indexOf("wide") >= 0 ? " wide" : "") + (opening ? " pop" : ""));
+  const rc = " " + String(root.className || "") + " ";
+  // 큰 인벤토리·창고(.inv)는 넓은 판 (style.css 의 .pnl.inv)
+  const p = el("div", "pnl" + (rc.indexOf("wide") >= 0 ? " wide" : "") + (rc.indexOf(" inv ") >= 0 ? " inv" : "") + (opening ? " pop" : ""));
   p.appendChild(root);
   ov.appendChild(p);
   ov.classList.add("on");

@@ -3,6 +3,7 @@ import "../data/consumables.ts";   // 실행 순서 보장: 바로 앞 모듈을
 import { ITEM_ICON } from "./itemIcons.ts";
 import { ICON, art, sprite } from "./sprites.ts";
 import { S } from "../core/state.ts";
+import { cnum } from "../core/config.ts";
 
 // ---- 건물 ----
 // 실제 그림은 public/assets/buildings/*.png (tools/make-buildings.py 로 그림). 아래 코드 그림은 PNG를 못 불러올 때만 쓰는 예비용
@@ -124,8 +125,10 @@ export const FX_NAME = { drill: "톱니 채굴력", pick: "곡괭이 채굴력",
 export const fxNum = (k, v) => (k === "fuel" || k === "cargo" ? String(Math.round(v)) : (Math.round(v * 100) / 100).toString());
 export function fxText(fx, slot) {
   if (fx.robot) return "마을 차고에서 타요 · 톱니로 빠르게 캠 · 날 수 있음";
-  return Object.keys(fx).map((k) => {
+  return Object.keys(fx).filter((k) => k !== "stack").map((k) => {
     const v = fx[k];
+    if (k === "cargo" && k === slot) return "화물 " + v + "칸 × " + cnum(fx.stack || 50) + "개";   // 화물 = 칸 × 칸당 쌓기
+    if (k === "cargo") return "화물 +" + v + "칸";
     if (k === slot) return FX_NAME[k] + " " + fxNum(k, v) + (k === "rocket" ? " · 날 수 있음" : "");
     if (k === "eff") return "연료 소모 -" + Math.round(v * 100) + "%";
     if (k === "tele") return "텔레포트 최대 " + v + "m";

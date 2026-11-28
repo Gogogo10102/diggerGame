@@ -141,3 +141,52 @@
   .kit #ov .slot.pick{outline:2px solid #ffc21a;outline-offset:-4px}
   .kit #ov .robot.on{box-shadow:none;outline:3px solid #ffc21a;outline-offset:-3px}
   .kit #ov .portrait{background:none;border:8px solid transparent;border-image:var(--k-slot) 8 fill / 8px round;padding:0}
+
+/* ---- 인벤토리 A(PC) · D(휴대폰 세로) · 가게 창고 C (2026-11-28, 마인크래프트처럼 칸) ---- */
+#ov .pnl.inv{width:min(820px,96vw)}
+@media (min-width:1280px) and (min-height:880px){#ov .pnl.inv{zoom:1.5;max-height:60vh}}
+@media (min-width:960px) and (min-height:660px) and (not ((min-width:1280px) and (min-height:880px))){#ov .pnl.inv{zoom:1;max-height:90vh}}
+#ov .ia{display:grid;grid-template-columns:236px 1fr;gap:10px;margin:6px 0}
+#ov .ia-box{background:#1d2027;border:2px solid #0b0c0f;padding:8px;min-width:0}
+#ov .ia-hd{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--font-s);font-size:12px;color:#c9cfe6;margin-bottom:6px;gap:6px}
+#ov .ia-hd b{font-family:var(--font-m);font-size:16px;font-weight:normal;color:#ffc21a}
+#ov .ia-eq{display:grid;grid-template-columns:52px 1fr 52px;gap:6px;align-items:center}
+#ov .ia-col{display:grid;gap:6px}
+#ov .ia-por{background:#14161b;border:2px solid #0b0c0f;height:100%;min-height:150px;display:flex;align-items:center;justify-content:center}
+#ov .ia-ext{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+#ov .cell{position:relative;aspect-ratio:1;background:#2e323c;border:2px solid #0b0c0f;box-shadow:inset 0 2px 0 #3c424e;display:flex;align-items:center;justify-content:center;cursor:pointer;min-width:0}
+#ov .cell.e{background:#22252d;box-shadow:inset 0 2px 0 #1a1c22;cursor:default}
+#ov .cell.sel{outline:2px solid #ffc21a;outline-offset:-2px}
+#ov .cell.full .n{color:#ffc21a}
+#ov .cell .ico{width:70%!important;height:70%!important;margin:0;image-rendering:pixelated}
+#ov .cell .n{position:absolute;right:2px;bottom:0;font-family:var(--font-s);font-size:12px;color:#fff;text-shadow:1px 1px 0 #000,-1px 0 0 #000}
+#ov .cell .k{position:absolute;left:3px;top:1px;font-family:var(--font-s);font-size:12px;color:#8b93a6}
+#ov .cell .lb{position:absolute;left:0;right:0;bottom:-1px;font-family:var(--font-s);font-size:12px;color:#8b93a6;text-align:center;white-space:nowrap;overflow:hidden;line-height:1}
+#ov .cell.eqs .ico{width:62%!important;height:62%!important;margin-bottom:10px}
+#ov .ia-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:4px}
+#ov .ia-tabs{display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap}
+#ov .ia-tabs .btn{margin:0;padding:4px 10px 6px 16px;font-size:12px;font-family:var(--font-s)}
+#ov .ia-tabs .btn.on{color:#ffc21a}
+#ov .ia-det{display:flex;align-items:center;gap:8px;margin-top:6px;min-height:40px;font-family:var(--font-s);font-size:12px;color:#c9cfe6;flex-wrap:wrap}
+#ov .ia-det b{font-family:var(--font-m);font-size:16px;font-weight:normal;color:#fff}
+#ov .ia-det .btn{margin:0;padding:4px 10px 6px 16px;font-size:12px;font-family:var(--font-s)}
+#ov .ia-hot{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin-top:4px}
+#ov .ic{display:grid;grid-template-columns:1fr 132px 1.5fr;gap:10px;align-items:start;margin:6px 0}
+#ov .ic-mid{display:flex;flex-direction:column;gap:6px;margin-top:30px}
+#ov .ic-mid .btn{margin:0;font-size:12px;font-family:var(--font-s);padding:6px 8px 8px 18px}
+#ov .ic .ia-grid.cg{grid-template-columns:repeat(4,1fr)}
+#ov .ic .ia-grid.sg{grid-template-columns:repeat(6,1fr)}
+@media (max-width:600px){
+  #ov .ia{grid-template-columns:1fr}
+  #ov .ia-eq{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+  #ov .ia-col{display:flex;gap:6px}
+  #ov .ia-col .cell,#ov .ia-ext .cell{width:52px;flex:0 0 52px}
+  #ov .ia-por{display:none}
+  #ov .ia-ext{display:flex;overflow-x:auto}
+  #ov .ia-grid,#ov .ic .ia-grid.sg,#ov .ic .ia-grid.cg{grid-template-columns:repeat(5,1fr)}
+  #ov .ia-r{display:flex;flex-direction:column}
+  #ov .ia-r .ia-tabs{order:9;margin:6px 0 0;justify-content:space-between}
+  #ov .ia-hot{grid-template-columns:repeat(9,1fr);gap:2px}
+  #ov .ic{grid-template-columns:1fr}
+  #ov .ic-mid{flex-direction:row;flex-wrap:wrap;margin-top:0}
+}

@@ -3,10 +3,10 @@ import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { BLD_FX, GARAGE_FX, GARAGE_IMG, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
 import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PLAYER_MINE_CELLS, PLAYER_MINE_DOWN_CELLS, ROCKET_CELLS, ROCKET_NOZZLE, playerCell, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
-import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, ORE_ORDER, PX, SURF, T, TILE, W, won } from "../core/config.ts";
+import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, ORE_ORDER, PX, SURF, T, TILE, W, cnum, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, maxHp, parts, teleId, teleMax } from "../core/stats.ts";
+import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, cargoFull, cargoSlots, cargoStack, cargoUsed, curZoom, drillMult, flashes, floaters, maxFuel, maxHp, parts, teleId, teleMax } from "../core/stats.ts";
 import { baseTiles, ensureRect, hardOf, isAir, natAir, seen, tiles } from "../core/world.ts";
 import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
@@ -783,16 +783,62 @@ export function townScale(SW, SH) {
 }
 
 // 소모품 단축 슬롯 (1~8 키 / 터치로 탭)
+// ---- 아래 가운데 막대 (마인크래프트처럼, 2026-11-28): 위 줄 = 화물 칸(광물이 칸마다 쌓임, 캐면 칸이 통 튀고 +n) · 아래 줄 = 단축 칸 9개(소모품, 1~9 키) ----
+//  hotLayout 은 그리기 전에도 쓰여서(도움말·안내 버튼 자리) 따로 계산
+export function hotLayout(vw, vh) {
+  const sz = vw < 420 ? 36 : vw < 560 ? 40 : 48, gap = vw < 560 ? 2 : 4, n = HOT.length, tw = n * sz + (n - 1) * gap;
+  const x0 = Math.floor((vw - tw) / 2), y0 = vh - 10 - sz;
+  const cs = sz - 8, cg = gap, per = Math.max(4, Math.floor((tw + cg) / (cs + cg)));    // 화물 칸: 단축 칸보다 조금 작게, 같은 폭에 한 줄
+  const cy = y0 - 6 - cs;
+  return { sz, gap, n, tw, x0, y0, cs, cg, per, cy, top: cy - 16 };
+}
+// 화물을 칸으로 나눔: 값 싼 것부터, 한 칸에 최대 cargoStack() 개 (마인크래프트처럼 넘치면 다음 칸)
+export function cargoCells() {
+  const st = cargoStack(), out = [];
+  for (const id of ORE_ORDER) { let n = P.cargo[id] || 0; while (n > 0) { const k = Math.min(st, n); out.push({ id, n: k }); n -= k; } }
+  return out;
+}
 export function drawHotbar(vw, vh) {
   S.hotBtns = []; S.hotLeft = 1e9;
   if (S.state !== "play") return;
-  const sz = vw < 420 ? 36 : vw < 560 ? 40 : 48, gap = vw < 560 ? 2 : 4, n = HOT.length, tw = n * sz + (n - 1) * gap, isz = 32;
-  const x0 = Math.max(8, vw - 12 - tw), y00 = vh - 12 - sz;
-  S.hotLeft = x0;
+  const L = hotLayout(vw, vh), isz = 32;
+  S.hotLeft = L.x0; S.hotTop = L.top;
+  // 화물 칸 줄
+  const cells = cargoCells(), slots = cargoSlots(), show = Math.min(slots, L.per), more = slots > L.per;
+  const rowW = show * L.cs + (show - 1) * L.cg, rx = Math.floor((vw - rowW) / 2);
+  const pop = S.cargoPop && S.cargoPop.t > 0 ? S.cargoPop : null, gain = S.cargoGain && S.cargoGain.t > 0 ? S.cargoGain : null;
+  setFont(12);
+  txt("화물 " + cargoUsed() + "/" + slots + "칸", rx, L.cy - 15, cargoFull() ? SY.red : SY.dim, 12, "left", SY.ink);
+  for (let i = 0; i < show; i++) {
+    const x = rx + i * (L.cs + L.cg), last = more && i === show - 1;
+    const c = last ? null : cells[i];
+    const bump = c && pop && pop.id === c.id ? Math.round(Math.sin(Math.min(1, (0.5 - pop.t) / 0.5) * Math.PI) * 4) : 0;
+    const y = L.cy - bump;
+    pxBox(x, y, L.cs, L.cs, bump ? SY.y : SY.ink);
+    ctx.fillStyle = c ? SY.body : SY.well; ctx.fillRect(x + 2, y + 2, L.cs - 4, L.cs - 4);
+    ctx.fillStyle = c ? SY.hi : SY.wellDk; ctx.fillRect(x + 2, y + 2, L.cs - 4, 2);
+    if (c) {
+      const is = Math.min(isz, L.cs - 8);
+      blit(oreIcon[c.id], x + ((L.cs - is) >> 1), y + 3, is, is);
+      txt(cnum(c.n), x + L.cs - 3, y + L.cs - 14, c.n >= cargoStack() ? SY.y : "#fff", 12, "right", SY.ink);
+    } else if (last) {
+      const rest = cells.length - (show - 1);
+      txt("+" + (slots - show + 1), x + L.cs / 2, y + L.cs / 2 - 14, SY.dim, 12, "center");
+      txt(rest > 0 ? rest + "칸" : "빈칸", x + L.cs / 2, y + L.cs / 2, rest > 0 ? "#fff" : SY.mute, 12, "center");
+    }
+  }
+  if (gain) {                                                        // 방금 캔 것: 그 칸 위로 +n 이 떠오름
+    const k = cells.findIndex((c) => c.id === gain.id), i = Math.min(show - 1, k < 0 ? 0 : k);
+    const x = rx + i * (L.cs + L.cg) + L.cs / 2, up = (1.1 - gain.t) * 26;
+    ctx.globalAlpha = Math.min(1, gain.t / 0.4);
+    txt("+" + cnum(gain.n), x, L.cy - 30 - up, ORE_COL[gain.id][0], 16, "center", SY.ink);
+    ctx.globalAlpha = 1;
+  }
+  // 단축 칸 9개
   HOT.forEach((id, i) => {
-    const x = x0 + i * (sz + gap), cnt = P.inv[id] || 0;
+    const x = L.x0 + i * (L.sz + L.gap), cnt = P.inv[id] || 0, sz = L.sz;
     const hp = S.hotPress, pk = hp && hp.id === id ? 1 - (performance.now() - hp.t) / 220 : 0;   // 방금 쓴 슬롯: 눌렸다가 올라오며 노란 테두리
-    const y0 = y00 + (pk > 0.4 ? 2 : 0);
+    const y0 = L.y0 + (pk > 0.4 ? 2 : 0);
     pxBox(x, y0, sz, sz, pk > 0 ? SY.y : SY.ink);
     ctx.fillStyle = cnt > 0 ? SY.body : SY.well; ctx.fillRect(x + 2, y0 + 2, sz - 4, sz - 4);
     ctx.fillStyle = cnt > 0 ? SY.hi : SY.wellDk; ctx.fillRect(x + 2, y0 + 2, sz - 4, 2);
@@ -801,7 +847,7 @@ export function drawHotbar(vw, vh) {
     ctx.globalAlpha = 1;
     txt(String(i + 1), x + 5, y0 + 3, SY.dim, 12);
     txt("x" + cnt, x + sz - 4, y0 + sz - 15, cnt > 0 ? "#fff" : SY.mute, 12, "right");
-    S.hotBtns.push({ x: x - 2, y: y00 - 2, w: sz + 4, h: sz + 4, id });
+    S.hotBtns.push({ x: x - 2, y: L.y0 - 2, w: sz + 4, h: sz + 4, id });
   });
 }
 
@@ -881,7 +927,7 @@ export function drawHUD(vw, vh, depth) {
   const fSeg = Math.ceil(fr * 12 - 1e-9);
   {                                                            // 상태 카드: 연료·화물·레벨 묶음 뒤에 숯색 판 (밝은 하늘·흙 위에서도 글자가 또렷하게)
     setFont(12);
-    const fl = Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), cl = cargoCount() + "/" + cargoCap(), hl = Math.ceil(P.hp) + "/" + Math.round(maxHp());
+    const fl = Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), cl = cargoUsed() + "/" + cargoSlots() + "칸", hl = Math.ceil(P.hp) + "/" + Math.round(maxHp());
     const tl = fitText(titleName() || "칭호 없음", Math.max(40, (wide ? 300 : vw - 230) - 6), 12);
     const w1 = 10 + 22 + 122 + 6 + Math.max(ctx.measureText(fl).width, ctx.measureText(cl).width, ctx.measureText(hl).width);
     const w2 = 66 + 82 + 8 + ctx.measureText(tl).width;
@@ -892,8 +938,8 @@ export function drawHUD(vw, vh, depth) {
     hudBar(10, 12, ICON.heart, 12, hlow && blink ? Math.max(0, hSeg - 1) : hSeg, "hp", Math.ceil(P.hp) + "/" + Math.round(maxHp()), hlow ? SY.red : "#fff");
   }
   hudBar(10, 12 + HUD_DY, ICON.fuel, 12, low && blink ? Math.max(0, fSeg - 1) : fSeg, low ? "low" : "fuel", Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), low ? SY.red : "#fff");
-  const cc = cargoCount(), cap = cargoCap(), full = cc >= cap;
-  hudBar(10, 44 + HUD_DY, ICON.crate, 12, Math.min(12, Math.ceil(cc / cap * 12 - 1e-9)), full && blink ? "low" : "cargo", cc + "/" + cap, full ? SY.red : "#fff");
+  const cc = cargoUsed(), cap = cargoSlots(), full = cargoFull();      // 화물 = 쓴 칸 / 전체 칸
+  hudBar(10, 44 + HUD_DY, ICON.crate, 12, Math.min(12, Math.ceil(cc / cap * 12 - 1e-9)), full && blink ? "low" : "cargo", cc + "/" + cap + "칸", full ? SY.red : "#fff");
   // 레벨 + 경험치 + 칭호
   const Lx = levelOf(S.acct ? S.acct.xp : 0);
   plate(10, 74 + HUD_DY, 50, 24);
@@ -912,8 +958,8 @@ export function drawHUD(vw, vh, depth) {
   const bs = 44, bg = 6, bx0 = vw - 10 - 3 * bs - 2 * bg, by0 = 10;
   S.hudBottom = 0;
   if (wide) {
-    // 위 가운데: 가진 광물 칸 (Chipmatic 처럼) + 그 아래 깊이
-    const ob = drawOreBar(Math.floor(vw / 2), 10, Math.max(160, vw - 2 * 230), true);
+    // 위 가운데: 깊이 (가진 광물은 아래 가운데 화물 칸 줄로 옮김, 2026-11-28)
+    const ob = 4;
     S.bannerY = ob + 46;                                           // 알림 띠는 깊이 표시 아래
     setFont(16); const dw = Math.ceil(ctx.measureText(dTxt).width) + 48;
     plate(Math.floor(vw / 2 - dw / 2), ob + 6, dw, 30); blit(ICON.depth, Math.floor(vw / 2 - dw / 2) + 8, ob + 13, 16, 16);
@@ -925,7 +971,7 @@ export function drawHUD(vw, vh, depth) {
     blit(ICON.coin, 10, 102 + HUD_DY + coinBob, 24, 24); txt(mTxt, 38, 106 + HUD_DY, mCol, 16, "left", SY.ink);
     setFont(16); const mw = Math.ceil(ctx.measureText(mTxt).width);
     blit(ICON.depth, 38 + mw + 14, 106 + HUD_DY, 16, 16); txt(dTxt, 38 + mw + 34, 106 + HUD_DY, "#9fd8ff", 16, "left", SY.ink);
-    S.hudBottom = drawOreBar(10, 134 + HUD_DY, vw - 20 - 46, false);      // 좁은 화면: 왼쪽 줄 아래에 광물 칸 (미니맵은 그 아래로)
+    S.hudBottom = 126 + HUD_DY;                                     // 좁은 화면: 돈·깊이 줄 아래 (가진 광물은 아래 가운데 화물 칸 줄)
     S.bannerY = Math.max(S.hudBottom + 12, vh - 270);              // 좁은 화면: 캐릭터(화면 가운데) 아래 빈 곳, 도움말·슬롯 위
   }
 
@@ -1019,8 +1065,9 @@ export function drawHUD(vw, vh, depth) {
     helpStr = S.usedTouch ? "드래그 조작 · 아래 슬롯: 소모품" : P.mech ? "←→ 이동 · ↑ 추진 · ↓ 파기 · H 도움말" : "←→ · ↑ 점프 · ↓ 곡괭이 · 7 사다리 · H";
     helpW = Math.min(vw - 24 - (S.usedTouch ? 28 : 0), Math.ceil(ctx.measureText(helpStr).width) + 32);
   }
-  const helpUp = helpOn && 12 + helpW > S.hotLeft - 8;      // 슬롯과 겹치면 도움말을 슬롯 위로 올리고, 안내창도 같이 올림
-  const helpLift = helpUp ? 44 : 0;
+  const HL = hotLayout(vw, vh), barTop = S.state === "play" ? HL.top : vh - 10;
+  const helpUp = helpOn && 12 + helpW > HL.x0 - 8;          // 아래 막대와 겹치면 도움말을 막대 위로 올리고, 안내창도 같이 올림
+  const helpLift = Math.max(0, vh - 124 - (barTop - 56)) + (helpUp ? 44 : 0);
   const garageHere = !S.nearItems && !S.nearCraft && !S.nearFurnace && atGarage();
   const padHere = !S.nearItems && !garageHere ? atPad() : "", padTo = padHere && P.tele[padHere === "a" ? "b" : "a"];
   if ((S.nearItems || S.nearCraft || S.nearFurnace || garageHere || padHere) && S.state === "play" && P.dead <= 0) {
@@ -1048,7 +1095,7 @@ export function drawHUD(vw, vh, depth) {
   // 도움말
   S.helpRect = null;
   if (helpOn) {
-    const hy = helpUp ? vh - 100 : vh - 44, xw = S.usedTouch ? 28 : 0;   // 터치: 오른쪽 끝 ✕ 자리 (띠를 누르면 닫힘)
+    const hy = helpUp ? barTop - 40 : vh - 44, xw = S.usedTouch ? 28 : 0;   // 터치: 오른쪽 끝 ✕ 자리 (띠를 누르면 닫힘)
     ctx.globalAlpha = 0.85;
     panel(12, hy, helpW + xw, 32, SY.well);
     ctx.globalAlpha = 1;

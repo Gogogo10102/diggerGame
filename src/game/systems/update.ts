@@ -1,9 +1,9 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./town.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, HW, inB, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W, won } from "../core/config.ts";
+import { B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, HW, inB, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W, cnum, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, oreYield, bannerQ, bombs, canFly, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, maxHp, pushBanner, recalcStats, say, spawn, teleId, teleMax, updateFx } from "../core/stats.ts";
+import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, oreYield, bannerQ, bombs, canFly, cargoAdd, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, maxHp, pushBanner, recalcStats, say, spawn, teleId, teleMax, updateFx } from "../core/stats.ts";
 import { ICON, dirtTiles, gasTile } from "../art/sprites.ts";
 
 // 보물 상자 열기: 깊을수록 많은 돈 + 25% 확률로 소모품 하나. 처음 열면 알림
@@ -316,7 +316,7 @@ export function useConsumable(id) {
 //   그 위로 칸당 FALL_DMG(로봇은 절반 × 장갑 40% = 칸당 1). 떨어지다 추진(로켓)을 켜면 거기서 다시 잼 → 브레이크 잡고 내리면 안 다침
 // 0 이 되면 쓰러짐 → 연료 고갈과 같은 구조(화물 잃고 마을로). 지상(마을)에선 빨리 차오름, 구급상자로도 회복
 export const SAFE_FALL = 6, SAFE_FALL_MECH = 12, FALL_DMG = 5, ROBOT_ARMOR = 0.4, BLAST_DMG = 35, GAS_HP = 6, TOWN_HEAL = 25;
-S.hurtT = 0; S.hurtFlash = 0; S.fallTop = null;
+S.hurtT = 0; S.hurtFlash = 0; S.fallTop = null; S.cargoPop = null; S.cargoGain = null; S.hotTop = 0;
 export function hurt(n, why, raw) {                              // raw: 무적 시간 없이 조금씩 (가스)
   if (P.dead > 0 || (!raw && S.hurtT > 0)) return 0;
   const d = n * (P.mech ? ROBOT_ARMOR : 1);
@@ -365,7 +365,8 @@ export function explode(b) {
     if (id === 18) floaters.push({ x: (c + 0.5) * T, y: r * T, text: "가스 연소!", color: "#ffb020", life: 1.1 });   // 폭파하면 가스는 타서 없어짐
     chips(c, r, id, 5, 1.5);
     if (TILE[id].value > 0) {
-      if (cargoCount() < cargoCap()) { P.cargo[id] = (P.cargo[id] || 0) + 1; got++; } else { spawnDrop(id, (c + 0.5) * T, (r + 0.5) * T, 1); lost++; }
+      const yn = oreYield(id), k = cargoAdd(id, yn); got += k;
+      if (k < yn) { spawnDrop(id, (c + 0.5) * T, (r + 0.5) * T, yn - k); lost += yn - k; }
     }
   }
   const x = (b.c + 0.5) * T, y = (b.r + 0.5) * T;
@@ -448,6 +449,8 @@ export function update(dt) {
 
   if (S.hurtT > 0) S.hurtT -= dt;
   if (S.hurtFlash > 0) S.hurtFlash -= dt;
+  if (S.cargoPop && S.cargoPop.t > 0) S.cargoPop.t -= dt;           // 화물 칸 통 튐 · +n 떠오름 (draw.ts drawHotbar)
+  if (S.cargoGain && S.cargoGain.t > 0) S.cargoGain.t -= dt;
   if (P.dead > 0) {
     P.dead -= dt;
     if (P.dead <= 0) respawn();
@@ -606,16 +609,14 @@ export function update(dt) {
         if (shatter) shatterOre(id, tgt[0], tgt[1]);
         else if (info.value > 0) {
           const ox = (tgt[0] + 0.5) * T, oy = (tgt[1] + 0.5) * T;
-          const cnt = oreYield(), lucky = cnt > 1;                 // 행운: 한 칸에서 여러 개
-          for (let n = 0; n < cnt; n++) {
-            if (cargoCount() < cargoCap()) P.cargo[id] = (P.cargo[id] || 0) + 1;
-            else spawnDrop(id, ox, oy, 1);                       // 화물칸이 가득 → 그 자리에 떨어짐
-          }
-          if (lucky) floaters.push({ x: P.x, y: P.y - 42, text: "행운! +" + (cnt - 1), color: "#ffd34d", life: 1.1 });
-          if (cargoCount() >= cargoCap() && drops.length && drops[drops.length - 1].age === 0) {
+          const cnt = oreYield(id);                                // 한 칸에서 나오는 개수 (얕은 광물·행운일수록 많이)
+          const k = cargoAdd(id, cnt);
+          if (k < cnt) spawnDrop(id, ox, oy, cnt - k);             // 화물칸이 가득 → 남은 건 그 자리에 떨어짐
+          if (k > 0) { S.cargoPop = { id, t: 0.5 }; S.cargoGain = { id, n: k, t: 1.1 }; }   // 플레이 화면 화물 칸이 통 튀고 +n
+          if (k < cnt) {
             say("화물칸이 가득 찼어요! 캔 광물은 땅에 떨어져요 (60초 안에 주우세요)");
             floaters.push({ x: P.x, y: P.y - 24, text: "FULL", color: "#ff6b6b", life: 1.1 });
-          } else floaters.push({ x: P.x, y: P.y - 24, text: "+" + info.name, color: ORE_COL[id][0], life: 1.1 });
+          } else floaters.push({ x: P.x, y: P.y - 24, text: "+" + cnum(cnt) + " " + info.name, color: ORE_COL[id][0], life: 1.1 });
         }
       }
     }
