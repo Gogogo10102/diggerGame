@@ -62,8 +62,8 @@ export function equipNew(id) {
 
 // 캔 광물 1칸에서 나오는 개수: 행운이 1.3 이면 2개 확정 + 30% 확률로 1개 더
 // 한 번 캘 때 나오는 개수 (2026-11-28 방치형 개편): 광물마다 기본 개수(TILE.yield, 얕을수록 많음) × (1 + 행운 × LUCK_K) × 0.75~1.25
-//   행운 장비를 다 올리면(행운 약 +600%) 석탄 ~100개 · 미스릴 ~40개 · 별 조각 ~6개. 소수 부분은 그 확률로 하나 더
-export const LUCK_K = 2;
+//   행운 장비를 다 올리면(행운 약 +600%) 석탄 ~70개 · 미스릴 ~28개 · 별 조각 ~3.5개. 소수 부분은 그 확률로 하나 더
+export const LUCK_K = 1;
 export const oreMean = (id) => (TILE[id] && TILE[id].yield ? TILE[id].yield : 1) * (1 + Math.max(0, STAT.lucky) * LUCK_K);
 export const oreYield = (id) => { const m = oreMean(id) * (0.75 + Math.random() * 0.5); return Math.max(1, Math.floor(m) + (Math.random() < m % 1 ? 1 : 0)); };
 

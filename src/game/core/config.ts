@@ -36,32 +36,33 @@ export const inTown = (c) => c >= 1 && c < MINE_COL;             // 마을 땅(�
 export const inB = (k, c) => c >= BUILD_COLS[k][0] && c <= BUILD_COLS[k][1];
 
 // 광물 값(value, 원) · 한 번 캘 때 나오는 개수(yield, 행운 0 기준) — 2026-11-28 방치형 개편:
-//   지층마다 그 지층 광물만 나옴(world.ts ORE_GEN) · 값은 지층마다 약 6배씩 · 얕은 광물일수록 한 번에 많이 (행운을 올리면 석탄 ~100개, 별 조각 ~6개, stats.ts oreYield)
+//   지층마다 그 지층 광물만 나옴(world.ts ORE_GEN) · 값은 지층마다 약 4배씩 · 얕은 광물일수록 한 번에 많이 (행운을 다 올리면 석탄 ~70개, 별 조각 ~3개, stats.ts oreYield)
+//   맞춘 기준: tools/econ-sim.py 로 끝까지 약 600번 왕복 (예전 경제와 비슷하게)
 // 타일 종류: 0 공기, 1 흙, 2 구리, 3 철, 4 금, 5 다이아, 7 암반, 17 보물 상자, 20~31 새 광물 (2026-11-28)
 export const TILE = {
   1: { name: "흙",     hard: 0.35, value: 0 },
-  2: { name: "구리",   hard: 0.55, value: 12, yield: 8 },
-  3: { name: "철",     hard: 0.75, value: 50, yield: 6 },
-  4: { name: "금",     hard: 1.00, value: 300, yield: 5 },
-  5: { name: "다이아", hard: 1.60, value: 2000, yield: 4 },
-  6: { name: "석탄",   hard: 0.45, value: 8, yield: 8 },
-  8: { name: "은",     hard: 0.85, value: 70, yield: 6 },
-  9: { name: "에메랄드", hard: 1.25, value: 450, yield: 5 },
-  10: { name: "루비",   hard: 1.45, value: 1700, yield: 4 },
-  11: { name: "미스릴", hard: 2.00, value: 12000, yield: 3 },
+  2: { name: "구리",   hard: 0.55, value: 12, yield: 10 },
+  3: { name: "철",     hard: 0.75, value: 40, yield: 8 },
+  4: { name: "금",     hard: 1.00, value: 130, yield: 6 },
+  5: { name: "다이아", hard: 1.60, value: 600, yield: 5 },
+  6: { name: "석탄",   hard: 0.45, value: 8, yield: 10 },
+  8: { name: "은",     hard: 0.85, value: 50, yield: 8 },
+  9: { name: "에메랄드", hard: 1.25, value: 200, yield: 6 },
+  10: { name: "루비",   hard: 1.45, value: 500, yield: 5 },
+  11: { name: "미스릴", hard: 2.00, value: 2400, yield: 4 },
   // 새 광물 12종 (2026-11-28): 지층마다 1~2개. fragile = 약해서 로봇 톱니로 캐면 부서짐(사람 곡괭이로만)
-  20: { name: "석영",     hard: 0.50, value: 15, yield: 7 },
-  21: { name: "호박",     hard: 0.40, value: 120, yield: 5, fragile: true },
-  22: { name: "자수정",   hard: 1.20, value: 380, yield: 5 },
-  23: { name: "사파이어", hard: 1.55, value: 2300, yield: 4 },
-  24: { name: "흑요석",   hard: 2.10, value: 10000, yield: 3 },
-  25: { name: "화염석",   hard: 2.20, value: 15000, yield: 3 },
-  26: { name: "수정 결정", hard: 2.30, value: 70000, yield: 2 },
-  27: { name: "오팔",     hard: 1.30, value: 130000, yield: 2, fragile: true },
-  28: { name: "아다만트", hard: 2.60, value: 400000, yield: 1.5 },
-  29: { name: "고대 호박", hard: 1.40, value: 700000, yield: 1.5, fragile: true },
-  30: { name: "공허석",   hard: 2.90, value: 2500000, yield: 1 },
-  31: { name: "별 조각",  hard: 3.20, value: 10000000, yield: 0.5 },
+  20: { name: "석영",     hard: 0.50, value: 15, yield: 9 },
+  21: { name: "호박",     hard: 0.40, value: 60, yield: 6, fragile: true },
+  22: { name: "자수정",   hard: 1.20, value: 170, yield: 6 },
+  23: { name: "사파이어", hard: 1.55, value: 680, yield: 5 },
+  24: { name: "흑요석",   hard: 2.10, value: 2000, yield: 4 },
+  25: { name: "화염석",   hard: 2.20, value: 3000, yield: 4 },
+  26: { name: "수정 결정", hard: 2.30, value: 9200, yield: 3 },
+  27: { name: "오팔",     hard: 1.30, value: 17000, yield: 2, fragile: true },
+  28: { name: "아다만트", hard: 2.60, value: 35000, yield: 2 },
+  29: { name: "고대 호박", hard: 1.40, value: 62000, yield: 1.5, fragile: true },
+  30: { name: "공허석",   hard: 2.90, value: 150000, yield: 1.5 },
+  31: { name: "별 조각",  hard: 3.20, value: 600000, yield: 0.5 },
   14: { name: "나무 지지대", hard: Infinity, value: 0 },   // 지나갈 수 있는 설치물
   15: { name: "강철 지지대", hard: Infinity, value: 0 },
   13: { name: "기초석", hard: Infinity, value: 0 },    // 건물 아래 땅 (부술 수 없음)
