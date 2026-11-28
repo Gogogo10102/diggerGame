@@ -9,6 +9,7 @@ import { HOT } from "../data/consumables.ts";
 import { ITEMS, LV_MAX } from "../data/items.ts";
 import { checkQuests, initProgress } from "../data/progress.ts";
 import { SAVE_VER } from "./config.ts";
+import { MINER_MAX } from "../systems/town.ts";
 import { decodeRLE, decodeSeen, decodeWorld, encodeRLE, encodeSeen, encodeWorld } from "./worldSave.ts";
 import { REGEN_MAX, REGEN_MIN } from "../systems/cave.ts";
 import { debrisList, debrisT, dust } from "../systems/collapseFx.ts";
@@ -29,7 +30,7 @@ export function snapshot() {
   return withChunksSettled(() => ({
     ver: SAVE_VER, id: S.acct.id, name: S.acct.name, created: S.acct.created, updated: Date.now(),
     seed: S.acct.seed, playTime: Math.floor(S.acct.playTime), stats: S.acct.stats,
-    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, hp: P.hp, tele: P.tele, made: P.made, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, eq: P.eq, off: P.off, lv: P.lv, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
+    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, hp: P.hp, tele: P.tele, made: P.made, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, eq: P.eq, off: P.off, lv: P.lv, miners: P.miners, minerAt: P.minerAt, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
     settings: { showHelp: S.showHelp, miniOn: S.miniOn === undefined ? null : S.miniOn },
     world: encodeWorld(),
     stones: 1, worldV: 2,
@@ -117,6 +118,9 @@ export function applyAccount(d) {
     P.made = {}; if (pl.made && typeof pl.made === "object") for (const k in pl.made) if (ITEMS[k] && ITEMS[k].craft) P.made[k] = 1;
     for (const k in P.items) if (ITEMS[k] && ITEMS[k].craft) P.made[k] = 1;
   }
+  P.miners = {};                                                  // 자동 채굴기 (2026-11-28, 옛 세이브는 없음)
+  if (pl.miners && typeof pl.miners === "object") for (const k in pl.miners) { const i = Math.floor(Number(k)), v = Math.floor(Number(pl.miners[k])); if (i >= 0 && i < LAYERS.length && v > 0) P.miners[i] = Math.min(MINER_MAX, v); }
+  P.minerAt = Number.isFinite(pl.minerAt) && pl.minerAt > 0 ? Math.min(Date.now(), pl.minerAt) : 0;
   P.hp = Number.isFinite(pl.hp) ? Math.max(0, Math.min(maxHp(), pl.hp)) : maxHp();   // 체력 (2026-11-28, 옛 세이브는 가득)
   P.layerMax = Math.max(0, Math.min(LAYERS.length - 1, pl.layerMax | 0));
   P.facing = pl.facing < 0 ? -1 : 1;

@@ -18,13 +18,13 @@ import { keysReset } from "../ui/overlay.ts";
 //  용광로: 원석 2개 + 석탄을 넣으면 시간이 지나 주괴 1개가 됩니다(플레이 중이면 광산에 있어도 진행).
 //  제작소의 금속 재료는 원석이 아니라 주괴로 받습니다. 보석(에메랄드·다이아·루비)은 원석 그대로.
 // =====================================================================
-export const ORE_PER_BAR = 2;
+export const ORE_PER_BAR = 10;                                   // 주괴 하나 = 원석 10개 (2026-11-28 방치형 개편: 한 번에 여러 개 캐서 2 → 10)
 export const BARS = {
-  cu: { name: "구리 주괴",   ore: 2,  coal: 1, time: 4,  rate: 0.7,  pal: ["#ffc9a0", "#e07a3c", "#9a4a22"] },
-  fe: { name: "철 주괴",     ore: 3,  coal: 1, time: 6,  rate: 0.6,  pal: ["#b9c0cf", "#7a8296", "#4a5064"] },
-  ag: { name: "은 주괴",     ore: 8,  coal: 1, time: 8,  rate: 0.55,  pal: ["#ffffff", "#d3e0f2", "#8f9db8"] },
-  au: { name: "금 주괴",     ore: 4,  coal: 2, time: 10, rate: 0.5,  pal: ["#fff6bf", "#ffcd3c", "#c98f1a"] },
-  mi: { name: "미스릴 주괴", ore: 11, coal: 3, time: 20, rate: 0.4,  pal: ["#d8fff9", "#5ee6d0", "#2a8f8a"] },
+  cu: { name: "구리 주괴",   ore: 2,  coal: 5, time: 4,  rate: 0.7,  pal: ["#ffc9a0", "#e07a3c", "#9a4a22"] },
+  fe: { name: "철 주괴",     ore: 3,  coal: 5, time: 6,  rate: 0.6,  pal: ["#b9c0cf", "#7a8296", "#4a5064"] },
+  ag: { name: "은 주괴",     ore: 8,  coal: 5, time: 8,  rate: 0.55,  pal: ["#ffffff", "#d3e0f2", "#8f9db8"] },
+  au: { name: "금 주괴",     ore: 4,  coal: 10, time: 10, rate: 0.5,  pal: ["#fff6bf", "#ffcd3c", "#c98f1a"] },
+  mi: { name: "미스릴 주괴", ore: 11, coal: 15, time: 20, rate: 0.4,  pal: ["#d8fff9", "#5ee6d0", "#2a8f8a"] },
 };
 export const BAR_KEYS = Object.keys(BARS);
 export const BAR_OF = { 2: "cu", 3: "fe", 8: "ag", 4: "au", 11: "mi" };
@@ -197,7 +197,6 @@ function furnaceDoneMsg() {                                         // 대기열
 }
 // 용광로 창 열기 (마을 창의 "용광로" 탭. 그리기는 render/townUI.ts)
 export function openFurnace() {
-  stashCargo();                                                   // 들고 온 광물은 창고로 (메시지는 stashCargo가 띄움)
   S.state = "furnace"; keysReset(); sfx("open");
   S.stick = null; touch.l = touch.r = touch.u = touch.d = false;
   const F = S.acct && S.acct.furnace;

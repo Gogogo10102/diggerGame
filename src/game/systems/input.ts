@@ -11,6 +11,7 @@ import { ORDER_N, SELL_CAT_START, SELL_KEYS, SELL_ORES, buyItem, craftItem, deli
 import { atGarage, atPad, toggleMech, useConsumable, useTele } from "./update.ts";
 import { openQuests } from "../ui/dom.ts";
 import { closeMenu, openInventory, openMenu, openTele } from "../ui/menu.ts";
+import { openStorage } from "../ui/inventory.ts";
 import { hideOv, openAccountScreen } from "../ui/overlay.ts";
 import { sfx } from "../core/sound.ts";
 import { mapKey, mapPointerDown, mapPointerMove, mapPointerUp, mapZoom, openMap } from "../render/minimap.ts";
@@ -297,7 +298,7 @@ export const U_ = () => keys.ArrowUp || keys.KeyW || keys.Space || touch.u;
 export const D_ = () => keys.ArrowDown || keys.KeyS || touch.d;
 
 // 마을 창: 상점·제작소·용광로 + 판매(창고)를 위쪽 탭으로 오가며 사용. 어느 건물 앞에서 [E]로 열어도 됨
-export const TOWN = [["shop", "상점", "chest"], ["craft", "제작", "drill"], ["furnace", "용광로", "furnace"], ["sell", "판매", "coin"]];
+export const TOWN = [["store", "창고", "crate"], ["shop", "상점", "chest"], ["craft", "제작", "drill"], ["furnace", "용광로", "furnace"], ["sell", "판매", "coin"]];   // 창고 = HTML 창 C (inventory.ts)
 export function stashCargo() {
   let moved = 0;
   for (const id in P.cargo) { P.stash[id] = (P.stash[id] || 0) + P.cargo[id]; moved += P.cargo[id]; }
@@ -315,20 +316,22 @@ export function switchTown(k) {
   if (S.state === "menu") hideOv();
   S.stick = null; touch.l = touch.r = touch.u = touch.d = false;
   if (k === "shop") { S.state = "shop"; S.shopSel = 0; }
-  else if (k === "craft") { stashCargo(); S.state = "craft"; if (S.craftTab >= RECIPE_CATS.length) S.craftTab = 0; S.craftSel = 0; }
-  else if (k === "sell") { stashCargo(); S.state = "craft"; S.craftTab = RECIPE_CATS.length; }
+  else if (k === "store") { openStorage(); return; }             // 화물 → 창고는 [보관] 을 눌러야 (자동 보관 없앰, 2026-11-28)
+  else if (k === "craft") { S.state = "craft"; if (S.craftTab >= RECIPE_CATS.length) S.craftTab = 0; S.craftSel = 0; }
+  else if (k === "sell") { S.state = "craft"; S.craftTab = RECIPE_CATS.length; }
   else if (k === "furnace") openFurnace();
 }
 export function townKey(e) {                                       // [ / ] 로 마을 창 탭 이동
   if (e.code !== "BracketLeft" && e.code !== "BracketRight") return false;
   if (e.repeat) return true;
-  const i = TOWN.findIndex((t) => t[0] === townActive()), d = e.code === "BracketLeft" ? -1 : 1;
-  switchTown(TOWN[(i + d + TOWN.length) % TOWN.length][0]);
+  const tabs = TOWN.filter((t) => t[0] !== "store");               // 창고(HTML 창)는 [ ] 로는 안 감 (탭 버튼으로)
+  const i = tabs.findIndex((t) => t[0] === townActive()), d = e.code === "BracketLeft" ? -1 : 1;
+  switchTown(tabs[(i + d + tabs.length) % tabs.length][0]);
   return true;
 }
 // 마을 건물에 들어가기: 광물을 싣고 왔으면 판매 탭(화물은 창고로), 아니면 상점 탭
 export function openTown() {
-  if (cargoCount() > 0) { sfx("open"); switchTown("sell"); }
+  if (cargoCount() > 0) { sfx("open"); openStorage(); }           // 광물을 싣고 왔으면 창고 창(화물 ↔ 창고)부터
   else openShop();
 }
 export function openShop() {

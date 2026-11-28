@@ -1,7 +1,7 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../art/buildings.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { CRAFT_ICON } from "../art/itemIcons.ts";
-import { LAYERS, ORE_COL, PX, SURF, T, layerOf } from "./config.ts";
+import { LAYERS, ORE_COL, PX, SURF, T, TILE, layerOf } from "./config.ts";
 import { P } from "./player.ts";
 import { S } from "./state.ts";
 import { LOOK } from "../data/consumables.ts";
@@ -61,7 +61,11 @@ export function equipNew(id) {
 }
 
 // 캔 광물 1칸에서 나오는 개수: 행운이 1.3 이면 2개 확정 + 30% 확률로 1개 더
-export const oreYield = () => { const L = Math.max(0, STAT.lucky); return 1 + Math.floor(L) + (Math.random() < L % 1 ? 1 : 0); };
+// 한 번 캘 때 나오는 개수 (2026-11-28 방치형 개편): 광물마다 기본 개수(TILE.yield, 얕을수록 많음) × (1 + 행운 × LUCK_K) × 0.75~1.25
+//   행운 장비를 다 올리면(행운 약 +600%) 석탄 ~100개 · 미스릴 ~40개 · 별 조각 ~6개. 소수 부분은 그 확률로 하나 더
+export const LUCK_K = 2;
+export const oreMean = (id) => (TILE[id] && TILE[id].yield ? TILE[id].yield : 1) * (1 + Math.max(0, STAT.lucky) * LUCK_K);
+export const oreYield = (id) => { const m = oreMean(id) * (0.75 + Math.random() * 0.5); return Math.max(1, Math.floor(m) + (Math.random() < m % 1 ? 1 : 0)); };
 
 // ---- 능력치: 장비 칸 값 + 보너스(특수·제작) + 레벨 ----
 export const HP_BASE = 100;            // 최대 체력 기본값 (2026-11-28 체력 추가)
