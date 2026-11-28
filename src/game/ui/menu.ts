@@ -12,7 +12,7 @@ import { ORE_IDS } from "../save/config.ts";
 import { exportCode } from "../save/transfer.ts";
 import { chunks } from "../systems/floating.ts";
 import { SENS_NAME } from "../systems/input.ts";
-import { TELE_PLACE, nearPad, placeTele, respawn, teleCanPlace, teleDurMax, telePlaced, teleStops, teleportTo } from "../systems/update.ts";
+import { TELE_PLACE, atPad, placeTele, respawn, teleCanPlace, teleDurMax, useTele } from "../systems/update.ts";
 import { charFooter, charTabs } from "./dom.ts";
 import { sfx } from "../core/sound.ts";
 import { lsGet, lsSet, renderInventory } from "./inventory.ts";
@@ -31,7 +31,7 @@ export function openInventory() {
   S.state = "menu"; keysReset();
   renderInventory();
 }
-// ---- 텔레포트 창 (2026-11-28): 지상 = 설치·옮기기 / 패드 위 = 내려갈 깊이 고르기 / 땅속 = 패드로 돌아가기 ----
+// ---- 텔레포터 창 (2026-11-28): 내구도 · 두 패드 상태 · 지금 자리에 깔기/옮기기 (이동은 패드 앞 [E]) ----
 export function openTele() {
   if (S.state !== "play" || !S.acct || P.dead > 0) return;
   if (!teleId()) return say("텔레포터가 없어요 · 제작소 '이동'에서 만들어요");
@@ -40,31 +40,18 @@ export function openTele() {
 }
 export function renderTele() {
   S.invOpen = false;
-  const id = teleId(), mx = teleDurMax(id), dur = P.tele ? P.tele.dur : mx;
+  const id = teleId(), mx = teleDurMax(id), t = P.tele || { dur: mx, a: null, b: null };
   const root = el("div");
   root.appendChild(el("h2", null, ITEMS[id].name));
-  root.appendChild(el("p", "dim", "내구도 " + dur + " / " + mx + " · 설치·옮기기 -" + TELE_PLACE + " · 한 번 넘어갈 때 -1 · 다 쓰면 사라져요"));
-  const bs = el("div", "btns"), act = (fn) => () => { closeMenu(); fn(); };
-  const under = Math.floor(P.y / T) >= SURF;
-  if (under) {
-    if (telePlaced()) bs.appendChild(mkBtn("패드로 돌아가기 (내구도 -1)", act(() => teleportTo(0)), "pri"));
-    else root.appendChild(el("p", "msg", "아직 설치하지 않았어요 · 지상에서 설치하면 돌아올 수 있어요"));
-  } else if (nearPad()) {
-    const deep = Math.floor(S.acct.stats.maxDepth), lim = Math.min(teleMax(), deep);
-    root.appendChild(el("p", "dim", "최대 " + teleMax() + "m · 가 본 가장 깊은 곳 " + deep + "m → " + lim + "m 까지 내려갈 수 있어요 (내구도 -1)"));
-    const stops = teleStops();
-    if (!stops.length) root.appendChild(el("p", "msg", "아직 갈 수 있는 깊이가 없어요 · 50m 아래까지 먼저 내려가 보세요"));
-    for (const d of stops) bs.appendChild(mkBtn(d + "m", act(() => teleportTo(d)), "info"));
-  } else {
-    const why = teleCanPlace();
-    if (telePlaced()) root.appendChild(el("p", "dim", "패드는 지상 " + (P.tele.c - MINE_COL) + "번째 칸에 있어요 · 패드 위에서 T 로 내려가요"));
-    if (why) root.appendChild(el("p", "msg", why));
-    else bs.appendChild(mkBtn((telePlaced() ? "여기로 옮기기" : "여기에 설치") + " (내구도 -" + TELE_PLACE + ")", act(placeTele), "pri"));
-  }
+  root.appendChild(el("p", "dim", "내구도 " + t.dur + " / " + mx + " · 깔기·옮기기 -" + TELE_PLACE + " · 한 번 이동 -1 · 다 쓰면 사라져요"));
+  root.appendChild(el("p", "dim", "지상 패드: " + (t.a ? "깔림" : "아직 안 깖") + "  ·  땅속 패드: " + (t.b ? (t.b.r - SURF) + "m" : "아직 안 깖") + " (최대 " + teleMax() + "m)"));
+  root.appendChild(el("p", "dim", "지상과 땅속에 하나씩 깔면 이어져요 · 패드 앞에서 [E]·이동 버튼"));
+  const [k, why] = teleCanPlace(), bs = el("div", "btns");
+  if (why) root.appendChild(el("p", "msg", why));
+  else bs.appendChild(mkBtn((t[k] ? "여기로 옮기기" : "여기에 깔기") + " · " + (k === "a" ? "지상" : "땅속") + " 패드 (내구도 -" + TELE_PLACE + ")", () => { closeMenu(); placeTele(); }, "pri"));
+  if (atPad() && t[atPad() === "a" ? "b" : "a"]) bs.appendChild(mkBtn("반대쪽 패드로 이동 (내구도 -1)", () => { closeMenu(); useTele(); }, "info"));
+  bs.appendChild(mkBtn("닫기", closeMenu, "back"));
   root.appendChild(bs);
-  const bb = el("div", "btns");
-  bb.appendChild(mkBtn("닫기", closeMenu, "back"));
-  root.appendChild(bb);
   showOv(root);
 }
 export function renderMenu(note) {

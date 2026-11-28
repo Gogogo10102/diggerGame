@@ -110,7 +110,10 @@ export function applyAccount(d) {
   P.fuel = Number.isFinite(pl.fuel) ? Math.min(maxFuel(), pl.fuel) : maxFuel();
   {                                                               // 텔레포터 (2026-11-28): 가진 것의 내구도 · 설치한 열 (없으면 -1). 만든 적 있는 제작 장비 기록
     const tid = teleId(), t = pl.tele && typeof pl.tele === "object" ? pl.tele : null, mx = tid ? ITEMS[tid].dur : 0;
-    P.tele = tid ? { dur: t && Number.isFinite(t.dur) ? Math.max(1, Math.min(mx, Math.floor(t.dur))) : mx, c: t && Number.isFinite(t.c) && t.c >= MINE_COL && t.c < W - 2 ? Math.floor(t.c) : -1 } : null;
+    const end = (e, ground) => (e && Number.isFinite(e.c) && Number.isFinite(e.r) && e.c >= 1 && e.c < W - 1 && e.r >= 0 && e.r < H - 2 && (e.r < SURF) === ground ? { c: Math.floor(e.c), r: Math.floor(e.r) } : null);
+    P.tele = tid ? { dur: t && Number.isFinite(t.dur) ? Math.max(1, Math.min(mx, Math.floor(t.dur))) : mx,
+      a: t ? end(t.a, true) || (Number.isFinite(t.c) && t.c >= MINE_COL ? { c: Math.floor(t.c), r: SURF - 1 } : null) : null,   // (잠깐 있던 {dur, c} 형식은 지상 패드로)
+      b: t ? end(t.b, false) : null } : null;
     P.made = {}; if (pl.made && typeof pl.made === "object") for (const k in pl.made) if (ITEMS[k] && ITEMS[k].craft) P.made[k] = 1;
     for (const k in P.items) if (ITEMS[k] && ITEMS[k].craft) P.made[k] = 1;
   }

@@ -8,7 +8,7 @@ import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
 import { BAR_KEYS, furnaceAct, openFurnace } from "./furnace.ts";
 import { ORDER_N, SELL_CAT_START, SELL_KEYS, SELL_ORES, buyItem, craftItem, deliverOrder, openCraft, rerollOrders, sellCat, sellItem, sellStash } from "./town.ts";
-import { atGarage, toggleMech, useConsumable } from "./update.ts";
+import { atGarage, atPad, toggleMech, useConsumable, useTele } from "./update.ts";
 import { openQuests } from "../ui/dom.ts";
 import { closeMenu, openInventory, openMenu, openTele } from "../ui/menu.ts";
 import { hideOv, openAccountScreen } from "../ui/overlay.ts";
@@ -104,7 +104,7 @@ addEventListener("keydown", (e) => {
   if (e.code === "KeyN") { if (!e.repeat) { toggleMini(innerWidth); saveNow(true, true); } return; }   // 미니맵 켜기/끄기
   keys[e.code] = true;
   if (e.code === "KeyH") { S.showHelp = !S.showHelp; S.helpPinned = S.showHelp; }
-  if (e.code === "KeyE" && !e.repeat && P.dead <= 0) { if (S.nearItems) openTown(); else if (atGarage()) toggleMech(); }
+  if (e.code === "KeyE" && !e.repeat && P.dead <= 0) { if (S.nearItems) openTown(); else if (atGarage()) toggleMech(); else if (atPad()) useTele(); }
   if (/^Digit[1-9]$/.test(e.code) && !e.repeat) useConsumable(HOT[Number(e.code.slice(5)) - 1]);
   if (e.code === "KeyZ" && !e.repeat) cycleZoom();
 });
@@ -258,7 +258,7 @@ function stageDown(e) {
     if (!hit(S.shopRect)) closeShop();                 // 패널 바깥을 탭하면 닫기
     return;
   }
-  if (S.promptBtn && P.dead <= 0 && hit(S.promptBtn)) { if (S.nearItems) openTown(); else if (atGarage()) toggleMech(); else switchTown("sell"); return; }   // 가게 들어가기 버튼
+  if (S.promptBtn && P.dead <= 0 && hit(S.promptBtn)) { if (S.nearItems) openTown(); else if (atGarage()) toggleMech(); else if (atPad()) useTele(); else switchTown("sell"); return; }   // 가게 들어가기 버튼
   if (S.menuBtn && hit(S.menuBtn)) { sfx("click"); openMenu(); return; }
   if (S.bagBtn && hit(S.bagBtn)) { sfx("click"); openInventory(); return; }
   if (S.questBtn && hit(S.questBtn)) { sfx("click"); openQuests(); return; }                      // 메뉴 버튼
