@@ -20,19 +20,19 @@ import { keysReset } from "../ui/overlay.ts";
 // =====================================================================
 export const ORE_PER_BAR = 2;
 export const BARS = {
-  cu: { name: "구리 주괴",   ore: 2,  coal: 1, time: 4,  pal: ["#ffc9a0", "#e07a3c", "#9a4a22"] },
-  fe: { name: "철 주괴",     ore: 3,  coal: 1, time: 6,  pal: ["#b9c0cf", "#7a8296", "#4a5064"] },
-  ag: { name: "은 주괴",     ore: 8,  coal: 1, time: 8,  pal: ["#ffffff", "#d3e0f2", "#8f9db8"] },
-  au: { name: "금 주괴",     ore: 4,  coal: 2, time: 10, pal: ["#fff6bf", "#ffcd3c", "#c98f1a"] },
-  mi: { name: "미스릴 주괴", ore: 11, coal: 3, time: 20, pal: ["#d8fff9", "#5ee6d0", "#2a8f8a"] },
+  cu: { name: "구리 주괴",   ore: 2,  coal: 1, time: 4,  rate: 0.7,  pal: ["#ffc9a0", "#e07a3c", "#9a4a22"] },
+  fe: { name: "철 주괴",     ore: 3,  coal: 1, time: 6,  rate: 0.6,  pal: ["#b9c0cf", "#7a8296", "#4a5064"] },
+  ag: { name: "은 주괴",     ore: 8,  coal: 1, time: 8,  rate: 0.55,  pal: ["#ffffff", "#d3e0f2", "#8f9db8"] },
+  au: { name: "금 주괴",     ore: 4,  coal: 2, time: 10, rate: 0.5,  pal: ["#fff6bf", "#ffcd3c", "#c98f1a"] },
+  mi: { name: "미스릴 주괴", ore: 11, coal: 3, time: 20, rate: 0.4,  pal: ["#d8fff9", "#5ee6d0", "#2a8f8a"] },
 };
 export const BAR_KEYS = Object.keys(BARS);
 export const BAR_OF = { 2: "cu", 3: "fe", 8: "ag", 4: "au", 11: "mi" };
 export const FURNACE_LV = [null,
   { cap: 5,  speed: 1,   save: 0,    cost: 0 },
-  { cap: 10, speed: 1.5, save: 0,    cost: 600 },
-  { cap: 20, speed: 2,   save: 0.25, cost: 2500 },
-  { cap: 40, speed: 3,   save: 0.5,  cost: 8000 },
+  { cap: 10, speed: 1.5, save: 0,    cost: 6000 },
+  { cap: 20, speed: 2,   save: 0.25, cost: 25000 },
+  { cap: 40, speed: 3,   save: 0.5,  cost: 80000 },
 ];
 // 주괴 도트: 왼쪽 아래 → 오른쪽 위로 비스듬히 누운 막대 (윗면 밝게 / 앞면 기본 / 아랫면·끝면 어둡게)
 //   L = x - y (막대 길이 방향), A = x + y (두께 방향)
@@ -56,7 +56,17 @@ for (const k of BAR_KEYS) {
   });
 }
 // 주괴 판매가: 원석 2개 + 석탄 값보다 35% 비쌈
-export const barValue = (k) => Math.round((TILE[BARS[k].ore].value * ORE_PER_BAR + TILE[6].value * BARS[k].coal) * 1.35);
+// 주괴 값: 재료(원석 2 + 석탄) 값의 BAR_MULT 배 (2026-11-28: 1.35 → 4). 대신 제련이 실패할 수 있음(rate) → 성공률을 돈 + 주괴로 올림
+export const BAR_MULT = 4;
+export const barValue = (k) => Math.round((TILE[BARS[k].ore].value * ORE_PER_BAR + TILE[6].value * BARS[k].coal) * BAR_MULT);
+// 제련 숙련(성공률 강화): Lv 마다 성공률 +5%p (최대 95%). 값 = 돈 + 주괴 (낮은 단계 주괴부터 차례로)
+export const SKILL_STEP = 0.05, SKILL_CAP = 0.95;
+export const SKILL_COST = [
+  { money: 20000, bar: "cu", n: 5 }, { money: 60000, bar: "cu", n: 10 }, { money: 180000, bar: "fe", n: 8 }, { money: 540000, bar: "fe", n: 15 },
+  { money: 1600000, bar: "ag", n: 10 }, { money: 4800000, bar: "ag", n: 20 }, { money: 15000000, bar: "au", n: 10 }, { money: 45000000, bar: "au", n: 20 },
+  { money: 130000000, bar: "mi", n: 10 }, { money: 400000000, bar: "mi", n: 20 },
+];
+export const smeltRate = (k) => Math.min(SKILL_CAP, BARS[k].rate + ((S.acct && S.acct.furnace && S.acct.furnace.skill) || 0) * SKILL_STEP);
 // 제작 재료 변환: 금속 원석 n개 → 주괴 ceil(n/2)개
 for (const cat of RECIPE_CATS) for (const id of cat.ids) {
   const m0 = ITEMS[id].mats, m = {};
@@ -136,6 +146,16 @@ export function furnaceClear() {                                   // 대기열 
   saveNow(true, true);
   return n ? "대기열 " + n + "개를 취소하고 재료를 돌려받았어요" : "비울 대기열이 없어요";
 }
+export function furnaceSkillUp() {                                // 성공률 강화: 돈 + 주괴
+  const F = S.acct.furnace, c = SKILL_COST[F.skill || 0];
+  if (!c) return "성공률이 이미 최고예요";
+  if (P.money < c.money) return "돈이 부족해요 (" + won(c.money) + ")";
+  if ((P.bars[c.bar] || 0) < c.n) return BARS[c.bar].name + "이(가) " + c.n + "개 필요해요 (지금 " + (P.bars[c.bar] || 0) + "개)";
+  P.money -= c.money; P.bars[c.bar] -= c.n; if (P.bars[c.bar] <= 0) delete P.bars[c.bar];
+  F.skill = (F.skill || 0) + 1;
+  saveNow(true, true);
+  return "제련 숙련 Lv." + F.skill + "! 성공률 +" + Math.round(SKILL_STEP * 100) + "%";
+}
 export function furnaceUpgrade() {
   const F = S.acct.furnace, nx = FURNACE_LV[F.lv + 1];
   if (!nx) return "이미 최고 단계예요";
@@ -144,7 +164,7 @@ export function furnaceUpgrade() {
   saveNow(true, true);
   return "용광로 Lv." + F.lv + " 강화 완료!";
 }
-S.furnaceAnnounce = 0; S.furnaceSel = 0;
+S.furnaceAnnounce = 0; S.furnaceFails = 0; S.furnaceSel = 0;
 export function updateFurnace(dt) {
   if (!S.acct || !S.acct.furnace || !S.acct.furnace.q.length) return;
   const F = S.acct.furnace, L = FURNACE_LV[F.lv], job = F.q[0];
@@ -152,15 +172,28 @@ export function updateFurnace(dt) {
   job.left -= dt * L.speed;
   if (job.left > 0) return;
   F.q.shift();
+  const near = Math.abs(P.x - (BUILD_COLS[B_FURN][1] + 0.3) * T) < 6 * T && P.y < SURF * T;
+  if (Math.random() >= smeltRate(job.m)) {                          // 실패: 재료만 날아감 (성공률은 숙련으로 올림)
+    S.acct.stats.smeltFail = (S.acct.stats.smeltFail || 0) + 1;
+    S.furnaceFails = (S.furnaceFails || 0) + 1;
+    if (near) floaters.push({ x: (BUILD_COLS[B_FURN][1] + 0.3) * T, y: (SURF - 2) * T, text: "제련 실패…", color: "#9aa3b8", life: 1.2 });
+    if (!F.q.length) furnaceDoneMsg();
+    return;
+  }
   P.bars[job.m] = (P.bars[job.m] || 0) + 1;
   S.acct.stats.smelted = (S.acct.stats.smelted || 0) + 1;
   S.furnaceAnnounce++;
   if (L.save > 0 && Math.random() < L.save) P.stash[6] = (P.stash[6] || 0) + BARS[job.m].coal;   // 강화: 석탄 절약
   addXP(2);
-  if (Math.abs(P.x - (BUILD_COLS[B_FURN][1] + 0.3) * T) < 6 * T && P.y < SURF * T)
+  if (near)
     floaters.push({ x: (BUILD_COLS[B_FURN][1] + 0.3) * T, y: (SURF - 2) * T, text: "+" + BARS[job.m].name, color: BARS[job.m].pal[1], life: 1.2 });
-  if (!F.q.length) { say("용광로: 주괴 " + S.furnaceAnnounce + "개 재련 완료!"); S.furnaceAnnounce = 0; saveNow(false, true); }
+  if (!F.q.length) furnaceDoneMsg();
   checkQuests(false);
+}
+function furnaceDoneMsg() {                                         // 대기열이 끝나면 한 번 알림 (성공·실패 개수)
+  const ok = S.furnaceAnnounce, bad = S.furnaceFails || 0;
+  say("용광로: 주괴 " + ok + "개 완성" + (bad ? " · 실패 " + bad + "개" : "") + "!");
+  S.furnaceAnnounce = 0; S.furnaceFails = 0; saveNow(false, true);
 }
 // 용광로 창 열기 (마을 창의 "용광로" 탭. 그리기는 render/townUI.ts)
 export function openFurnace() {
@@ -172,11 +205,12 @@ export function openFurnace() {
 }
 // 창 안의 버튼/키에서 부르는 동작 (결과 메시지는 아래 상세 칸에 표시)
 export function furnaceAct(kind, arg) {
-  const F = S.acct.furnace, q0 = F.q.length, lv0 = F.lv;
+  const F = S.acct.furnace, q0 = F.q.length, lv0 = F.lv, sk0 = F.skill || 0;
   if (kind === "smelt") say(furnaceSmelt(BAR_KEYS[S.furnaceSel], arg));
   else if (kind === "up") say(furnaceUpgrade());
+  else if (kind === "skill") say(furnaceSkillUp());
   else if (kind === "clear") say(furnaceClear());
-  const okk = kind === "smelt" ? F.q.length > q0 : kind === "up" ? F.lv > lv0 : q0 > 0;
+  const okk = kind === "smelt" ? F.q.length > q0 : kind === "up" ? F.lv > lv0 : kind === "skill" ? (F.skill || 0) > sk0 : q0 > 0;
   sfx(okk ? (kind === "clear" ? "click" : "buy") : "error");               // 됐으면 띵, 안 됐으면 삐
 }
 // 지금 고른 주괴를 몇 개까지 넣을 수 있는지

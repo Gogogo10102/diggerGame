@@ -27,16 +27,16 @@ ICON.dyn_x = sprite(16, 16, (p) => {
   p(3, 9, 10, 1, "#ffd34d"); p(4, 8, 8, 1, "#c98f1a"); p(8, 2, 1, 3, "#c9a26b"); p(7, 0, 3, 2, "#ff8a1f"); p(8, 0, 1, 1, "#ffe066");
 });
 export const CONS = {
-  fuel_s: { name: "소형 연료통", kind: "fuel", frac: 0.3, cost: 40, desc: "연료 30% 즉시 충전" },
-  fuel_m: { name: "중형 연료통", kind: "fuel", frac: 0.6, cost: 100, desc: "연료 60% 즉시 충전" },
-  fuel_l: { name: "대형 연료통", kind: "fuel", frac: 1.0, cost: 200, desc: "연료 100% 즉시 충전" },
-  dyn_s: { name: "다이너마이트", kind: "bomb", rad: 1, cost: 60, desc: "설치 2.5초 후 폭발 · 3x3" },
-  dyn_l: { name: "강력 다이너마이트", kind: "bomb", rad: 2, cost: 200, desc: "설치 2.5초 후 폭발 · 5x5" },
-  dyn_x: { name: "초강력 폭약", kind: "bomb", rad: 3, cost: 600, desc: "설치 2.5초 후 폭발 · 7x7" },
-  ladder: { name: "사다리", kind: "ladder", len: 10, cost: 25, desc: "떨어뜨리면 아래로 10칸 펼쳐짐 · 타고 오르내림" },
-  recall: { name: "마을 귀환서", kind: "recall", cost: 3000, desc: "읽으면 곧바로 마을로 · 화물은 그대로" },
-  sup_w: { name: "나무 지지대", kind: "support", steel: false, cost: 15, desc: "(더 이상 팔지 않음)" },
-  sup_s: { name: "강철 지지대", kind: "support", steel: true, cost: 60, desc: "(더 이상 팔지 않음)" },
+  fuel_s: { name: "소형 연료통", kind: "fuel", frac: 0.3, cost: 400, desc: "연료 30% 즉시 충전" },
+  fuel_m: { name: "중형 연료통", kind: "fuel", frac: 0.6, cost: 1000, desc: "연료 60% 즉시 충전" },
+  fuel_l: { name: "대형 연료통", kind: "fuel", frac: 1.0, cost: 2000, desc: "연료 100% 즉시 충전" },
+  dyn_s: { name: "다이너마이트", kind: "bomb", rad: 1, cost: 600, desc: "설치 2.5초 후 폭발 · 3x3" },
+  dyn_l: { name: "강력 다이너마이트", kind: "bomb", rad: 2, cost: 2000, desc: "설치 2.5초 후 폭발 · 5x5" },
+  dyn_x: { name: "초강력 폭약", kind: "bomb", rad: 3, cost: 6000, desc: "설치 2.5초 후 폭발 · 7x7" },
+  ladder: { name: "사다리", kind: "ladder", len: 10, cost: 250, desc: "떨어뜨리면 아래로 10칸 펼쳐짐 · 타고 오르내림" },
+  recall: { name: "마을 귀환서", kind: "recall", cost: 30000, desc: "읽으면 곧바로 마을로 · 화물은 그대로" },
+  sup_w: { name: "나무 지지대", kind: "support", steel: false, cost: 150, desc: "(더 이상 팔지 않음)" },
+  sup_s: { name: "강철 지지대", kind: "support", steel: true, cost: 600, desc: "(더 이상 팔지 않음)" },
 };
 // 단축 슬롯(1~8) = 상점 소모품 (7 = 사다리, 8 = 마을 귀환서). 지지대(sup_w/sup_s)는 지반 붕괴를 없애면서 뺐음 (옛 세이브 호환용으로 CONS 에만 남김)
 export const HOT = ["fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x", "ladder", "recall"];
@@ -61,6 +61,8 @@ export const SHOP_TABS = [
   const cs = keys.map((k) => CATS.find((c) => c.icon === k));
   return { name, icon, cats: cs, ids: cs.flatMap((c) => c.ids), cons: !!cs[0].cons, slot: cs.length === 1 ? cs[0].slot : null };
 });
+// 맨 앞 '성장' 탭 (2026-11-28): 골드 획득량 · 행운 레벨을 사서 올림 (ids = stats.ts 의 GROW 키, 아이템이 아님)
+SHOP_TABS.unshift({ name: "성장", icon: "grow_gold", cats: [], ids: ["gold", "luck"], cons: false, slot: null, grow: true });
 export const VIS_BASE = 2.5;                                     // 기본 시야 반경(타일)
 export const visR = () => VIS_BASE * STAT.light;
 export const LOOK = { drill: 0, tracks: 0, lamp: 0, crate: 0, engine: 0, pick: 0, rocket: 0, key: "" };   // 로봇 외형(장비 단계) · 사람 곡괭이/로켓 단계

@@ -8,7 +8,7 @@ import { S } from "../core/state.ts";
 import { floaters, pushBanner, recalcStats, say, spawn } from "../core/stats.ts";
 import { saveNow } from "../save/account.ts";
 import { ORE_IDS } from "../save/config.ts";
-import { BARS, FURNACE_LV } from "../systems/furnace.ts";
+import { BARS, FURNACE_LV, SKILL_COST } from "../systems/furnace.ts";
 
 // =====================================================================
 //  광부 레벨 / 업적(퀘스트) / 칭호
@@ -54,31 +54,30 @@ for (const id of ORE_IDS) {
   const q = QUEST_ORE[id], v = TILE[id].value;
   addQuests("o" + id, TILE[id].name, q.n, q.t, () => minedOf(id), TILE[id].name + " 채굴", q.n.map((n) => Math.round(v * n * 0.3)));
 }
-addQuests("all", "전체 광물", [50, 200, 500, 1500, 4000, 10000], ["초보 광부", "숙련 광부", "베테랑 광부", "광산 달인", "지하의 지배자", "전설의 광부"], totalOres, "광물 채굴", [200, 800, 2500, 8000, 25000, 80000]);
-addQuests("dirt", "흙 파기", [200, 1500, 6000], ["삽질 입문", "굴착 장인", "대지의 정복자"], () => minedOf(1), "흙 파기", [100, 800, 4000]);
+addQuests("all", "전체 광물", [50, 200, 500, 1500, 4000, 10000], ["초보 광부", "숙련 광부", "베테랑 광부", "광산 달인", "지하의 지배자", "전설의 광부"], totalOres, "광물 채굴", [2000, 8000, 25000, 80000, 250000, 800000]);
+addQuests("dirt", "흙 파기", [200, 1500, 6000], ["삽질 입문", "굴착 장인", "대지의 정복자"], () => minedOf(1), "흙 파기", [1000, 8000, 40000]);
 // 맵이 2400m까지 깊어져서 단계를 늘림 (예전 마지막 단계 '대지의 끝에 서다'는 맨 끝으로 옮김)
 addQuests("depth", "깊이", [50, 100, 200, 300, 500, 800, 1300, 1900, 2390],
   ["얕은 탐험가", "심부 탐험가", "지하 개척자", "심연의 방문자", "용암을 건넌 자", "수정 동굴 탐험가", "화석 발굴가", "심연의 주인", "대지의 끝에 서다"],
   () => (S.acct ? Math.floor(S.acct.stats.maxDepth) + 1 : 0), "m 도달", [150, 500, 2000, 8000, 20000, 40000, 80000, 150000, 300000]);
-addQuests("craft", "제작", [1, 5, 12, 25], ["견습 제작자", "제작자", "장인", "대장장이 왕"], () => (S.acct ? S.acct.stats.crafted || 0 : 0), "장비 제작", [300, 1500, 8000, 40000]);
-addQuests("earn", "수익", [1000, 10000, 100000, 1000000], ["동전 부자", "상인", "거상", "광산 재벌"], () => (S.acct ? S.acct.stats.earned || 0 : 0), "$ 수익", [100, 1000, 10000, 100000]);
-addQuests("types", "광물 도감", [9], ["광물 박사"], () => ORE_IDS.filter((id) => minedOf(id) > 0).length, "종류 채굴", [3000]);
-addQuests("cave", "동굴 탐험", [1, 10, 30, 100], ["동굴 발견자", "동굴 탐험가", "지하 지도 제작자", "동굴의 주인"], () => (S.acct ? S.acct.stats.caves || 0 : 0), "개 동굴 발견", [300, 2000, 8000, 30000]);
-addQuests("smelt", "제련", [10, 50, 200, 1000], ["견습 제련공", "제련공", "용광로 장인", "불의 군주"], () => (S.acct ? S.acct.stats.smelted || 0 : 0), "주괴 제련", [200, 800, 4000, 20000]);
-addQuests("chest", "보물 사냥", [1, 10, 30, 100], ["보물 사냥꾼", "상자 수집가", "도굴왕", "전설의 보물 사냥꾼"], () => (S.acct ? S.acct.stats.chests || 0 : 0), "개 보물 상자", [200, 1500, 6000, 25000]);
+addQuests("craft", "제작", [1, 5, 12, 25], ["견습 제작자", "제작자", "장인", "대장장이 왕"], () => (S.acct ? S.acct.stats.crafted || 0 : 0), "장비 제작", [3000, 15000, 80000, 400000]);
+addQuests("earn", "수익", [10000, 100000, 1000000, 10000000], ["동전 부자", "상인", "거상", "광산 재벌"], () => (S.acct ? S.acct.stats.earned || 0 : 0), "원 수익", [1000, 10000, 100000, 1000000]);
+addQuests("types", "광물 도감", [9], ["광물 박사"], () => ORE_IDS.filter((id) => minedOf(id) > 0).length, "종류 채굴", [30000]);
+addQuests("cave", "동굴 탐험", [1, 10, 30, 100], ["동굴 발견자", "동굴 탐험가", "지하 지도 제작자", "동굴의 주인"], () => (S.acct ? S.acct.stats.caves || 0 : 0), "개 동굴 발견", [3000, 20000, 80000, 300000]);
+addQuests("smelt", "제련", [10, 50, 200, 1000], ["견습 제련공", "제련공", "용광로 장인", "불의 군주"], () => (S.acct ? S.acct.stats.smelted || 0 : 0), "주괴 제련", [2000, 8000, 40000, 200000]);
+addQuests("chest", "보물 사냥", [1, 10, 30, 100], ["보물 사냥꾼", "상자 수집가", "도굴왕", "전설의 보물 사냥꾼"], () => (S.acct ? S.acct.stats.chests || 0 : 0), "개 보물 상자", [2000, 15000, 60000, 250000]);
 const questStat = (k) => () => (S.acct ? S.acct.stats[k] || 0 : 0);
-addQuests("trip", "귀환", [5, 25, 100, 300], ["첫 출근", "성실한 광부", "베테랑 운반꾼", "지하 철도왕"], questStat("trips"), "광물 싣고 귀환", [100, 600, 3000, 12000]);
-addQuests("bomb", "폭파", [5, 30, 100, 300], ["불꽃놀이 입문", "폭파 기술자", "발파 전문가", "폭약의 달인"], questStat("bombs"), "다이너마이트 사용", [150, 800, 3000, 10000]);
-addQuests("combo", "콤보", [5, 10, 20], ["손이 빠른 광부", "콤보 장인", "광맥 사냥꾼"], questStat("combo"), "연속 채굴", [200, 1500, 8000]);
-addQuests("order", "의뢰", [1, 10, 40, 120], ["심부름꾼", "믿음직한 광부", "마을의 해결사", "전설의 납품왕"], questStat("orders"), "의뢰 완료", [150, 1200, 6000, 25000]);
-addQuests("close", "아슬아슬", [1, 5, 20], ["간 큰 광부", "벼랑 끝 귀환자", "연료 0의 마술사"], questStat("close"), "연료 10% 미만으로 귀환", [200, 1500, 6000]);
-addQuests("level", "광부 레벨", [5, 10, 20, 30], ["새내기 광부", "든든한 광부", "노련한 광부", "광부 명장"], () => (S.acct ? levelOf(S.acct.xp).lv : 0), "레벨 달성", [300, 1500, 8000, 30000]);
+addQuests("trip", "귀환", [5, 25, 100, 300], ["첫 출근", "성실한 광부", "베테랑 운반꾼", "지하 철도왕"], questStat("trips"), "광물 싣고 귀환", [1000, 6000, 30000, 120000]);
+addQuests("bomb", "폭파", [5, 30, 100, 300], ["불꽃놀이 입문", "폭파 기술자", "발파 전문가", "폭약의 달인"], questStat("bombs"), "다이너마이트 사용", [1500, 8000, 30000, 100000]);
+addQuests("order", "의뢰", [1, 10, 40, 120], ["심부름꾼", "믿음직한 광부", "마을의 해결사", "전설의 납품왕"], questStat("orders"), "의뢰 완료", [1500, 12000, 60000, 250000]);
+addQuests("close", "아슬아슬", [1, 5, 20], ["간 큰 광부", "벼랑 끝 귀환자", "연료 0의 마술사"], questStat("close"), "연료 10% 미만으로 귀환", [2000, 15000, 60000]);
+addQuests("level", "광부 레벨", [5, 10, 20, 30], ["새내기 광부", "든든한 광부", "노련한 광부", "광부 명장"], () => (S.acct ? levelOf(S.acct.xp).lv : 0), "레벨 달성", [3000, 15000, 80000, 300000]);
 QUESTS.forEach((q) => { q.xp = Math.max(10, Math.round(q.money * 0.15)); });
 const QLABEL = {
   depth: (n) => "깊이 " + n + "m 도달", craft: (n) => "장비 " + n + "개 제작", earn: (n) => "누적 수익 " + won(n), types: (n) => "광물 " + n + "종 채굴",
   cave: (n) => "동굴 " + n + "개 발견", chest: (n) => "보물 상자 " + n + "개 열기", smelt: (n) => "주괴 " + n + "개 제련", dirt: (n) => "흙 " + n + "개 파기",
   all: (n) => "광물 " + n + "개 채굴", trip: (n) => "광물 싣고 " + n + "번 귀환", bomb: (n) => "다이너마이트 " + n + "번 사용",
-  close: (n) => "연료 10% 미만으로 " + n + "번 귀환", level: (n) => "광부 레벨 " + n + " 달성", order: (n) => "마을 의뢰 " + n + "개 완료", combo: (n) => "광물 연속 채굴 콤보 x" + n,
+  close: (n) => "연료 10% 미만으로 " + n + "번 귀환", level: (n) => "광부 레벨 " + n + " 달성", order: (n) => "마을 의뢰 " + n + "개 완료",
 };
 // 돈(earn)은 숫자 그대로 넘겨 won() 이 원으로
 export function questLabel(q) { const n = q.group === "earn" ? q.need : q.need.toLocaleString(); return QLABEL[q.group] ? QLABEL[q.group](n) : q.unit + " " + n + "개"; }
@@ -133,22 +132,9 @@ export function checkQuests(quiet) {
   addXP(xp);
   saveNow(false, true);
 }
-// ---- 연속 채굴 콤보: 광물을 COMBO_T 초 안에 이어서 캐면 x2, x3 … · 3부터 보너스 경험치 ----
-export const COMBO_T = 3;
-S.combo = 0; S.comboT = 0;
-export function bumpCombo(id) {
-  S.combo = S.comboT > 0 ? S.combo + 1 : 1; S.comboT = COMBO_T;
-  if (S.combo > (S.acct.stats.combo || 0)) S.acct.stats.combo = S.combo;
-  if (S.combo < 3) return 0;
-  const bonus = Math.max(1, Math.round((XP_ORE[id] || 1) * Math.min(5, S.combo - 2) * 0.5));
-  floaters.push({ x: P.x, y: P.y - 76, text: "콤보 x" + S.combo + "  +" + bonus + " 경험치", color: S.combo >= 10 ? "#ff8ad0" : "#ffd34d", life: 1.1 });
-  if (S.combo % 5 === 0) sfx("ore", { pitch: 1.8 });
-  return bonus;
-}
 export function onMined(id) {                                   // 광물/흙을 하나 캤을 때
   if (!S.acct) return;
   S.acct.stats.mined[id] = (S.acct.stats.mined[id] || 0) + 1;
-  if (ORE_COL[id]) addXP(bumpCombo(id));
   if (S.acct.stats.mined[id] === 1 && ORE_COL[id] && oreIcon[id]) {          // 처음 캔 광물: 도감에 새로 올라감
     pushBanner("새 광물 발견! " + TILE[id].name, "판매가 " + won(TILE[id].value) + " · 가방 도감에 기록됐어요", oreIcon[id], ORE_COL[id][0]);
     sfx("ore", { pitch: 1.5 });
@@ -162,7 +148,7 @@ export function initProgress(d) {                               // 저장 데이
   if (!Number.isFinite(xp) || xp < 0) { xp = 0; for (const id in XP_ORE) xp += ((S.acct.stats.mined[id] || 0) * XP_ORE[id]); }
   S.acct.xp = xp;
   const f = (d.furnace && typeof d.furnace === "object") ? d.furnace : {};
-  S.acct.furnace = { lv: Math.max(1, Math.min(FURNACE_LV.length - 1, (f.lv | 0) || 1)), q: [] };
+  S.acct.furnace = { lv: Math.max(1, Math.min(FURNACE_LV.length - 1, (f.lv | 0) || 1)), q: [], skill: Math.max(0, Math.min(SKILL_COST.length, f.skill | 0)) };   // skill: 제련 숙련 (예전 세이브엔 없음 → 0)
   if (Array.isArray(f.q)) for (const j of f.q.slice(0, FURNACE_LV[S.acct.furnace.lv].cap)) {
     if (j && BARS[j.m]) S.acct.furnace.q.push({ m: j.m, left: Math.max(0, Math.min(BARS[j.m].time, Number.isFinite(Number(j.left)) ? Number(j.left) : BARS[j.m].time)) });
   }

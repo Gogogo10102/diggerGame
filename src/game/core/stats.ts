@@ -60,6 +60,23 @@ export function equipNew(id) {
   else delete P.off[id];
 }
 
+// ---- 성장 레벨 (2026-11-28): 몇 번이고 사서 올리는 영구 능력치 ----
+//   장비가 비싸서(마지막 단계 120억원) 이걸 키워 벌이를 늘려야 다음 장비에 닿음. 값은 Lv 마다 GROW_UP 배
+export const GROW = {
+  gold: { name: "골드 획득량", base: 2000 },   // 광물·주괴·의뢰·보물 값 ×1.1^Lv
+  luck: { name: "행운", base: 3000 },          // 캔 광물 1개당 +4%씩 더 나옴 (100% 넘으면 2개 확정 + 나머지는 확률)
+};
+export const GROW_KEYS = ["gold", "luck"];
+export const GROW_UP = 1.3, GOLD_PER = 1.1, LUCK_PER = 0.04;
+export const growLv = (k) => (P.grow && P.grow[k]) || 0;
+export const growCost = (k, lv = growLv(k)) => {                   // 앞 두 자리만 남겨 반올림 (4만 6,600 → 4만 7천: 버튼에 짧게)
+  const v = GROW[k].base * Math.pow(GROW_UP, lv), p = Math.pow(10, Math.max(2, Math.floor(Math.log10(v)) - 1));
+  return Math.round(v / p) * p;
+};
+export const growFx = (k, lv = growLv(k)) => (k === "gold" ? Math.pow(GOLD_PER, lv) : lv * LUCK_PER);
+// 캔 광물 1칸에서 나오는 개수: 행운이 1.3 이면 2개 확정 + 30% 확률로 1개 더
+export const oreYield = () => { const L = Math.max(0, STAT.lucky); return 1 + Math.floor(L) + (Math.random() < L % 1 ? 1 : 0); };
+
 // ---- 능력치: 장비 칸 값 + 보너스(특수·제작) + 레벨 ----
 export const STAT = { drill: 1, fuel: FUEL_BASE, cargo: 10, thrust: 1, speed: 1, light: 1, eff: 1, sell: 1, lucky: 0, pick: PICK_BASE, rocket: 0 };
 export function recalcStats() {
@@ -77,8 +94,8 @@ export function recalcStats() {
   STAT.speed = v.speed + s.speed;
   STAT.light = v.light + s.light;
   STAT.eff = Math.max(0.4, 1 - s.eff);   // 연료 소모 배율
-  STAT.sell = 1 + s.sell + (S.MINER_LV - 1) * 0.004;
-  STAT.lucky = Math.min(0.9, s.lucky);   // 광물을 하나 더 얻을 확률
+  STAT.sell = (1 + s.sell + (S.MINER_LV - 1) * 0.004) * growFx("gold");   // 판매가 배율 (골드 획득량 레벨을 곱함)
+  STAT.lucky = s.lucky + growFx("luck");   // 광물이 더 나올 기대값 (1 넘으면 여러 개, oreYield)
   STAT.pick = v.pick + s.pick + (S.MINER_LV - 1) * 0.006;   // 사람: 곡괭이
   STAT.rocket = v.rocket + s.rocket;     // 사람: 백팩 로켓 추진력 (0 = 로켓 없음 → 못 낢)
   {                                      // 로봇 외형: 장비 단계에 따라 달라짐

@@ -4,7 +4,7 @@ import { sfx } from "../core/sound.ts";
 import { TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { STAT, equipNew, equipToggle, maxFuel, recalcStats, say, worn } from "../core/stats.ts";
+import { GROW, STAT, equipNew, equipToggle, growCost, maxFuel, recalcStats, say, worn } from "../core/stats.ts";
 import { ITEMS } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
@@ -83,7 +83,18 @@ export function sellStash() {
   say("창고 광물 판매 +" + won(gain)); sfx("sell");
   saveNow(true);
 }
+// 성장 레벨 사기 (골드 획득량 · 행운): 몇 번이고, 살 때마다 값이 오름
+export function buyGrow(k) {
+  const c = growCost(k);
+  if (P.money < c) return townFail("돈이 부족해요 (" + won(c) + ")");
+  P.money -= c;
+  P.grow[k] = (P.grow[k] || 0) + 1;
+  recalcStats();
+  say(GROW[k].name + " Lv." + P.grow[k] + "!"); sfx("buy"); sfx("levelup", { pitch: 1.3, vol: 0.3 });
+  saveNow(true, true);
+}
 export function buyItem(id) {
+  if (GROW[id]) return buyGrow(id);                                 // 성장 탭: 레벨 사기
   const it = ITEMS[id];
   if (!it) return;
   if (it.cons) {
@@ -121,7 +132,7 @@ export function buyItem(id) {
 // ---------------------------------------------------------------------
 export const ORDER_N = 3, ORDER_BONUS = 1.6;
 S.orderFlash = null;
-export const orderRerollCost = () => 40 + Math.round(Math.min(2000, (S.acct ? S.acct.stats.maxDepth : 0)) * 0.6);
+export const orderRerollCost = () => Math.round((400 + Math.min(2000, (S.acct ? S.acct.stats.maxDepth : 0)) * 6) * STAT.sell);   // 10배 + 골드 획득량 (벌이에 맞춰)
 function orderPool() {
   const ores = SELL_KEYS.slice(0, SELL_ORES).filter((id) => minedOf(id) > 0);
   const bars = SELL_KEYS.slice(SELL_ORES).filter((k) => minedOf(BARS[k].ore) > 0 && S.acct && (S.acct.stats.smelted || 0) > 0);
@@ -132,11 +143,13 @@ export function makeOrder(avoid = []) {
   const list = pool.length ? pool : orderPool();
   const k = list[Math.floor(Math.random() * list.length)];
   const unit = BARS[k] ? barValue(k) : TILE[k].value;
-  const V = 100 + Math.min(2400, S.acct ? S.acct.stats.maxDepth : 0) * 2;   // 의뢰 하나의 크기(판매가 기준): 깊이 들어갈수록 큼
+  const V = 1000 + Math.min(2400, S.acct ? S.acct.stats.maxDepth : 0) * 20;   // 의뢰 하나의 크기(판매가 기준): 깊이 들어갈수록 큼
   const n = Math.max(2, Math.min(30, Math.round(V / unit * (0.7 + Math.random() * 0.6))));
   const pay = Math.round(n * unit * ORDER_BONUS / 5) * 5;
-  return { k, n, pay, xp: Math.max(5, Math.round(pay * 0.06)) };
+  return { k, n, pay, xp: Math.max(5, Math.round(pay * 0.006)) };   // 값이 10배가 돼서 경험치 비율은 1/10
 }
+// 의뢰 보상도 골드 획득량(판매가 배율)을 받음 — 저장은 기본값, 보여 줄 때·받을 때 곱함
+export const orderPay = (o) => Math.round(o.pay * STAT.sell);
 export function ensureOrders() {
   if (!S.acct) return;
   if (!Array.isArray(S.acct.orders)) S.acct.orders = [];
@@ -148,13 +161,14 @@ export function deliverOrder(i) {
   if (!o) return;
   if (matHave(o.k) < o.n) return townFail(matName(o.k) + "이(가) " + (o.n - matHave(o.k)) + "개 모자라요");
   matTake(o.k, o.n);
-  P.money += o.pay;
-  S.acct.stats.earned += o.pay;
+  const got = orderPay(o);
+  P.money += got;
+  S.acct.stats.earned += got;
   S.acct.stats.orders = (S.acct.stats.orders || 0) + 1;
   addXP(o.xp);
   S.acct.orders[i] = makeOrder(S.acct.orders.map((x) => x.k));
   S.orderFlash = { k: i, t: 0.6 };                                  // 그 줄이 잠깐 초록으로 반짝이고 새 의뢰가 들어옴
-  say("의뢰 완료! +" + won(o.pay) + " · 경험치 +" + o.xp); sfx("sell"); sfx("levelup", { pitch: 1.5, vol: 0.35 });
+  say("의뢰 완료! +" + won(got) + " · 경험치 +" + o.xp); sfx("sell"); sfx("levelup", { pitch: 1.5, vol: 0.35 });
   checkQuests();
   saveNow(true, true);
 }
