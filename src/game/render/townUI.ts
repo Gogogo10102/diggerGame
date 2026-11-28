@@ -7,7 +7,7 @@ import { TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { EQUIP_FIXED, SLOT_OF, STAT, worn } from "../core/stats.ts";
-import { SHOP_TABS } from "../data/consumables.ts";
+import { SHOP_TABS, craftTabs, fixTab, shopTabs } from "../data/consumables.ts";
 import { CATS, ITEMS, LV_MAX, itemLv, lvCost, reqMet } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { GLYPH, MT, SY, blit, btnPx, btnTxt, ctx, rivet, titleTxt, glyph, hazard, keycap, panel, pxBox, segBar, setFont, txt, well } from "./util.ts";
@@ -179,7 +179,7 @@ export function townFrame(vw, vh, title, cats, sel, catAct, hint) {
         const nm = fitText(c.name, lw - (ix - bx) - 44, 16);
         if (on) titleTxt(nm, ix + 36, Math.round(mid - 8), 16); else btnTxt(nm, ix + 36, Math.round(mid - 8), 16, true, "left");
       }
-      shopBtn.push({ x: bx, y: cy, w: lw, h: ch, act: catAct, arg: i });
+      shopBtn.push({ x: bx, y: cy, w: lw, h: ch, act: catAct, arg: c.k != null ? c.k : i });   // k = 숨은 분류를 뺀 목록일 때 원래 번호
     });
     lw += 14;
   }
@@ -245,7 +245,7 @@ function townFrameKit(vw, vh, title, cats, sel, catAct, hint) {
         const nm = fitText(c.name, lw - (ix - bx) - is - 14, 16);
         if (on) titleTxt(nm, ix + is + 4, Math.round(mid - 8), 16); else txt(nm, ix + is + 4, Math.round(mid - 8), "#e6eaf2", 16, "left", SY.ink);
       }
-      shopBtn.push({ x: bx, y: cy, w: lw, h: ch, act: catAct, arg: i });
+      shopBtn.push({ x: bx, y: cy, w: lw, h: ch, act: catAct, arg: c.k != null ? c.k : i });   // k = 숨은 분류를 뺀 목록일 때 원래 번호
     });
     lw += 16;
   }
@@ -350,14 +350,15 @@ function pager(f, page, pages, act) {
 const SHOP_CARDS = 4;
 export function drawShopModal(vw, vh) {
   if (!kitOn() || vw < 560) return drawShopList(vw, vh);             // vw 는 이미 UI 배율로 나눈 크기
+  S.shopTab = fixTab(S.shopTab, shopTabs());
   const cat = SHOP_TABS[S.shopTab], len = cat.ids.length;
   const f = townFrame(vw, vh, cat.name, null, 0, null, "[ ] 건물 이동 · ←→ 분류 · ↑↓ 고르기 · 휠·끌기 옆으로 · Enter 구매·장착 · Esc 닫기");
   if (f.narrow) return;                                              // (townFrame 이 좁다고 판단하면 위에서 걸러짐)
   const low = f.short;
   // 분류 아이콘 띠
-  const n = SHOP_TABS.length, cg = 4, cw = Math.floor((f.cw - cg * (n - 1)) / n), chh = low ? 36 : 48;
-  SHOP_TABS.forEach((c, i) => {
-    const x = f.cx + i * (cw + cg), on = i === S.shopTab, is = low || cw < 44 ? 16 : 32;
+  const vis = shopTabs(), n = vis.length, cg = 4, cw = Math.floor((f.cw - cg * (n - 1)) / n), chh = low ? 36 : 48;
+  vis.forEach((i, j) => {
+    const c = SHOP_TABS[i], x = f.cx + j * (cw + cg), on = i === S.shopTab, is = low || cw < 44 ? 16 : 32;
     kit(on ? "tab_on" : "tab", x, f.cy, cw, chh);
     drawPx(catIcon(c.icon), x + Math.floor((cw - is) / 2), f.cy + Math.floor((chh - is) / 2), is);
     shopBtn.push({ x, y: f.cy, w: cw, h: chh, act: "tab", arg: i });
@@ -588,9 +589,10 @@ function drawFly(fly, now) {
 }
 // 좁은 화면: 왼쪽 분류 + 목록 줄 (예전 상점)
 function drawShopList(vw, vh) {
+  S.shopTab = fixTab(S.shopTab, shopTabs());
   const cat = SHOP_TABS[S.shopTab];
   S.shopStrip = null;                                                // (휴대폰 목록은 위아래 목록 + 쪽)
-  const f = townFrame(vw, vh, cat.name, SHOP_TABS.map((c) => ({ name: c.name, icon: c.icon, img: catIcon(c.icon) })), S.shopTab, "tab",
+  const f = townFrame(vw, vh, cat.name, shopTabs().map((k) => ({ k, name: SHOP_TABS[k].name, icon: SHOP_TABS[k].icon, img: catIcon(SHOP_TABS[k].icon) })), shopTabs().indexOf(S.shopTab), "tab",
     "[ ] 건물 이동 · ←→ 분류 · ↑↓ 고르기 · Enter 구매 · Esc 닫기");
   // 한 쪽에 몇 줄: 창 높이에 맞춰 3~9줄 (예전엔 4줄 고정이라 빈 자리가 남아도 쪽을 넘겨야 했음)
   const len = cat.ids.length;
@@ -650,8 +652,10 @@ function drawShopList(vw, vh) {
 // ---------------------------------------------------------------------
 export function drawCraftModal(vw, vh) {
   if (S.craftTab === RECIPE_CATS.length) return drawSellModal(vw, vh);
+  const cvis = craftTabs().slice(0, -1);                             // 로봇 부품 분류는 로봇을 산 뒤에만 (맨 끝 판매는 빼고)
+  S.craftTab = fixTab(S.craftTab, cvis);
   const cat = RECIPE_CATS[S.craftTab];
-  const f = townFrame(vw, vh, "제작 · " + cat.name, RECIPE_CATS.map((c) => ({ name: c.name, icon: c.icon, img: CAT_IMG["craft_" + c.icon] && CAT_IMG["craft_" + c.icon].width > 1 ? CAT_IMG["craft_" + c.icon] : null })), S.craftTab, "tab",
+  const f = townFrame(vw, vh, "제작 · " + cat.name, cvis.map((k) => { const c = RECIPE_CATS[k]; return { k, name: c.name, icon: c.icon, img: CAT_IMG["craft_" + c.icon] && CAT_IMG["craft_" + c.icon].width > 1 ? CAT_IMG["craft_" + c.icon] : null }; }), cvis.indexOf(S.craftTab), "tab",
     "[ ] 건물 이동 · Tab 분류 · 방향키 고르기 · Enter 제작 · Esc 닫기");
   const stat = (id) => {
     const it = ITEMS[id], owned = !!P.items[id];

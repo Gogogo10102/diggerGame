@@ -25,6 +25,19 @@ export const ORE_GEN = [
   { id: 5,  start: 175, rs: 235, re: 500, end: 1000, peak: 0.022, tail: 0.016, trace: 0.0025 }, // 다이아몬드
   { id: 10, start: 230, rs: 290, re: 900, end: 1600, peak: 0.018, tail: 0.016, trace: 0.002 },  // 루비
   { id: 11, start: 280, rs: 340, re: 2400, end: 2400, peak: 0.014, tail: 0.014, trace: 0.0015 }, // 미스릴 (깊을수록 계속)
+  // ---- 새 광물 (2026-11-28, v2) : 광맥은 다른 난수(chunkFeatures 의 salt 0x0e2a)로 만들어 기존 광맥 배치는 그대로 ----
+  { id: 20, v2: 1, start: 0,    rs: 6,    re: 50,   end: 110,  peak: 0.030, tail: 0.004, trace: 0.010 },  // 석영 (흙층)
+  { id: 21, v2: 1, start: 55,   rs: 70,   re: 130,  end: 170,  peak: 0.016, tail: 0.002, trace: 0.003 },  // 호박 (점토층, 사람만)
+  { id: 22, v2: 1, start: 130,  rs: 150,  re: 240,  end: 320,  peak: 0.020, tail: 0.004, trace: 0.003 },  // 자수정 (암석층)
+  { id: 23, v2: 1, start: 240,  rs: 265,  re: 430,  end: 560,  peak: 0.016, tail: 0.003, trace: 0.002 },  // 사파이어 (심층 코어)
+  { id: 24, v2: 1, start: 440,  rs: 470,  re: 780,  end: 950,  peak: 0.018, tail: 0.003, trace: 0.002 },  // 흑요석 (용암 지대)
+  { id: 25, v2: 1, start: 460,  rs: 500,  re: 780,  end: 900,  peak: 0.011, tail: 0.002, trace: 0.0015 }, // 화염석 (용암 지대)
+  { id: 26, v2: 1, start: 790,  rs: 830,  re: 1280, end: 1450, peak: 0.015, tail: 0.003, trace: 0.0015 }, // 수정 결정 (수정 동굴)
+  { id: 27, v2: 1, start: 820,  rs: 860,  re: 1250, end: 1400, peak: 0.007, tail: 0.001, trace: 0.001 },  // 오팔 (수정 동굴, 사람만)
+  { id: 28, v2: 1, start: 1290, rs: 1330, re: 1880, end: 2100, peak: 0.012, tail: 0.003, trace: 0.001 },  // 아다만트 (고대 화석층)
+  { id: 29, v2: 1, start: 1310, rs: 1360, re: 1880, end: 2000, peak: 0.006, tail: 0.001, trace: 0.0008 }, // 고대 호박 (고대 화석층, 사람만)
+  { id: 30, v2: 1, start: 1890, rs: 1930, re: 2400, end: 2400, peak: 0.010, tail: 0.010, trace: 0.001 },  // 공허석 (심연)
+  { id: 31, v2: 1, start: 1950, rs: 2050, re: 2400, end: 2400, peak: 0.003, tail: 0.003, trace: 0.0004 }, // 별 조각 (심연, 아주 드묾)
 ];
 export function oreProb(g, d) {
   if (d < g.start) return 0;
@@ -39,9 +52,10 @@ export const hardOf = (id, r) => {
   return TILE[id].hard * (1 + Math.min(d, 400) * k + Math.max(0, d - 400) * k * 0.25);
 };
 export const ORE_SINGLE = 0.15, ORE_VEIN = 0.85;      // 낱개로 박힌 광물 / 광맥(덩어리) 비율
-export const VEIN_SIZE = { 6: [5, 12], 2: [4, 9], 3: [4, 8], 8: [3, 7], 4: [3, 6], 9: [2, 5], 5: [2, 4], 10: [2, 4], 11: [1, 3] };   // 광맥 크기(칸)
-export const SHELL_P = { 4: 0.25, 9: 0.45, 5: 0.65, 10: 0.75, 11: 0.9 };   // 희귀 광물이 암석에 싸여 있을 확률
-export const SHELL_STONE = { 10: 0.2, 11: 0.35 };                            // 그중 다이너마이트가 필요한 돌 껍질 확률
+export const VEIN_SIZE = { 6: [5, 12], 2: [4, 9], 3: [4, 8], 8: [3, 7], 4: [3, 6], 9: [2, 5], 5: [2, 4], 10: [2, 4], 11: [1, 3],
+  20: [3, 7], 21: [1, 3], 22: [2, 5], 23: [2, 4], 24: [3, 6], 25: [2, 4], 26: [2, 5], 27: [1, 2], 28: [2, 4], 29: [1, 2], 30: [1, 3], 31: [1, 1] };   // 광맥 크기(칸)
+export const SHELL_P = { 4: 0.25, 9: 0.45, 5: 0.65, 10: 0.75, 11: 0.9, 23: 0.5, 25: 0.6, 26: 0.5, 28: 0.7, 30: 0.8, 31: 0.95 };   // 희귀 광물이 암석에 싸여 있을 확률
+export const SHELL_STONE = { 10: 0.2, 11: 0.35, 30: 0.3, 31: 0.5 };                            // 그중 다이너마이트가 필요한 돌 껍질 확률
 // =====================================================================
 //  구역(32x32칸) 단위 생성
 //   - 맵 전체를 한 번에 만들지 않고, 플레이어·화면 근처 구역만 그때그때 만듭니다(ensureAround / ensureRect).
@@ -77,10 +91,13 @@ export function chunkFeatures(cx, cy) {
   const veins = [], stones = [];
   const r0 = Math.max(SURF + 2, cy * CH), r1 = Math.min(H - 4, cy * CH + CH - 1);
   const c0 = Math.max(1, cx * CH), c1 = Math.min(W - 2, cx * CH + CH - 1);
-  for (let r = r0; r <= r1; r++) {
+  const rng1 = rng, rng2 = mulberry32(hash32(WGEN.seed, cx, cy, 0x0e2a));   // 새 광물(v2)은 다른 난수 → 기존 광맥 배치가 그대로
+  for (let pass = 0; pass < 2; pass++) for (let r = r0; r <= r1; r++) {
     const d = r - SURF;
     for (let c = c0; c <= c1; c++) {
+      const rng = pass ? rng2 : rng1;
       for (const g of ORE_GEN) {
+        if (!g.v2 !== !pass) continue;
         const [s0, s1] = VEIN_SIZE[g.id];
         const pr = oreProb(g, d) * ORE_VEIN / ((s0 + s1) / 2);
         if (pr <= 0 || rng() >= pr) continue;
@@ -105,7 +122,7 @@ export function chunkFeatures(cx, cy) {
         veins.push(v);
       }
       // 돌 장애물: 드릴로 못 파고 다이너마이트로만 부숨
-      if (r >= SURF + 8 && rng() < 0.006 + Math.min(0.012, d / 25000)) {
+      if (!pass && r >= SURF + 8 && rng() < 0.006 + Math.min(0.012, d / 25000)) {
         let cc = c, rr = r;
         const n = 2 + ((rng() * 4) | 0);
         for (let k = 0; k < n; k++) { stones.push([cc, rr]); const q = rng(); if (q < 0.35) cc++; else if (q < 0.7) cc--; else rr++; }

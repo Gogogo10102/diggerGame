@@ -3,7 +3,7 @@ import "./worldSave.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 
 import { BUILD_COLS, B_CRAFT, B_FURN, B_SHOP, H, HH, LAYERS, MINE_COL, SURF, T, TILE, W, inB } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { FUEL_BASE, SLOT_OF, bannerQ, bombs, flashes, floaters, maxFuel, parts, recalcStats, say } from "../core/stats.ts";
+import { FUEL_BASE, SLOT_OF, bannerQ, bombs, flashes, floaters, maxFuel, maxHp, parts, recalcStats, say } from "../core/stats.ts";
 import { fixFoundation, genWorld, legacySeen, regenT, rub, rubSet, warn } from "../core/world.ts";
 import { HOT } from "../data/consumables.ts";
 import { ITEMS, LV_MAX } from "../data/items.ts";
@@ -29,7 +29,7 @@ export function snapshot() {
   return withChunksSettled(() => ({
     ver: SAVE_VER, id: S.acct.id, name: S.acct.name, created: S.acct.created, updated: Date.now(),
     seed: S.acct.seed, playTime: Math.floor(S.acct.playTime), stats: S.acct.stats,
-    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, eq: P.eq, off: P.off, lv: P.lv, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
+    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, hp: P.hp, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, eq: P.eq, off: P.off, lv: P.lv, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
     settings: { showHelp: S.showHelp, miniOn: S.miniOn === undefined ? null : S.miniOn },
     world: encodeWorld(),
     stones: 1, worldV: 2,
@@ -108,6 +108,7 @@ export function applyAccount(d) {
     if (n > 0) P.inv[id] = n;
   }
   P.fuel = Number.isFinite(pl.fuel) ? Math.min(maxFuel(), pl.fuel) : maxFuel();
+  P.hp = Number.isFinite(pl.hp) ? Math.max(0, Math.min(maxHp(), pl.hp)) : maxHp();   // 체력 (2026-11-28, 옛 세이브는 가득)
   P.layerMax = Math.max(0, Math.min(LAYERS.length - 1, pl.layerMax | 0));
   P.facing = pl.facing < 0 ? -1 : 1;
   const sx = 6 * T + T / 2, sy = SURF * T - HH - 1;
@@ -116,9 +117,9 @@ export function applyAccount(d) {
   P.x = Number.isFinite(pl.x) ? pl.x * T / ps : sx;
   P.y = Number.isFinite(pl.y) ? (pl.y + HH) * T / ps - HH : sy;
   const broken = regenWorld || P.x < 0 || P.x > W * T || P.y < -200 || P.y > H * T || collide(P.x, P.y);
-  if (broken || !(P.fuel > 0)) {
-    P.x = sx; P.y = sy;                                           // 연료가 바닥났던 저장은 구조된 상태로 시작
-    if (!(P.fuel > 0)) { P.cargo = {}; P.fuel = maxFuel(); }
+  if (broken || !(P.fuel > 0) || !(P.hp > 0)) {
+    P.x = sx; P.y = sy;                                           // 연료가 바닥났거나 쓰러졌던 저장은 구조된 상태로 시작
+    if (!(P.fuel > 0) || !(P.hp > 0)) { P.cargo = {}; P.fuel = maxFuel(); P.hp = maxHp(); }
   }
   P.vx = 0; P.vy = 0; P.dead = 0; P.digging = false;
   S.dig = null; parts.length = 0; floaters.length = 0;

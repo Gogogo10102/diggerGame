@@ -1,7 +1,7 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./collapseFx.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { sfx } from "../core/sound.ts";
-import { ORE_ACCENT, sprite } from "../art/sprites.ts";
+import { ORE_ACCENT, ORE_SHAPE_OF, sprite } from "../art/sprites.ts";
 import { ORE_COL, PX, T, TILE } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
@@ -136,7 +136,9 @@ export const DROP_MAP = {
     ".kkkkk......",
     "............"],
 };
-export const DROP_GLOW = { 4: "255,211,77", 9: "80,230,140", 5: "130,230,255", 10: "255,90,110", 11: "120,255,230" };   // 희귀 광물은 은은하게 빛남
+for (const id in ORE_SHAPE_OF) DROP_MAP[id] = DROP_MAP[ORE_SHAPE_OF[id]];   // 새 광물: 닮은 광물 모양을 제 색으로
+export const DROP_GLOW = { 4: "255,211,77", 9: "80,230,140", 5: "130,230,255", 10: "255,90,110", 11: "120,255,230",
+  22: "190,120,240", 23: "80,130,255", 25: "255,120,40", 26: "190,200,255", 27: "250,180,230", 28: "160,220,60", 29: "230,110,40", 30: "120,80,240", 31: "255,246,170" };   // 희귀 광물은 은은하게 빛남
 export const oreDrop = {};
 for (const id in DROP_MAP) {
   oreDrop[id] = sprite(12, 12, (p) => {

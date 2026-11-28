@@ -120,7 +120,7 @@ export const plinthLow = sprite(16, 16, (p) => { brickFill(p, 0, 0, 16, 16, "#4a
 
 //  장비 효과 글: 장비 칸 장비(slot)는 그 장비의 고유 값 ("곡괭이 채굴력 1.6"), 특수·제작 보너스는 더하는 값 ("+0.8")
 //  판매가·행운·연비만 % (원래 비율이라서)
-export const FX_NAME = { drill: "톱니 채굴력", pick: "곡괭이 채굴력", thrust: "로봇 추진력", speed: "로봇 이동 속도", light: "시야", fuel: "최대 연료", cargo: "화물칸", rocket: "로켓 추진력", sell: "판매가", lucky: "행운", eff: "연료 소모" };
+export const FX_NAME = { drill: "톱니 채굴력", pick: "곡괭이 채굴력", thrust: "로봇 추진력", speed: "로봇 이동 속도", light: "시야", fuel: "최대 연료", cargo: "화물칸", rocket: "로켓 추진력", sell: "판매가", lucky: "행운", eff: "연료 소모", hp: "최대 체력" };
 export const fxNum = (k, v) => (k === "fuel" || k === "cargo" ? String(Math.round(v)) : (Math.round(v * 100) / 100).toString());
 export function fxText(fx, slot) {
   if (fx.robot) return "마을 차고에서 타요 · 톱니로 빠르게 캠 · 날 수 있음";
@@ -128,6 +128,7 @@ export function fxText(fx, slot) {
     const v = fx[k];
     if (k === slot) return FX_NAME[k] + " " + fxNum(k, v) + (k === "rocket" ? " · 날 수 있음" : "");
     if (k === "eff") return "연료 소모 -" + Math.round(v * 100) + "%";
+    if (k === "tele") return "텔레포트 최대 " + v + "m";
     if (k === "sell" || k === "lucky") return FX_NAME[k] + " +" + Math.round(v * 100) + "%";
     return FX_NAME[k] + " +" + fxNum(k, v);
   }).join(", ");

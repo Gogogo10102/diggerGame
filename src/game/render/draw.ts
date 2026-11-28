@@ -3,10 +3,10 @@ import "./util.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { BLD_FX, GARAGE_FX, GARAGE_IMG, SIGN_IMG, fxText, plinthLow, plinthTop } from "../art/buildings.ts";
 import { FLAME, GLOW, itemIcon } from "../art/itemIcons.ts";
 import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLECK_BOX, SKY, SPARK_ORES, backTiles, bedrock, cloudImg, cracks, decoFor, dirtTiles, oreIcon, getMiner, MINER_SZ, MINER_BOX, grassTiles, hardTiles, hv, sprite, stoneTiles, sunImg, chestTile, caveBack, caveTop, caveBot, wangTiles, wangBlock, treeImgs, dirtOver, DIRT_OVER, CHAR_IDS, gasTile, CAVE_BOT_BY_LAYER, CAVE_BOT_GLOW, ladderTile, PLAYER_IMG, PLAYER_ANIM, PLAYER_MINE_CELLS, PLAYER_MINE_DOWN_CELLS, ROCKET_CELLS, ROCKET_NOZZLE, playerCell, PGRIP, playerFrame, pickImg, mechFrame, MECH_IMG, MCX, MFT, MSZ, PSZ } from "../art/sprites.ts";
-import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W, won } from "../core/config.ts";
+import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, ORE_ORDER, PX, SURF, T, TILE, W, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, parts } from "../core/stats.ts";
+import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, maxHp, parts, teleMax } from "../core/stats.ts";
 import { baseTiles, ensureRect, hardOf, isAir, natAir, seen, tiles } from "../core/world.ts";
 import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
@@ -779,7 +779,7 @@ export function townScale(SW, SH) {
 export function drawHotbar(vw, vh) {
   S.hotBtns = []; S.hotLeft = 1e9;
   if (S.state !== "play") return;
-  const sz = vw < 560 ? 40 : 48, gap = vw < 560 ? 2 : 4, n = HOT.length, tw = n * sz + (n - 1) * gap, isz = 32;
+  const sz = vw < 420 ? 36 : vw < 560 ? 40 : 48, gap = vw < 560 ? 2 : 4, n = HOT.length, tw = n * sz + (n - 1) * gap, isz = 32;
   const x0 = Math.max(8, vw - 12 - tw), y00 = vh - 12 - sz;
   S.hotLeft = x0;
   HOT.forEach((id, i) => {
@@ -800,7 +800,7 @@ export function drawHotbar(vw, vh) {
 
 // 가진 광물 칸: 화물칸에 든 광물을 아이콘 + 개수로 (새로 주우면 잠깐 노랗게 반짝)
 //   center=true 면 x 가 가운데, 아니면 왼쪽 끝. 돌려주는 값: 칸의 아래 y
-const ORE_BAR_IDS = [6, 2, 3, 8, 4, 9, 5, 10, 11];
+const ORE_BAR_IDS = ORE_ORDER, TITLE_ORES = [6, 2, 3, 8, 4, 9, 5, 10, 11];   // 타이틀 화면 줄은 예전 9개만 (21개는 너무 길어서)
 const ORE_BAR_LAST = {}, ORE_BAR_FLASH = {};
 function drawOreBar(x, y, maxW, center) {
   const have = ORE_BAR_IDS.filter((id) => (P.cargo[id] || 0) > 0);
@@ -845,6 +845,7 @@ function drawOreBar(x, y, maxW, center) {
   return y + ph;
 }
 
+const HUD_DY = 32;                                                  // 왼쪽 위 상태 카드: 맨 위에 체력 줄이 생겨서 아래 줄들을 이만큼 내림
 // 큰 수는 "12.3만" 처럼 줄여서
 function hudMoney(n) { return n >= 100000 ? +(n / 10000).toFixed(n >= 1000000 ? 0 : 1) + "만원" : won(n); }
 // 칸 막대 + 왼쪽에 겹쳐 그린 아이콘 (번개 막대 모양)
@@ -858,6 +859,10 @@ function hudBar(x, y, img, n, filled, kind, label, labelCol) {
 
 export function drawHUD(vw, vh, depth) {
   shopBtn.length = 0;
+  if (S.hurtFlash > 0 && S.state === "play") {                  // 다침: 화면 가장자리가 잠깐 빨갛게
+    ctx.fillStyle = hexA("#ff2a3a", 0.5 * S.hurtFlash / 0.35);
+    for (const [x, y, w, h] of [[0, 0, vw, 20], [0, vh - 20, vw, 20], [0, 20, 20, vh - 40], [vw - 20, 20, 20, vh - 40]]) ctx.fillRect(x, y, w, h);
+  }
   if (S.inGas && S.state === "play") {                          // 가스 속: 화면 가장자리가 초록으로 일렁임
     ctx.fillStyle = hexA("#7cdc5a", 0.16 + 0.08 * Math.sin(S.animT * 8));
     for (const [x, y, w, h] of [[0, 0, vw, 16], [0, vh - 16, vw, 16], [0, 16, 16, vh - 32], [vw - 16, 16, 16, vh - 32]]) ctx.fillRect(x, y, w, h);
@@ -869,22 +874,26 @@ export function drawHUD(vw, vh, depth) {
   const fSeg = Math.ceil(fr * 12 - 1e-9);
   {                                                            // 상태 카드: 연료·화물·레벨 묶음 뒤에 숯색 판 (밝은 하늘·흙 위에서도 글자가 또렷하게)
     setFont(12);
-    const fl = Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), cl = cargoCount() + "/" + cargoCap();
+    const fl = Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), cl = cargoCount() + "/" + cargoCap(), hl = Math.ceil(P.hp) + "/" + Math.round(maxHp());
     const tl = fitText(titleName() || "칭호 없음", Math.max(40, (wide ? 300 : vw - 230) - 6), 12);
-    const w1 = 10 + 22 + 122 + 6 + Math.max(ctx.measureText(fl).width, ctx.measureText(cl).width);
+    const w1 = 10 + 22 + 122 + 6 + Math.max(ctx.measureText(fl).width, ctx.measureText(cl).width, ctx.measureText(hl).width);
     const w2 = 66 + 82 + 8 + ctx.measureText(tl).width;
-    plate(2, 2, Math.ceil(Math.max(w1, w2)) + 10, 100);
+    plate(2, 2, Math.ceil(Math.max(w1, w2)) + 10, 100 + HUD_DY);
   }
-  hudBar(10, 12, ICON.fuel, 12, low && blink ? Math.max(0, fSeg - 1) : fSeg, low ? "low" : "fuel", Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), low ? SY.red : "#fff");
+  {                                                            // 체력 (2026-11-28): 맨 위 줄. 1/4 아래면 깜빡
+    const hr = Math.max(0, P.hp / maxHp()), hlow = hr < 0.25, hSeg = Math.ceil(hr * 12 - 1e-9);
+    hudBar(10, 12, ICON.heart, 12, hlow && blink ? Math.max(0, hSeg - 1) : hSeg, "hp", Math.ceil(P.hp) + "/" + Math.round(maxHp()), hlow ? SY.red : "#fff");
+  }
+  hudBar(10, 12 + HUD_DY, ICON.fuel, 12, low && blink ? Math.max(0, fSeg - 1) : fSeg, low ? "low" : "fuel", Math.ceil(P.fuel) + "/" + Math.round(maxFuel()), low ? SY.red : "#fff");
   const cc = cargoCount(), cap = cargoCap(), full = cc >= cap;
-  hudBar(10, 44, ICON.crate, 12, Math.min(12, Math.ceil(cc / cap * 12 - 1e-9)), full && blink ? "low" : "cargo", cc + "/" + cap, full ? SY.red : "#fff");
+  hudBar(10, 44 + HUD_DY, ICON.crate, 12, Math.min(12, Math.ceil(cc / cap * 12 - 1e-9)), full && blink ? "low" : "cargo", cc + "/" + cap, full ? SY.red : "#fff");
   // 레벨 + 경험치 + 칭호
   const Lx = levelOf(S.acct ? S.acct.xp : 0);
-  plate(10, 74, 50, 24);
-  txt("Lv." + Lx.lv, 35, 80, SY.gold, 12, "center", SY.ink);
+  plate(10, 74 + HUD_DY, 50, 24);
+  txt("Lv." + Lx.lv, 35, 80 + HUD_DY, SY.gold, 12, "center", SY.ink);
   const xpN = 10, xpF = Lx.lv >= MAX_LV ? xpN : Math.floor(xpN * Lx.cur / Lx.need);
-  segBar(66, 78, xpN, xpF, "xp", 8, 14);
-  txt(fitText(titleName() || "칭호 없음", Math.max(40, (wide ? 300 : vw - 230) - 6), 12), 66 + xpN * 8 + 8, 79, titleName() ? SY.gold : SY.mute, 12, "left", SY.ink);
+  segBar(66, 78 + HUD_DY, xpN, xpF, "xp", 8, 14);
+  txt(fitText(titleName() || "칭호 없음", Math.max(40, (wide ? 300 : vw - 230) - 6), 12), 66 + xpN * 8 + 8, 79 + HUD_DY, titleName() ? SY.gold : SY.mute, 12, "left", SY.ink);
   // 돈 · 깊이: 넓은 화면은 위 가운데(깊이) · 오른쪽 위(돈), 좁은 화면은 왼쪽 줄 아래에
   // 돈은 바로 바뀌지 않고 0.4초쯤 걸쳐 굴러 올라감(팔거나 보물을 열 때 손맛). 늘어나는 동안 초록 + 동전이 통통
   if (S.moneyShown === undefined || !Number.isFinite(S.moneyShown) || S.state !== "play" && S.state !== "shop" && S.state !== "craft" && S.state !== "furnace") S.moneyShown = P.money;
@@ -906,15 +915,15 @@ export function drawHUD(vw, vh, depth) {
     plate(mx0, by0, mw, bs); blit(ICON.coin, mx0 + 8, by0 + 6 + coinBob, 32, 32);
     txt(mTxt, mx0 + mw - 10, by0 + 14, mCol, 16, "right");
   } else {
-    blit(ICON.coin, 10, 102 + coinBob, 24, 24); txt(mTxt, 38, 106, mCol, 16, "left", SY.ink);
+    blit(ICON.coin, 10, 102 + HUD_DY + coinBob, 24, 24); txt(mTxt, 38, 106 + HUD_DY, mCol, 16, "left", SY.ink);
     setFont(16); const mw = Math.ceil(ctx.measureText(mTxt).width);
-    blit(ICON.depth, 38 + mw + 14, 106, 16, 16); txt(dTxt, 38 + mw + 34, 106, "#9fd8ff", 16, "left", SY.ink);
-    S.hudBottom = drawOreBar(10, 134, vw - 20 - 46, false);      // 좁은 화면: 왼쪽 줄 아래에 광물 칸 (미니맵은 그 아래로)
+    blit(ICON.depth, 38 + mw + 14, 106 + HUD_DY, 16, 16); txt(dTxt, 38 + mw + 34, 106 + HUD_DY, "#9fd8ff", 16, "left", SY.ink);
+    S.hudBottom = drawOreBar(10, 134 + HUD_DY, vw - 20 - 46, false);      // 좁은 화면: 왼쪽 줄 아래에 광물 칸 (미니맵은 그 아래로)
     S.bannerY = Math.max(S.hudBottom + 12, vh - 270);              // 좁은 화면: 캐릭터(화면 가운데) 아래 빈 곳, 도움말·슬롯 위
   }
 
   // 오른쪽 위: 가방(초록) · 업적(파랑) · 메뉴(주황) 사각 버튼 + 그 아래 미니맵 · 깊이 미터
-  S.menuBtn = null; S.bagBtn = null; S.questBtn = null; S.mapToggleBtn = null;
+  S.menuBtn = null; S.bagBtn = null; S.questBtn = null; S.mapToggleBtn = null; S.teleBtn = null;
   const mapOn = miniOn(vw);
   if (S.state === "play") {
     // 지도 켜기/끄기: 메뉴 버튼 바로 아래 (켜져 있으면 눌린 모양). 지도·깊이 막대는 그 아래로
@@ -923,6 +932,13 @@ export function drawHUD(vw, vh, depth) {
     glyph(GLYPH.map, tx + Math.floor((bs - 21) / 2), Math.round(cy - 10.5), mapOn ? "#1668b8" : "#5a6478", 3);
     if (!mapOn) { ctx.fillStyle = "#c42a3a"; for (let k = 0; k < 6; k++) ctx.fillRect(tx + 8 + k * 5, ty + 8 + k * 4, 4, 4); }   // 꺼짐: 빨간 사선
     S.mapToggleBtn = { x: tx - 3, y: ty - 3, w: bs + 6, h: bs + 6 };
+    if (teleMax() > 0) {                                           // 텔레포트 버튼: 지도 버튼 왼쪽. 충전 중이면 어둡게 + 남은 초
+      const qx = tx - bs - bg, cd = Math.max(0, S.teleCD || 0);
+      const qy = btnPx(qx, ty, bs, bs, cd > 0 ? "steel" : "blue");
+      ctx.globalAlpha = cd > 0 ? 0.45 : 1; blit(ICON.tele, qx + ((bs - 32) >> 1), Math.round(qy - 16), 32, 32); ctx.globalAlpha = 1;
+      if (cd > 0) txt(String(Math.ceil(cd)), qx + bs / 2, ty + bs - 18, "#fff", 12, "center", SY.ink);
+      S.teleBtn = { x: qx - 3, y: ty - 3, w: bs + 6, h: bs + 6 };
+    }
     [["green", GLYPH.bag, "bag", "#2a8a1e"], ["blue", GLYPH.trophy, "quest", "#1668b8"], ["orange", GLYPH.menu, "menu", "#d0600a"]].forEach(([col, g, kind, tc], i) => {
       const x = bx0 + i * (bs + bg);
       const cy = btnPx(x, by0, bs, bs, col);
@@ -1072,7 +1088,7 @@ export function drawStick() {
 // 어둠 색(지층별): 지층 바탕색을 아주 어둡게 → 깊이마다 공기 색이 다르게 느껴짐
 const DARK_COL = LAYERS.map((L) => { const v = parseInt(L.base.slice(1), 16); return [((v >> 16) & 255) * 0.09 + 2, ((v >> 8) & 255) * 0.09 + 2, (v & 255) * 0.09 + 5].map(Math.round); });
 const decoGlows = [];                                             // [월드 x, 월드 y, 색] 이번 프레임에 보이는 빛나는 동굴 장식
-const GLOW_ORES = { 5: 1, 9: 1, 10: 1, 11: 1 };                 // 어둠 속에서 빛나는 광물: 다이아 · 에메랄드 · 루비 · 미스릴
+const GLOW_ORES = { 5: 1, 9: 1, 10: 1, 11: 1, 23: 1, 25: 1, 26: 1, 27: 1, 30: 1, 31: 1 };   // 어둠 속에서 빛나는 광물: 다이아 · 에메랄드 · 루비 · 미스릴 + 사파이어 · 화염석 · 수정 · 오팔 · 공허석 · 별 조각
 const hexA = (hex, a) => { const v = parseInt(hex.slice(1), 16); return "rgba(" + ((v >> 16) & 255) + "," + ((v >> 8) & 255) + "," + (v & 255) + "," + Math.max(0, a).toFixed(3) + ")"; };
 
 // 건물 그림에서 창문(주황·노란빛 픽셀, 그림 아래쪽 60%)만 골라 밝은 불빛 그림으로. 고해상도 그림일 때만, 한 번 만들어 둠
@@ -1133,7 +1149,7 @@ function drawTutorial(vw, wide) {
   if (k >= n && !flashing) return;
   const step = TUT_STEPS[flashing ? S.tutDone : k];
   if (!step) return;
-  const x = 10, y = wide ? 104 : (S.hudBottom || 140) + 8;
+  const x = 10, y = wide ? 104 + HUD_DY : (S.hudBottom || 140) + 8;
   const w = wide ? 320 : Math.max(150, Math.min(320, (S.miniBtn ? S.miniBtn.x : vw - 60) - 18 - x));
   const lines = flashing ? ["잘했어요!"] : wrapText(S.usedTouch ? step.touch : step.key, w - 24, 12);
   const h = 30 + lines.length * 16 + 8;
@@ -1217,7 +1233,7 @@ export function drawTitle(vw, vh) {
   const cy = btnPx(bx, y, bw, bh, "green", pressed);
   btnTxt(label, vw / 2, cy - 8, 16);
   // 아래: 광물 줄 (천천히 출렁) + 조작 안내
-  const ids = ORE_BAR_IDS, gap = vw < 420 ? 36 : 44, rowW = ids.length * gap;
+  const ids = TITLE_ORES, gap = vw < 420 ? 36 : 44, rowW = ids.length * gap;
   const oy = vh - 92;
   ids.forEach((id, i) => blit(oreIcon[id], Math.floor((vw - rowW) / 2 + i * gap + (gap - 32) / 2), oy + Math.round(Math.sin(now * 2 + i * 0.7) * 2) * 2, 32, 32));
   const help = S.usedTouch ? "화면 어디서나 드래그해서 조작" : "←→ 이동 · ↑ 점프 · ↓ 곡괭이 · 7 사다리 · E 건물 · I 가방 · M 지도";

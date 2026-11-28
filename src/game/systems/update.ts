@@ -3,7 +3,7 @@ import "./town.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실�
 import { B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, HW, inB, layerOf, LAYERS, MINE_COL, ORE_COL, PX, SURF, T, TILE, W, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, oreYield, bannerQ, bombs, canFly, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, pushBanner, say, spawn, updateFx } from "../core/stats.ts";
+import { BANNER_T, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, STAT, oreYield, bannerQ, bombs, canFly, cargoCap, cargoCount, chips, drillMult, flashes, floaters, maxFuel, maxHp, pushBanner, say, spawn, teleMax, updateFx } from "../core/stats.ts";
 import { ICON, dirtTiles, gasTile } from "../art/sprites.ts";
 
 // 보물 상자 열기: 깊을수록 많은 돈 + 25% 확률로 소모품 하나. 처음 열면 알림
@@ -55,7 +55,8 @@ export function updateGas(dt) {
   }
   if (inside && P.dead <= 0) {
     P.fuel = Math.max(0, P.fuel - GAS_DRAIN * dt);
-    if (!S.inGas) say("가스! 연료가 새요 — 빨리 빠져나가세요");
+    if (!P.mech) hurt(GAS_HP * dt, "가스를 마시고", true);      // 사람은 숨을 쉬니 체력도 닳음 (로봇은 밀폐)
+    if (!S.inGas) say(P.mech ? "가스! 연료가 새요 — 빨리 빠져나가세요" : "가스! 숨이 막혀요 — 빨리 빠져나가세요");
   }
   S.inGas = inside;
 }
@@ -103,7 +104,7 @@ export function layerSub(ly) {
   const fresh = ORE_GEN.filter((g) => g.rs >= from && g.rs < to).map((g) => TILE[g.id].name);
   return from + "m 아래" + (fresh.length ? " · 새 광물: " + fresh.join(" · ") : "");
 }
-import { ORE_GEN, ensureAround, hardOf, seen, solid, tiles } from "../core/world.ts";
+import { ORE_GEN, ensureAround, ensureRect, hardOf, seen, solid, tiles } from "../core/world.ts";
 import { CONS, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
 import { buyItem } from "./town.ts";
@@ -282,6 +283,14 @@ export function useConsumable(id) {
   if (!((P.inv[id] || 0) > 0)) return say(c.name + "이(가) 없어요! 아이템 상점에서 구매하세요");
   if (c.kind === "ladder") return placeLadder(id);
   if (c.kind === "recall") return useRecall(id);
+  if (c.kind === "heal") {                                          // 구급상자: 체력 회복
+    if (P.hp >= maxHp() - 0.5) return say("체력이 이미 가득해요");
+    const got = healHp(maxHp() * c.frac);
+    P.inv[id]--;
+    sfx("heal");
+    floaters.push({ x: P.x, y: P.y - 30, text: "체력 +" + Math.round(got), color: "#ff8fa0", life: 1.2 });
+    return say(c.name + " 사용! (남은 " + P.inv[id] + "개)");
+  }
   if (c.kind === "fuel") {
     if (P.fuel >= maxFuel() - 0.5) return say("연료가 이미 가득해요");
     P.fuel = Math.min(maxFuel(), P.fuel + maxFuel() * c.frac);
@@ -301,6 +310,41 @@ export function useConsumable(id) {
   }
   saveNow(true, true);
 }
+// ---- 체력 (2026-11-28) ----
+// 다치는 곳: 높은 곳에서 떨어짐(사람 기준 SAFE_FALL 칸 넘게) · 폭발 · 가스(사람). 로봇에 타고 있으면 로봇 장갑이 ROBOT_ARMOR 만 받음
+// 0 이 되면 쓰러짐 → 연료 고갈과 같은 구조(화물 잃고 마을로). 지상(마을)에선 빨리 차오름, 구급상자로도 회복
+export const SAFE_FALL = 4, FALL_DMG = 6, ROBOT_ARMOR = 0.4, BLAST_DMG = 35, GAS_HP = 6, TOWN_HEAL = 25;
+S.hurtT = 0; S.hurtFlash = 0; S.fallTop = null;
+export function hurt(n, why, raw) {                              // raw: 무적 시간 없이 조금씩 (가스)
+  if (P.dead > 0 || (!raw && S.hurtT > 0)) return 0;
+  const d = n * (P.mech ? ROBOT_ARMOR : 1);
+  P.hp = Math.max(0, P.hp - d);
+  if (!raw) {
+    S.hurtT = 0.6; S.hurtFlash = 0.35; S.shakeT = Math.max(S.shakeT || 0, 0.15);
+    floaters.push({ x: P.x, y: P.y - 34, text: "-" + Math.max(1, Math.round(d)), color: "#ff6b6b", life: 1.0 });
+    sfx("hurt");
+  }
+  if (P.hp <= 0) faint(why);
+  return d;
+}
+export function faint(why) {
+  P.hp = 0; P.dead = 2.5;
+  if (S.acct) { S.acct.stats.deaths++; S.acct.stats.faints = (S.acct.stats.faints || 0) + 1; }
+  saveNow(true);
+  say((why ? why + " " : "") + "쓰러졌어요! 구조 중... (화물 손실)");
+}
+export function healHp(n) { const was = P.hp; P.hp = Math.min(maxHp(), P.hp + n); return P.hp - was; }
+// 약한 광물이 부서짐: 아무것도 안 남고 반짝이는 가루만. 처음 몇 번은 안내 (사람으로 캐야 해요)
+export function shatterOre(id, c, r, quiet) {
+  const x = (c + 0.5) * T, y = (r + 0.5) * T;
+  for (let k = 0; k < 14; k++) spawn(x + (Math.random() - 0.5) * 24, y + (Math.random() - 0.5) * 24, (Math.random() - 0.5) * 160 * PX, -(40 + Math.random() * 90) * PX, 0.5 + Math.random() * 0.4, ORE_COL[id][k % 3], 3, 500 * PX);
+  floaters.push({ x, y: y - 20, text: TILE[id].name + " 부서짐…", color: "#ff9a8a", life: 1.3 });
+  if (S.acct) S.acct.stats.shattered = (S.acct.stats.shattered || 0) + 1;
+  if (!quiet && (S.fragHintN || 0) < 3 && S.stoneHintT <= 0) {
+    S.fragHintN = (S.fragHintN || 0) + 1; S.stoneHintT = 6;
+    say(TILE[id].name + "은(는) 약해서 톱니에 부서져요. 로봇에서 내려 곡괭이로 캐세요");
+  }
+}
 export function explode(b) {
   const R = b.rad;
   let got = 0, lost = 0, broke = 0;
@@ -313,7 +357,8 @@ export function explode(b) {
     tiles[r * W + c] = 0;
     seen[r * W + c] = 1;
     broke++;
-    if (id < 12 && id !== 7) onMined(id);
+    if (TILE[id].fragile) { shatterOre(id, c, r, true); chips(c, r, id, 5, 1.5); continue; }   // 약한 광물은 폭발에도 부서짐
+    if ((id < 12 || ORE_COL[id]) && id !== 7) onMined(id);
     if (id === 17) { onMined(id); openChest(c, r); }               // 폭파해도 상자는 열림
     if (id === 18) floaters.push({ x: (c + 0.5) * T, y: r * T, text: "가스 연소!", color: "#ffb020", life: 1.1 });   // 폭파하면 가스는 타서 없어짐
     chips(c, r, id, 5, 1.5);
@@ -334,7 +379,8 @@ export function explode(b) {
   if (P.dead <= 0 && d < R + 0.9) {
     P.fuel -= maxFuel() * 0.3;
     P.vy = -320 * PX; P.vx = (P.x < x ? -1 : 1) * 240 * PX;
-    floaters.push({ x: P.x, y: P.y - 30, text: "폭발! 연료 -30%", color: "#ff6b6b", life: 1.4 });
+    floaters.push({ x: P.x, y: P.y - 50, text: "폭발! 연료 -30%", color: "#ff6b6b", life: 1.4 });
+    S.hurtT = 0; hurt(BLAST_DMG, "폭발에 휘말려");
   }
   if (got > 0) floaters.push({ x: x, y: y - 20, text: "광물 +" + got, color: "#ffd34d", life: 1.4 });
   if (lost > 0) floaters.push({ x: x, y: y - 40, text: "화물 가득! " + lost + "개 떨어짐", color: "#ff6b6b", life: 1.4 });
@@ -398,11 +444,15 @@ export function update(dt) {
   updateFurnace(dt);
   S.questT += dt; if (S.questT >= 1) { S.questT = 0; checkQuests(false); }
 
+  if (S.hurtT > 0) S.hurtT -= dt;
+  if (S.teleCD > 0) S.teleCD -= dt;
+  if (S.hurtFlash > 0) S.hurtFlash -= dt;
   if (P.dead > 0) {
     P.dead -= dt;
     if (P.dead <= 0) respawn();
     return;
   }
+  if (P.hp < maxHp() && Math.floor(P.y / T) < SURF) healHp(TOWN_HEAL * dt);   // 마을(지상)에서는 빨리 차오름
 
   updateLadders(dt);
   const dir = (R_() ? 1 : 0) - (L_() ? 1 : 0);
@@ -454,9 +504,12 @@ export function update(dt) {
     P.vx = 0;
   }
   const prevFeet = P.y + HH;
+  if (P.vy <= 0 || P.climbing || S.fallTop == null) S.fallTop = P.y;   // 떨어지기 시작한 높이 (올라가는 중·사다리면 지금 자리)
   P.y += P.vy * dt;
   const fallV = P.vy;
   if (collide(P.x, P.y)) {
+    const fallH = fallV > 0 ? (P.y - S.fallTop) / T : 0;           // 떨어진 칸 수
+    if (fallH > SAFE_FALL + 0.5 && fallV > 250 * PX) hurt((fallH - SAFE_FALL) * FALL_DMG, "높은 곳에서 떨어져");
     if (fallV > 260 * PX) sfx("land", { vol: Math.min(1, fallV / (520 * PX)) });   // 세게 떨어질수록 큰 쿵
     if (fallV > 150 * PX) S.landT = 0.12;                            // 사람: 잠깐 착지 자세(무릎 굽힘)
     if (fallV > 200 * PX) {                                          // 착지: 궤도 양 끝에서 먼지가 옆으로 퍼짐
@@ -539,15 +592,17 @@ export function update(dt) {
       }
       if (S.dig.t >= hardOf(id, S.dig.r) / drillMult()) {
         tiles[tgt[1] * W + tgt[0]] = 0;
-        onMined(id);
+        const shatter = P.mech && info.fragile;                    // 약한 광물(호박·오팔·고대 호박)은 로봇 톱니에 부서짐 → 사람 곡괭이로만
+        if (!shatter) onMined(id);
         chips(tgt[0], tgt[1], id, 12, 1.4, digDir);
         for (let k = 0; k < 4; k++) puff((tgt[0] + 0.2 + Math.random() * 0.6) * T, (tgt[1] + 0.2 + Math.random() * 0.6) * T, (Math.random() - 0.5) * 40 * PX, -(4 + Math.random() * 14) * PX, 5 + Math.random() * 5, dustCol(tgt[1]), 0.7 + Math.random() * 0.4);
         S.dig = null;
         if (id === 17) openChest(tgt[0], tgt[1]);
         else if (id === 18) releaseGas(tgt[0], tgt[1]);
-        else if (info.value > 0) sfx("ore", { pitch: 0.8 + Math.min(0.9, Math.log10(1 + info.value) * 0.3) }); else sfx("break");
+        else if (info.value > 0 && !shatter) sfx("ore", { pitch: 0.8 + Math.min(0.9, Math.log10(1 + info.value) * 0.3) }); else sfx("break");
         discoverCave(tgt[0], tgt[1]);                              // 뚫은 칸 옆이 숨은 동굴이면 동굴 전체가 드러남
-        if (info.value > 0) {
+        if (shatter) shatterOre(id, tgt[0], tgt[1]);
+        else if (info.value > 0) {
           const ox = (tgt[0] + 0.5) * T, oy = (tgt[1] + 0.5) * T;
           const cnt = oreYield(), lucky = cnt > 1;                 // 행운: 한 칸에서 여러 개
           for (let n = 0; n < cnt; n++) {
@@ -644,16 +699,51 @@ export function useRecall(id) {
   const fx = P.x, fy = P.y;
   for (let i = 0; i < 18; i++) floaters.push({ x: fx + (Math.random() - 0.5) * 40, y: fy - Math.random() * 40, text: "*", color: i % 2 ? "#fff6b4" : "#9fd8ff", life: 0.6 + Math.random() * 0.5 });
   P.x = 6 * T + T / 2; P.y = SURF * T - HH - 1;
-  P.vx = P.vy = 0; P.climbing = false; S.rocketOn = false; S.dig = null; S.inShop = true; S.lastRevealKey = ""; S.graceT = 1;
+  P.vx = P.vy = 0; P.climbing = false; S.rocketOn = false; S.dig = null; S.inShop = true; S.lastRevealKey = ""; S.graceT = 1; S.fallTop = null;
   ladderQ.length = 0;
   sfx("levelup");
   floaters.push({ x: P.x, y: P.y - 40, text: "마을 도착!", color: "#ffd34d", life: 1.4 });
   say("마을 귀환서를 읽었어요! (남은 " + P.inv[id] + "개)");
   saveNow(true, true);
 }
+// ---- 텔레포트 (2026-11-28): 제작한 텔레포터로 마을 ↔ 땅속. 갈 수 있는 곳 = 50m 단위(500m 아래는 100m)로, 텔레포터 최대 깊이와 가 본 가장 깊은 곳 중 얕은 쪽까지 ----
+export const TELE_STEP = 50, TELE_CD = 30;                       // 깊이 단위(m) · 한 번 쓰면 다시 충전되는 시간(초)
+S.teleCD = 0;
+export function teleStops() {
+  const lim = Math.min(teleMax(), S.acct ? Math.floor(S.acct.stats.maxDepth) : 0), out = [];
+  for (let d = TELE_STEP; d <= lim; d += d < 500 ? TELE_STEP : 100) out.push(d);   // 500m 까지는 50m, 그 아래는 100m 단위 (버튼이 너무 많아지지 않게)
+  return out;
+}
+// 도착 자리: 지금 열(광산 터면) 근처에서 발밑이 단단한 빈칸을 찾고, 없으면 2칸 높이 굴을 파 둠 (암반은 안 팜)
+export function teleSpot(depth) {
+  const r0 = SURF + depth, cur = Math.floor(P.x / T);
+  const c0 = Math.max(MINE_COL + 2, Math.min(W - 4, cur > MINE_COL + 1 ? cur : MINE_COL + 6));
+  ensureRect(c0 - 8, r0 - 8, c0 + 8, r0 + 8);
+  const ok = (c, r) => c > 0 && c < W - 1 && r > SURF && r < H - 3 && tiles[r * W + c] === 0 && solid(c, r + 1);
+  for (let k = 0; k <= 6; k++) for (let dr = -k; dr <= k; dr++) for (const dc of [-k, k]) if (ok(c0 + dc, r0 + dr)) return [c0 + dc, r0 + dr];
+  for (const rr of [r0, r0 - 1]) if (tiles[rr * W + c0] !== 7) tiles[rr * W + c0] = 0;
+  return [c0, r0];
+}
+export function teleportTo(depth) {
+  if (P.dead > 0 || !(teleMax() > 0)) return say("텔레포터가 없어요 · 제작소 '이동'에서 만들어요");
+  if (S.teleCD > 0) return say("텔레포터 충전 중… " + Math.ceil(S.teleCD) + "초");
+  const town = depth <= 0;
+  if (town && Math.floor(P.y / T) < SURF) return say("이미 마을이에요");
+  if (!town && !teleStops().includes(depth)) return say(depth + "m 는 아직 못 가요 (최대 " + Math.min(teleMax(), Math.floor(S.acct ? S.acct.stats.maxDepth : 0)) + "m)");
+  for (let i = 0; i < 16; i++) floaters.push({ x: P.x + (Math.random() - 0.5) * 40, y: P.y - Math.random() * 40, text: "*", color: i % 2 ? "#b8a8ff" : "#9fd8ff", life: 0.5 + Math.random() * 0.5 });
+  if (town) { P.x = 6 * T + T / 2; P.y = SURF * T - HH - 1; S.inShop = true; }
+  else { const [c, r] = teleSpot(depth); P.x = (c + 0.5) * T; P.y = (r + 1) * T - HH - 1; }
+  P.vx = P.vy = 0; P.climbing = false; S.rocketOn = false; S.dig = null; S.lastRevealKey = ""; S.graceT = 1; S.fallTop = null;
+  ladderQ.length = 0;
+  S.teleCD = TELE_CD;
+  if (S.acct) S.acct.stats.teleports = (S.acct.stats.teleports || 0) + 1;
+  sfx("teleport");
+  floaters.push({ x: P.x, y: P.y - 40, text: town ? "마을 도착!" : depth + "m 도착!", color: "#b8a8ff", life: 1.4 });
+  saveNow(true, true);
+}
 export function respawn() {
   P.x = 6 * T + T / 2; P.y = SURF * T - HH - 1;
-  P.vx = P.vy = 0; P.cargo = {}; P.fuel = maxFuel(); S.dig = null; S.inShop = true;
+  P.vx = P.vy = 0; P.cargo = {}; P.fuel = maxFuel(); P.hp = maxHp(); S.dig = null; S.inShop = true; S.fallTop = null;
   bombs.length = 0; S.lastRevealKey = ""; S.graceT = 3;
 }
 

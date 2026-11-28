@@ -21,6 +21,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REF = os.path.join(ROOT, "tools/ref/pixellab/ores")
 OUT = os.path.join(ROOT, "public/assets/ores/world")
 GEMS = {5, 9, 10}                      # 다이아 · 에메랄드 · 루비
+# 새 광물(2026-11-28) 중 결정 모양으로 그릴 것: 원본(_ref.png)이 없어도 ORE_COL 색으로 작은 결정
+NEW_GEMS = {20, 21, 22, 23, 25, 26, 27, 29, 31}  # 석영 · 호박 · 자수정 · 사파이어 · 화염석 · 수정 결정 · 오팔 · 고대 호박 · 별 조각
 SHADOW = (82, 46, 22)                  # 알갱이 아래 그림자 (흙 틈)
 COUNT, CELLS, MARGIN = (6, 8), 3, 4    # 개수(6~7) · 3x3 자리 · 테두리 여백(원본 px)
 GEM_COUNT = (7, 9)                     # 보석: 결정이 작아서 조금 더 많이(7~8개)
@@ -122,7 +124,7 @@ if __name__ == "__main__":
         refp = os.path.join(REF, "copper_ref.png" if oid == 2 else "%d_ref.png" % oid)
         if oid in GEMS and not os.path.exists(refp):
             print("광물 %d: 보석이라 건너뜀 (PixelLab 원본 필요)" % oid); continue
-        gem = oid in GEMS
+        gem = oid in GEMS or oid in NEW_GEMS
         pal = ref_palette(refp, gem) if os.path.exists(refp) else ramp(*COL_OVERRIDE.get(oid, cols[oid]))
         if gem and os.path.exists(refp) and max(colorsys.rgb_to_hsv(*[c / 255 for c in q])[2] for q in pal) < 0.7:
             # 원본 색이 너무 어두우면(루비) ORE_COL 의 밝은 단계를 더해 밝힘 (원본의 어두운 색은 그늘로 남김)

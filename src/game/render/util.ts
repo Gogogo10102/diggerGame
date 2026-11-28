@@ -92,7 +92,7 @@ export function hazard(x: number, y: number, w: number, h: number, a?: string, b
 //   kind: fuel 주황 · low 빨강 · cargo 파랑 · lv 초록 · xp 보라
 export const SEG_COL = {
   fuel: ["#ffe066", "#f8a430", "#d0621e"], low: ["#ffb4a4", "#f0503a", "#a01e16"], cargo: ["#b4f0ff", "#46b8f0", "#1a76c4"],
-  lv: ["#c8f690", "#7cd84a", "#3e9a2a"], xp: ["#e6d0ff", "#b58cff", "#6a3ec4"], empty: ["#a8a8a8", "#8c8c8c", "#6a6a6a"],
+  hp: ["#ffb4bc", "#ff4d5e", "#b01a2e"], lv: ["#c8f690", "#7cd84a", "#3e9a2a"], xp: ["#e6d0ff", "#b58cff", "#6a3ec4"], empty: ["#a8a8a8", "#8c8c8c", "#6a6a6a"],
 };
 export function segBar(x: number, y: number, n: number, filled: number, kind: string, sw?: number, h?: number) {
   sw = sw || 10; h = h || 20;

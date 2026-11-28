@@ -1,7 +1,7 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./input.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { sfx } from "../core/sound.ts";
-import { TILE, won } from "../core/config.ts";
+import { ORE_ORDER, TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { STAT, equipNew, equipToggle, maxFuel, recalcStats, say, worn } from "../core/stats.ts";
@@ -46,8 +46,8 @@ export function stashValue() {
   return Math.round(v * STAT.sell);
 }
 // 판매 목록: 원석 9종 + 주괴 5종
-export const SELL_KEYS = [6, 2, 3, 8, 4, 9, 5, 10, 11, "cu", "fe", "ag", "au", "mi"];
-export const SELL_ORES = 9;                                 // 앞 9개는 원석, 나머지는 주괴
+export const SELL_KEYS = [...ORE_ORDER, "cu", "fe", "ag", "au", "mi"];
+export const SELL_ORES = ORE_ORDER.length;                  // 앞쪽은 원석(21개), 나머지는 주괴
 // 판매 탭 분류: 0 원석 · 1 주괴 · 2 의뢰 (S.sellSel 이 SELL_KEYS 뒤로 넘어가면 의뢰 줄)
 export const SELL_CAT_START = [0, SELL_ORES, SELL_KEYS.length];
 export const sellCat = () => (S.sellSel >= SELL_KEYS.length ? 2 : S.sellSel >= SELL_ORES ? 1 : 0);

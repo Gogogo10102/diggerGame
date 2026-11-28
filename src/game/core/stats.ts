@@ -64,9 +64,10 @@ export function equipNew(id) {
 export const oreYield = () => { const L = Math.max(0, STAT.lucky); return 1 + Math.floor(L) + (Math.random() < L % 1 ? 1 : 0); };
 
 // ---- 능력치: 장비 칸 값 + 보너스(특수·제작) + 레벨 ----
-export const STAT = { drill: 1, fuel: FUEL_BASE, cargo: 10, thrust: 1, speed: 1, light: 1, eff: 1, sell: 1, lucky: 0, pick: PICK_BASE, rocket: 0 };
+export const HP_BASE = 100;            // 최대 체력 기본값 (2026-11-28 체력 추가)
+export const STAT = { drill: 1, fuel: FUEL_BASE, cargo: 10, thrust: 1, speed: 1, light: 1, eff: 1, sell: 1, lucky: 0, pick: PICK_BASE, rocket: 0, hp: HP_BASE };
 export function recalcStats() {
-  const s = { drill: 0, fuel: 0, cargo: 0, thrust: 0, speed: 0, light: 0, eff: 0, sell: 0, lucky: 0, pick: 0, rocket: 0, robot: 0 };
+  const s = { drill: 0, fuel: 0, cargo: 0, thrust: 0, speed: 0, light: 0, eff: 0, sell: 0, lucky: 0, pick: 0, rocket: 0, robot: 0, hp: 0, tele: 0 };
   const v = { ...SLOT_BASE };
   for (const c of CATS) if (c.slot) { const id = slotItem(c); if (id) v[c.slot] = ITEMS[id].fx[c.slot]; }
   let sellMul = 1;                                                 // 레벨 장비(골드): 장비끼리 곱함 (고글 Lv.100 ×3 · 분석기 ×4 …)
@@ -93,6 +94,7 @@ export function recalcStats() {
   STAT.lucky = s.lucky;                  // 광물이 더 나올 기대값 (1 넘으면 여러 개, oreYield)
   STAT.pick = v.pick + s.pick + (S.MINER_LV - 1) * 0.006;   // 사람: 곡괭이
   STAT.rocket = v.rocket + s.rocket;     // 사람: 백팩 로켓 추진력 (0 = 로켓 없음 → 못 낢)
+  STAT.hp = HP_BASE + s.hp;              // 최대 체력 (장비 hp 보너스)
   {                                      // 로봇 외형: 장비 단계에 따라 달라짐
     const lk = { drill: 0, tracks: 0, lamp: 0, crate: 0, engine: 0, pick: 0, rocket: 0 };
     for (const cat of CATS) {
@@ -109,6 +111,9 @@ export function recalcStats() {
 }
 recalcStats();
 export const maxFuel = () => STAT.fuel;
+export const maxHp = () => STAT.hp;
+// 텔레포터: 가진 것 중 가장 깊이 갈 수 있는 m (없으면 0). 끼고 빼기와 상관없이 가지고만 있으면 됨
+export const teleMax = () => { let m = 0; for (const id in P.items) { const t = ITEMS[id] && ITEMS[id].fx && ITEMS[id].fx.tele; if (t > m) m = t; } return m; };
 export const cargoCap = () => STAT.cargo;
 // 지금 파는 힘: 로봇에 타 있으면 드릴, 사람이면 곡괭이
 export const drillMult = () => (P.mech ? STAT.drill : STAT.pick);
@@ -163,7 +168,7 @@ export function spawn(x, y, vx, vy, life, color, size, g) {
 //   아래를 파면 위로 튀고, 옆을 파면 반대쪽(플레이어 쪽)으로, 위를 파면 아래로 쏟아짐
 export function chips(c, r, id, n, power, dir) {
   const L = LAYERS[layerOf(r - SURF)];
-  const cols = id === 17 ? ["#8a5a30", "#b07a44", "#ffcc33"] : id >= 12 ? ["#8a90a0", "#5b606e", "#b0b6c6"] : id > 1 ? [ORE_COL[id][1], L.base, ORE_COL[id][0]] : [L.base, L.hi, L.lo];   // 17 보물 상자 = 나무·금 조각
+  const cols = id === 17 ? ["#8a5a30", "#b07a44", "#ffcc33"] : id >= 12 && !ORE_COL[id] ? ["#8a90a0", "#5b606e", "#b0b6c6"] : id > 1 ? [ORE_COL[id][1], L.base, ORE_COL[id][0]] : [L.base, L.hi, L.lo];   // 17 보물 상자 = 나무·금 조각
   const d = dir || "down", k = PX * power, rnd = Math.random;
   for (let i = 0; i < n; i++) {
     let x, y, vx, vy;

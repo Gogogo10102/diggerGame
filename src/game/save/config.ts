@@ -1,5 +1,6 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../render/minimap.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
+import { ORE_ORDER } from "../core/config.ts";
 
 
 // =====================================================================
@@ -10,4 +11,4 @@ import "../render/minimap.ts";   // 실행 순서 보장: 바로 앞 모듈을 �
 // =====================================================================
 export const SAVE_VER = 1;
 export const LS_PREFIX = "deepdigger:v1:";
-export const ORE_IDS = [6, 2, 3, 8, 4, 9, 5, 10, 11];     // 통계 표시 순서(싼 것 → 비싼 것)
+export const ORE_IDS = ORE_ORDER;     // 통계 표시 순서(싼 것 → 비싼 것, config.ts)

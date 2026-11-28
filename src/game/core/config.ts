@@ -29,7 +29,7 @@ export const inTown = (c) => c >= 1 && c < MINE_COL;             // 마을 땅(�
 export const inB = (k, c) => c >= BUILD_COLS[k][0] && c <= BUILD_COLS[k][1];
 
 // 광물 값(value, 원)은 2026-11-28 경제 개편으로 10배 (장비 3천원~120억원에 맞춤)
-// 타일 종류: 0 공기, 1 흙, 2 구리, 3 철, 4 금, 5 다이아, 7 암반, 17 보물 상자
+// 타일 종류: 0 공기, 1 흙, 2 구리, 3 철, 4 금, 5 다이아, 7 암반, 17 보물 상자, 20~31 새 광물 (2026-11-28)
 export const TILE = {
   1: { name: "흙",     hard: 0.35, value: 0 },
   2: { name: "구리",   hard: 0.55, value: 100 },
@@ -41,6 +41,19 @@ export const TILE = {
   9: { name: "에메랄드", hard: 1.25, value: 1400 },
   10: { name: "루비",   hard: 1.45, value: 2000 },
   11: { name: "미스릴", hard: 2.00, value: 6000 },
+  // 새 광물 12종 (2026-11-28): 지층마다 1~2개. fragile = 약해서 로봇 톱니로 캐면 부서짐(사람 곡괭이로만)
+  20: { name: "석영",     hard: 0.50, value: 120 },
+  21: { name: "호박",     hard: 0.40, value: 700, fragile: true },
+  22: { name: "자수정",   hard: 1.20, value: 1800 },
+  23: { name: "사파이어", hard: 1.55, value: 4500 },
+  24: { name: "흑요석",   hard: 2.10, value: 12000 },
+  25: { name: "화염석",   hard: 2.20, value: 20000 },
+  26: { name: "수정 결정", hard: 2.30, value: 40000 },
+  27: { name: "오팔",     hard: 1.30, value: 70000, fragile: true },
+  28: { name: "아다만트", hard: 2.60, value: 150000 },
+  29: { name: "고대 호박", hard: 1.40, value: 250000, fragile: true },
+  30: { name: "공허석",   hard: 2.90, value: 600000 },
+  31: { name: "별 조각",  hard: 3.20, value: 2000000 },
   14: { name: "나무 지지대", hard: Infinity, value: 0 },   // 지나갈 수 있는 설치물
   15: { name: "강철 지지대", hard: Infinity, value: 0 },
   13: { name: "기초석", hard: Infinity, value: 0 },    // 건물 아래 땅 (부술 수 없음)
@@ -62,7 +75,21 @@ export const ORE_COL = {
   9: ["#b8ffcf", "#3ddc84", "#1b8f50"],
   10: ["#ffc0c0", "#ff4d5e", "#a11a2f"],
   11: ["#d7fff6", "#6ef2d4", "#2a9d92"],
+  20: ["#ffffff", "#e4dcef", "#a297b4"],   // 석영: 뿌연 흰 결정
+  21: ["#ffe7a3", "#f2a52a", "#9a5a0c"],   // 호박: 꿀빛
+  22: ["#f1d6ff", "#b26ee8", "#6a2c9c"],   // 자수정: 보라
+  23: ["#cfe0ff", "#3f72f0", "#1b2f8c"],   // 사파이어: 짙은 파랑
+  24: ["#9c8fb8", "#3d3350", "#17121f"],   // 흑요석: 검보라 유리
+  25: ["#fff0a0", "#ff6a20", "#a8220c"],   // 화염석: 주황 불꽃
+  26: ["#f6f2ff", "#bcc8ff", "#6a78d6"],   // 수정 결정: 옅은 남빛
+  27: ["#fff4fc", "#f7b6e6", "#8c8ad8"],   // 오팔: 분홍·보라 무지갯빛
+  28: ["#eeffc4", "#9ccd36", "#4a6a12"],   // 아다만트: 연두 금속
+  29: ["#ffd2a2", "#d4621c", "#6c2a08"],   // 고대 호박: 진한 주황
+  30: ["#d6c6ff", "#5c3cd2", "#1c1044"],   // 공허석: 깊은 보라
+  31: ["#ffffff", "#fff6a8", "#d2b03e"],   // 별 조각: 흰 금빛
 };
+// 광물 순서(싼 것 → 비싼 것): 통계·판매·화물 칸 표시 순서. 새 광물(20~31)은 값 자리에 끼움
+export const ORE_ORDER = [6, 2, 20, 3, 8, 21, 4, 9, 22, 10, 5, 23, 11, 24, 25, 26, 27, 28, 29, 30, 31];
 // 지층 (깊이 m 기준)
 export const LAYERS = [
   { name: "흙층",     from: 0,    base: "#6b4a2f", hi: "#7d5a3a", lo: "#573b25", peb: "#8a8077" },

@@ -3,14 +3,14 @@ import "../core/stats.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼�
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
 import { SHOP_PER, cargoCount, cycleZoom, say } from "../core/stats.ts";
-import { HOT, SHOP_TABS } from "../data/consumables.ts";
+import { HOT, SHOP_TABS, craftTabs, fixTab, shopTabs, stepTab } from "../data/consumables.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
 import { BAR_KEYS, furnaceAct, openFurnace } from "./furnace.ts";
 import { ORDER_N, SELL_CAT_START, SELL_KEYS, SELL_ORES, buyItem, craftItem, deliverOrder, openCraft, rerollOrders, sellCat, sellItem, sellStash } from "./town.ts";
 import { atGarage, toggleMech, useConsumable } from "./update.ts";
 import { openQuests } from "../ui/dom.ts";
-import { closeMenu, openInventory, openMenu } from "../ui/menu.ts";
+import { closeMenu, openInventory, openMenu, openTele } from "../ui/menu.ts";
 import { hideOv, openAccountScreen } from "../ui/overlay.ts";
 import { sfx } from "../core/sound.ts";
 import { mapKey, mapPointerDown, mapPointerMove, mapPointerUp, mapZoom, openMap } from "../render/minimap.ts";
@@ -44,11 +44,12 @@ addEventListener("keydown", (e) => {
     return;
   }
   if (S.state === "shop") {                             // 상점 메뉴 조작
-    const n = SHOP_TABS.length, len = SHOP_TABS[S.shopTab].ids.length;
+    S.shopTab = fixTab(S.shopTab, shopTabs());                       // 로봇 탭이 숨어 있으면 보이는 탭으로
+    const len = SHOP_TABS[S.shopTab].ids.length;
     if (e.code === "Escape" || e.code === "KeyE") { if (!e.repeat) closeShop(); return; }
     if (e.repeat && (e.code === "Enter" || e.code === "Space")) return;
-    if (e.code === "ArrowLeft" || e.code === "KeyA") { S.shopTab = (S.shopTab + n - 1) % n; S.shopSel = 0; }
-    else if (e.code === "ArrowRight" || e.code === "KeyD") { S.shopTab = (S.shopTab + 1) % n; S.shopSel = 0; }
+    if (e.code === "ArrowLeft" || e.code === "KeyA") { S.shopTab = stepTab(S.shopTab, shopTabs(), -1); S.shopSel = 0; }
+    else if (e.code === "ArrowRight" || e.code === "KeyD") { S.shopTab = stepTab(S.shopTab, shopTabs(), 1); S.shopSel = 0; }
     else if (e.code === "ArrowUp" || e.code === "KeyW") S.shopSel = (S.shopSel + len - 1) % len;
     else if (e.code === "ArrowDown" || e.code === "KeyS") S.shopSel = (S.shopSel + 1) % len;
     else if (e.code === "PageDown") S.shopSel = Math.min(len - 1, (Math.floor(S.shopSel / (S.shopPer || SHOP_PER)) + 1) * (S.shopPer || SHOP_PER));
@@ -57,15 +58,16 @@ addEventListener("keydown", (e) => {
     return;
   }
   if (S.state === "craft") {                            // 제작소 메뉴 조작
-    const n = RECIPE_CATS.length + 1;
+    const vis = craftTabs();                                          // 로봇 부품 분류는 로봇을 산 뒤에만
+    S.craftTab = fixTab(S.craftTab, vis);
     const onSell = S.craftTab === RECIPE_CATS.length;
-    const setTab = (t) => { S.craftTab = (t + n) % n; S.craftSel = 0; };
+    const setTab = (t) => { S.craftTab = t; S.craftSel = 0; };
     if (e.code === "Escape" || e.code === "KeyE") { if (!e.repeat) closeShop(); return; }
     if (e.repeat && (e.code === "Enter" || e.code === "Space")) return;
-    if (e.code === "Tab") { e.preventDefault(); setTab(S.craftTab + (e.shiftKey ? -1 : 1)); return; }
-    if (e.code === "PageUp") { setTab(S.craftTab - 1); return; }
-    if (e.code === "PageDown") { setTab(S.craftTab + 1); return; }
-    if (/^Digit[1-9]$/.test(e.code)) { const t = Number(e.code.slice(5)) - 1; if (t < n) setTab(t); return; }
+    if (e.code === "Tab") { e.preventDefault(); setTab(stepTab(S.craftTab, vis, e.shiftKey ? -1 : 1)); return; }
+    if (e.code === "PageUp") { setTab(stepTab(S.craftTab, vis, -1)); return; }
+    if (e.code === "PageDown") { setTab(stepTab(S.craftTab, vis, 1)); return; }
+    if (/^Digit[1-9]$/.test(e.code)) { const t = Number(e.code.slice(5)) - 1; if (t < vis.length) setTab(vis[t]); return; }
     if (onSell) {                                       // 판매: ←→ 원석/주괴 분류 · ↑↓ 고르기
       const len = SELL_KEYS.length, cat = sellCat(), lo = SELL_CAT_START[cat], hi = cat < 2 ? SELL_CAT_START[cat + 1] - 1 : len + ORDER_N - 1;
       if (e.code === "ArrowLeft" || e.code === "KeyA") S.sellSel = SELL_CAT_START[(cat + 2) % 3];
@@ -97,12 +99,13 @@ addEventListener("keydown", (e) => {
   if (e.code === "Escape") { if (!e.repeat) openMenu(); return; }
   if (e.code === "KeyI") { if (!e.repeat) openInventory(); return; }
   if (e.code === "KeyQ") { if (!e.repeat) openQuests(); return; }
+  if (e.code === "KeyT") { if (!e.repeat) openTele(); return; }      // 텔레포트 창 (텔레포터를 만들었으면)
   if (e.code === "KeyM") { if (!e.repeat) openMap(); return; }
   if (e.code === "KeyN") { if (!e.repeat) { toggleMini(innerWidth); saveNow(true, true); } return; }   // 미니맵 켜기/끄기
   keys[e.code] = true;
   if (e.code === "KeyH") { S.showHelp = !S.showHelp; S.helpPinned = S.showHelp; }
   if (e.code === "KeyE" && !e.repeat && P.dead <= 0) { if (S.nearItems) openTown(); else if (atGarage()) toggleMech(); }
-  if (/^Digit[1-8]$/.test(e.code) && !e.repeat) useConsumable(HOT[Number(e.code.slice(5)) - 1]);
+  if (/^Digit[1-9]$/.test(e.code) && !e.repeat) useConsumable(HOT[Number(e.code.slice(5)) - 1]);
   if (e.code === "KeyZ" && !e.repeat) cycleZoom();
 });
 addEventListener("keyup", (e) => { keys[e.code] = false; });
@@ -259,6 +262,7 @@ function stageDown(e) {
   if (S.menuBtn && hit(S.menuBtn)) { sfx("click"); openMenu(); return; }
   if (S.bagBtn && hit(S.bagBtn)) { sfx("click"); openInventory(); return; }
   if (S.questBtn && hit(S.questBtn)) { sfx("click"); openQuests(); return; }                      // 메뉴 버튼
+  if (S.teleBtn && hit(S.teleBtn)) { sfx("click"); openTele(); return; }                            // 텔레포트
   if (S.mapToggleBtn && hit(S.mapToggleBtn)) { sfx("click"); toggleMini(innerWidth); saveNow(true, true); return; }   // 지도 켜기/끄기
   if (S.helpRect && hit(S.helpRect)) { sfx("click"); S.showHelp = false; S.helpPinned = false; say("도움말은 메뉴 → 설정에서 다시 켤 수 있어요"); saveNow(true, true); return; }
   if (S.miniBtn && hit(S.miniBtn)) { sfx("click"); openMap(); return; }                            // 미니맵 → 큰 지도

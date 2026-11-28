@@ -2,6 +2,7 @@
 import "./items.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { ITEMS } from "./items.ts";
 import { icon } from "../render/util.ts";
+import { ICON, sprite } from "../art/sprites.ts";
 
 // ---- 제작 장비 ----
 // ITEMS에 같이 등록되므로 구매 아이템과 똑같이 능력치/저장에 반영됩니다.
@@ -9,8 +10,8 @@ import { icon } from "../render/util.ts";
 // 광물 id: 6 석탄, 2 구리, 3 철, 8 은, 4 금, 9 에메랄드, 5 다이아, 10 루비, 11 미스릴
 // 분류마다 3개씩 넣으세요. 재료는 제작소 창고(P.stash)에서 소모됩니다.
 export const RECIPE_CATS = [];
-export function addRecipeCat(name, icon, list) {
-  const cat = { name, icon, ids: [] };
+export function addRecipeCat(name, icon, list, robot) {
+  const cat = { name, icon, ids: [], robot: !!robot };            // robot: 로봇 부품이라 로봇을 사야 보임
   list.forEach((it) => {
     ITEMS[it[0]] = { id: it[0], name: it[1], fx: it[2], mats: it[3], cost: it[4], icon, req: it[5] || null, craft: true };
     cat.ids.push(it[0]);
@@ -26,7 +27,7 @@ addRecipeCat("톱날", "drill", [
   ["silver_bit", "은 톱날", { drill: 0.6, lucky: 0.05 }, { 8: 8, 3: 10 }, 35000, "iron_bit"],
   ["gold_bit", "금 코팅 톱날", { drill: 0.9, sell: 0.1 }, { 4: 8, 8: 6 }, 90000, "silver_bit"],
   ["ruby_bit", "루비 톱날", { drill: 1.5, lucky: 0.05 }, { 10: 6, 4: 8 }, 300000, "laser_drill"],
-]);
+], true);
 addRecipeCat("동력", "engine", [
   ["coal_boiler", "석탄 보일러", { fuel: 30, eff: 0.1 }, { 6: 20, 3: 5 }, 10000],
   ["ruby_core", "루비 열 코어", { fuel: 60, eff: 0.15 }, { 10: 5, 4: 6 }, 150000, "coal_boiler"],
@@ -35,7 +36,7 @@ addRecipeCat("동력", "engine", [
   ["gold_cell", "금 축전지", { fuel: 70, eff: 0.1 }, { 4: 8, 2: 15 }, 90000, "copper_coil"],
   ["diamond_cell", "다이아 셀", { fuel: 110, eff: 0.12 }, { 5: 5, 10: 4 }, 350000, "ruby_core"],
   ["void_engine", "공허 엔진", { fuel: 250, eff: 0.25, thrust: 0.4 }, { 11: 10, 5: 8 }, 1200000, "mithril_reactor"],
-]);
+], true);
 addRecipeCat("보조", "lamp", [
   ["silver_lens", "은 반사경", { light: 0.35 }, { 8: 8, 2: 5 }, 25000],
   ["gold_scale", "금도금 저울", { sell: 0.2 }, { 4: 6, 8: 6 }, 50000],
@@ -53,12 +54,27 @@ addRecipeCat("외장", "tracks", [
   ["ion_thruster", "이온 추진기", { thrust: 0.5, speed: 0.2 }, { 9: 6, 5: 3 }, 350000, "turbo_motor"],
   ["silver_plating", "은 도금 프레임", { cargo: 25 }, { 8: 12, 3: 20 }, 90000, "steel_frame"],
   ["diamond_hull", "다이아 선체", { cargo: 50, speed: 0.1 }, { 5: 8, 11: 3 }, 900000, "mithril_armor"],
-]);
+], true);
 addRecipeCat("탐사", "special", [
   ["scout_goggles", "탐사 고글", { light: 0.2, lucky: 0.03 }, { 2: 10, 8: 4 }, 18000],
   ["geo_scanner", "지질 스캐너", { light: 0.4, lucky: 0.08 }, { 9: 4, 8: 8 }, 150000, "scout_goggles"],
   ["vein_radar", "광맥 레이더", { light: 0.3, lucky: 0.15, drill: 0.3 }, { 5: 4, 10: 3 }, 500000, "geo_scanner"],
   ["deep_visor", "심층 바이저", { light: 1.0, lucky: 0.1 }, { 11: 6, 5: 6 }, 1100000, "vein_radar"],
+]);
+// 이동 (2026-11-28): 텔레포터. 만들면 마을 ↔ 땅속(간 적 있는 깊이) 을 순간 이동, 좋은 것일수록 갈 수 있는 최대 깊이(tele, m)가 늘어남
+//   재료는 바로 앞 단계로 갈 수 있는 깊이의 새 광물 → 한 단계씩 깊어짐 (로봇 없이도 씀)
+ICON.tele = sprite(16, 16, (p) => {
+  p(3, 13, 10, 2, "#14151f"); p(4, 13, 8, 1, "#8b93a6"); p(2, 12, 12, 1, "#14151f");
+  p(4, 2, 8, 11, "#14151f"); p(5, 3, 6, 9, "#3a2a78"); p(6, 4, 4, 7, "#6a4ae0"); p(7, 5, 2, 5, "#b8a8ff"); p(7, 6, 1, 2, "#ffffff");
+  p(3, 4, 1, 8, "#9fd8ff"); p(12, 4, 1, 8, "#9fd8ff"); p(5, 1, 6, 1, "#9fd8ff");
+});
+addRecipeCat("이동", "tele", [
+  ["tele1", "간이 텔레포터", { tele: 200 }, { 20: 20, 2: 30 }, 30000],
+  ["tele2", "자수정 텔레포터", { tele: 500 }, { 22: 10, 3: 30 }, 400000, "tele1"],
+  ["tele3", "사파이어 게이트", { tele: 900 }, { 23: 10, 4: 20 }, 3000000, "tele2"],
+  ["tele4", "흑요석 게이트", { tele: 1400 }, { 24: 12, 25: 5 }, 30000000, "tele3"],
+  ["tele5", "수정 공명기", { tele: 2000 }, { 26: 10, 27: 2 }, 300000000, "tele4"],
+  ["tele6", "공허 도약기", { tele: 2400 }, { 28: 8, 30: 3 }, 3000000000, "tele5"],
 ]);
 // 트리 배치: 선행 장비가 왼쪽, 다음 단계가 오른쪽
 export function layoutTree(cat) {
