@@ -113,6 +113,7 @@ recalcStats();
 export const maxFuel = () => STAT.fuel;
 export const maxHp = () => STAT.hp;
 // 텔레포터: 가진 것 중 가장 깊이 갈 수 있는 m (없으면 0). 끼고 빼기와 상관없이 가지고만 있으면 됨
+export const teleId = () => { for (const id in P.items) if (ITEMS[id] && ITEMS[id].fx && ITEMS[id].fx.tele) return id; return null; };   // 가진 텔레포터 (하나만)
 export const teleMax = () => { let m = 0; for (const id in P.items) { const t = ITEMS[id] && ITEMS[id].fx && ITEMS[id].fx.tele; if (t > m) m = t; } return m; };
 export const cargoCap = () => STAT.cargo;
 // 지금 파는 힘: 로봇에 타 있으면 드릴, 사람이면 곡괭이

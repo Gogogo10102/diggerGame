@@ -63,6 +63,7 @@ addRecipeCat("탐사", "special", [
 ]);
 // 이동 (2026-11-28): 텔레포터. 만들면 마을 ↔ 땅속(간 적 있는 깊이) 을 순간 이동, 좋은 것일수록 갈 수 있는 최대 깊이(tele, m)가 늘어남
 //   재료는 바로 앞 단계로 갈 수 있는 깊이의 새 광물 → 한 단계씩 깊어짐 (로봇 없이도 씀)
+//   지상에 설치해서 쓰는 소모성 장비: 한 번에 하나만, 내구도를 다 쓰면 사라짐 (update.ts 의 텔레포터)
 ICON.tele = sprite(16, 16, (p) => {
   p(3, 13, 10, 2, "#14151f"); p(4, 13, 8, 1, "#8b93a6"); p(2, 12, 12, 1, "#14151f");
   p(4, 2, 8, 11, "#14151f"); p(5, 3, 6, 9, "#3a2a78"); p(6, 4, 4, 7, "#6a4ae0"); p(7, 5, 2, 5, "#b8a8ff"); p(7, 6, 1, 2, "#ffffff");
@@ -76,6 +77,8 @@ addRecipeCat("이동", "tele", [
   ["tele5", "수정 공명기", { tele: 2000 }, { 26: 10, 27: 2 }, 300000000, "tele4"],
   ["tele6", "공허 도약기", { tele: 2400 }, { 28: 8, 30: 3 }, 3000000000, "tele5"],
 ]);
+export const TELE_DUR = { tele1: 20, tele2: 25, tele3: 30, tele4: 35, tele5: 40, tele6: 50 };   // 내구도 (설치 2 · 한 번 넘어갈 때 1)
+for (const id in TELE_DUR) ITEMS[id].dur = TELE_DUR[id];
 // 트리 배치: 선행 장비가 왼쪽, 다음 단계가 오른쪽
 export function layoutTree(cat) {
   const nodes = cat.ids.map((id, i) => ({ id, i, req: ITEMS[id].req && cat.ids.includes(ITEMS[id].req) ? ITEMS[id].req : null, col: 0, row: 0 }));

@@ -184,5 +184,7 @@ for (const id in CRAFT_ICON) {
   const bn = CRAFT_ICON[id][0], t = CRAFT_ICON[id][1];
   ITEM_ICON[id] = sprite(16, 16, (p) => B[bn](p, t, PAL[t]));
 }
+// 텔레포터 6단계: 칸마다 따로 그림(PNG items/tele<n>.png 가 덮어씀). 기본은 이동 분류 아이콘을 복사
+for (let n = 1; n <= 6; n++) ITEM_ICON["tele" + n] = sprite(16, 16, (p, g) => g.drawImage(ICON.tele, 0, 0));
 export const itemIcon = (id) => ITEM_ICON[id] || ICON[ITEMS[id].icon];
 

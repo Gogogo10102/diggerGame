@@ -121,11 +121,12 @@ docs/                  plan.md decisions.md
 - **로봇 부품은 로봇을 산 뒤에만 보임**(2026-11-28): 상점 탭 톱니·탱크·엔진·구동계(`SHOP_TABS[i].robot`), 제작 톱날·동력·외장(`RECIPE_CATS[i].robot`), 가방 장비 칸(`ROBOT_CATS`·`catOpen`, items.ts).
   보이는 탭 번호 = `shopTabs()`·`craftTabs()`(consumables.ts, 맨 끝 = 판매). `S.shopTab`·`S.craftTab` 은 전체 목록 번호 그대로, 숨은 탭이면 `fixTab`, 옆 탭은 `stepTab`. townFrame 분류에 `k`(원래 번호)를 주면 누른 자리가 그 번호로.
 - **체력**(2026-11-28, update.ts): `P.hp`(세이브 `player.hp`, 옛 세이브는 가득) · 최대 `maxHp()` = `HP_BASE`(100) + 장비 `hp`. `hurt(n, 왜)` 0.6초 무적 · 빨간 테두리 · `sfx("hurt")`, 로봇에 타고 있으면 `ROBOT_ARMOR`(40%)만.
-  피해: 낙하 `SAFE_FALL`(4칸) 넘으면 칸당 `FALL_DMG`(6, `S.fallTop` 부터 잰 높이) · 폭발 `BLAST_DMG`(35) · 가스 속 사람 `GAS_HP`(초당 6, 로봇은 연료만). 0 이면 `faint()` = 연료 고갈과 같은 구조(화물 잃고 마을).
+  피해: 낙하 = 마지막으로 추진·점프·사다리를 놓은 높이(`S.fallTop`, 떨어지다 추진하면 다시 잼)부터 사람 `SAFE_FALL`(6칸)·로봇 `SAFE_FALL_MECH`(12칸) 넘으면 칸당 `FALL_DMG`(5, 로봇은 절반 × 장갑 = 칸당 1), 최고 낙하 속도의 90% 이상일 때만 · 폭발 `BLAST_DMG`(35) · 가스 속 사람 `GAS_HP`(초당 6, 로봇은 연료만). 0 이면 `faint()` = 연료 고갈과 같은 구조(화물 잃고 마을).
   회복: 지상에서 초당 `TOWN_HEAL`(25) · 소모품 구급상자(`medkit`, 50%, 단축 9번). HUD 맨 위 줄 하트 막대(`HUD_DY` 만큼 아래 줄을 내림).
-- **텔레포터**(2026-11-28, 제작 '이동' 6단계 `tele1~6`, 효과 `tele` = 최대 m: 200·500·900·1400·2000·2400): 재료는 앞 단계로 갈 수 있는 깊이의 새 광물. 로봇 없이도 씀.
-  T 키·HUD 버튼(지도 버튼 왼쪽)·메뉴 → 텔레포트 창(`renderTele`, menu.ts): 마을 + `teleStops()`(50m 단위, 500m 아래는 100m, 텔레포터 최대와 가 본 가장 깊은 곳 중 얕은 쪽까지).
-  `teleportTo(m)`: 도착 자리 `teleSpot` = 지금 열(광산 터면) 근처 발밑이 단단한 빈칸, 없으면 2칸 파 둠(암반 제외). 쓰면 `TELE_CD`(30초) 충전.
+- **텔레포터 = 한 쌍의 패드**(2026-11-28, update.ts, 제작 '이동' 6단계 `tele1~6`, 효과 `tele` = 땅속 패드 최대 m: 200·500·900·1400·2000·2400, 내구도 `TELE_DUR` 20~50): 재료는 앞 단계로 갈 수 있는 깊이의 새 광물. 로봇 없이도 씀.
+  지상(광산 터 땅 위)에 하나(`a`), 땅속(최대 깊이까지)에 하나(`b`) 깔면 이어짐 → 패드 앞(`atPad()`)에서 [E]·이동 버튼(`S.promptBtn`)으로 반대쪽 패드로(`useTele`).
+  깔기·옮겨 깔기는 T 키·HUD 버튼 → 창(`renderTele`, menu.ts) → `placeTele`(서 있는 칸, `teleCanPlace` 가 지상/땅속을 고름). 내구도: 깔기 `TELE_PLACE`(2) · 이동 1(`teleWear`), 0 이면 부서져 사라짐 → 다시 제작.
+  **한 번에 하나만**(`teleId()`). 상태 `P.tele = { dur, a: {c, r}|null, b: {c, r}|null }`(세이브 `player.tele`, r = 패드가 놓인 칸), 만든 적 있는 제작 장비 `P.made`(부서진 텔레포터도 다음 단계 선행 조건으로 인정). 그림 = PixelLab 시트 `tele.png` → 단계마다 `items/tele<n>.png`(패드도 그 단계 그림을 키워 그림) · `ui/icon/tele.png`(HUD 버튼) · `ui/tab/craft_tele.png`.
 - 마을 창(상점·제작·용광로·판매)은 `render/townUI.ts` 의 공용 틀 `townFrame(…, 분류목록, 고른분류, 분류동작)` 을 씁니다.
   "왼쪽 분류 → 오른쪽 목록(줄마다 버튼)" 흐름을 지켜 주세요. 상세 칸이 필요하면 `townFooter`.
 - **움직임 숫자 = `update.ts` 의 `MOVE`**(걷기 속도·출발/멈춤 시간·걷기 한 바퀴 거리·공중 조작·중력·로켓/추진). 출발·멈춤은 '최고 속도까지 걸리는 초'로 적음. 지금 값은 2026-11-25 조절판으로 고른 것(사람 속도 80·로봇 125, 중력 560 등).
@@ -169,7 +170,7 @@ docs/                  plan.md decisions.md
   **새 광물(2026-11-28)** 20 석영 · 21 호박 · 22 자수정 · 23 사파이어 · 24 흑요석 · 25 화염석 · 26 수정 결정 · 27 오팔 · 28 아다만트 · 29 고대 호박 · 30 공허석 · 31 별 조각(지층마다 1~2개, 120원 ~ 200만원).
   표시 순서는 `ORE_ORDER`(config.ts, 값 순) → 통계 `ORE_IDS`·판매 `SELL_KEYS`·화물 칸. 분포는 world.ts `ORE_GEN` 의 `v2` 줄: 광맥은 **다른 난수**(salt 0x0e2a)로 따로 만들어 기존 광맥 배치는 그대로.
   `TILE[id].fragile`(호박·오팔·고대 호박) = 약한 광물: 로봇 톱니·폭발에 부서져 아무것도 안 남음(`shatterOre`, update.ts) → 사람 곡괭이로만.
-  그림은 아직 닮은 광물 모양(`ORE_SHAPE_OF`, sprites.ts)을 제 색으로 칠한 대체 그림 + 땅속 알갱이(make-pixellab-ores.py, `NEW_GEMS` 는 결정 모양). PixelLab 아이콘이 오면 `ores/icon/<id>.png` 로.
+  아이콘·떨어진 그림 = PixelLab 시트 `ores2.png`(석영~화염석)·`ores3.png`(수정 결정~별 조각) → make-pixellab-items.py 의 `ORE_PICKS`. 땅속 알갱이는 make-pixellab-ores.py(`NEW_GEMS` 는 결정 모양). PNG 가 없을 때의 대체 그림 = 닮은 광물 모양(`ORE_SHAPE_OF`)을 제 색으로.
 - **드릴 아이콘**(`items/<드릴 id>.png` 15개 + `ui/icon/drill.png`)은 `python3 tools/make-drill-icons.py` (확정 도안 v2, 등급 4 × 진화 4 중 고른 표는 파일 안 MAP).
 - **원석 아이콘·떨어진 광물·주괴 = PixelLab**(2026-11-28): 시트 `ores.png`(원석 8)·`bars.png`(미스릴 원석 + 주괴) → make-pixellab-items.py 의 `ORE_PICKS`·`BAR_PICKS` → `ores/icon/<id>`(32) · `ores/drop/<id>`(같은 그림을 24로 줄임) · `bars/<키>`.
   미스릴은 시트의 하늘색이 다이아와 겹쳐 게임 미스릴 색(민트 167도)으로 바꿈(`ORE_RECOLOR`·`BAR_RECOLOR`). 땅속 광물 알갱이(`ores/world`)는 그대로.

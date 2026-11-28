@@ -6,7 +6,7 @@ import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLE
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, ORE_ORDER, PX, SURF, T, TILE, W, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, maxHp, parts, teleMax } from "../core/stats.ts";
+import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, maxHp, parts, teleId, teleMax } from "../core/stats.ts";
 import { baseTiles, ensureRect, hardOf, isAir, natAir, seen, tiles } from "../core/world.ts";
 import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
@@ -533,6 +533,13 @@ export function draw() {
 
   // 차고: 상점과 제작소 사이 바닥 판 + (로봇을 샀는데 안 타고 있으면) 세워 둔 로봇
   drawGarage(camX, camY, vw);
+  if (P.tele && teleMax() > 0) for (const e of [P.tele.a, P.tele.b]) {   // 깐 텔레포터 패드(지상·땅속): 서 있는 칸에, 둘 다 깔려 이어지면 보랏빛이 일렁임
+    if (!e) continue;
+    const px = e.c * T - camX, py = e.r * T - camY, on = P.tele.a && P.tele.b;
+    if (px < -T || px > vw + T || py < -2 * T || py > innerHeight + T) continue;
+    if (on) { const a = 0.22 + 0.14 * Math.sin(S.animT * 3); ctx.fillStyle = "rgba(150,120,255," + a.toFixed(3) + ")"; ctx.fillRect(px + 16, py - 24, T - 32, T + 16); }
+    ctx.globalAlpha = on ? 1 : 0.6; blit(itemIcon(teleId()), px, py, T, T); ctx.globalAlpha = 1;   // 패드 = 그 단계 텔레포터 그림
+  }
 
   // 플레이어 (타이틀 화면에선 로고 위 로봇만 보이게 숨김)
   if (P.dead <= 0 && S.state !== "title" && !P.mech) drawHuman(Math.round(P.x - camX), Math.round(P.y - camY));
@@ -932,11 +939,11 @@ export function drawHUD(vw, vh, depth) {
     glyph(GLYPH.map, tx + Math.floor((bs - 21) / 2), Math.round(cy - 10.5), mapOn ? "#1668b8" : "#5a6478", 3);
     if (!mapOn) { ctx.fillStyle = "#c42a3a"; for (let k = 0; k < 6; k++) ctx.fillRect(tx + 8 + k * 5, ty + 8 + k * 4, 4, 4); }   // 꺼짐: 빨간 사선
     S.mapToggleBtn = { x: tx - 3, y: ty - 3, w: bs + 6, h: bs + 6 };
-    if (teleMax() > 0) {                                           // 텔레포트 버튼: 지도 버튼 왼쪽. 충전 중이면 어둡게 + 남은 초
-      const qx = tx - bs - bg, cd = Math.max(0, S.teleCD || 0);
-      const qy = btnPx(qx, ty, bs, bs, cd > 0 ? "steel" : "blue");
-      ctx.globalAlpha = cd > 0 ? 0.45 : 1; blit(ICON.tele, qx + ((bs - 32) >> 1), Math.round(qy - 16), 32, 32); ctx.globalAlpha = 1;
-      if (cd > 0) txt(String(Math.ceil(cd)), qx + bs / 2, ty + bs - 18, "#fff", 12, "center", SY.ink);
+    if (teleMax() > 0) {                                           // 텔레포터 버튼: 지도 버튼 왼쪽. 아래에 남은 내구도
+      const qx = tx - bs - bg, dur = P.tele ? P.tele.dur : 0;
+      const qy = btnPx(qx, ty, bs, bs, "blue");
+      blit(ICON.tele, qx + ((bs - 32) >> 1), Math.round(qy - 16), 32, 32);
+      txt(String(dur), qx + bs - 4, ty + bs - 16, dur <= 3 ? SY.red : "#fff", 12, "right", SY.ink);
       S.teleBtn = { x: qx - 3, y: ty - 3, w: bs + 6, h: bs + 6 };
     }
     [["green", GLYPH.bag, "bag", "#2a8a1e"], ["blue", GLYPH.trophy, "quest", "#1668b8"], ["orange", GLYPH.menu, "menu", "#d0600a"]].forEach(([col, g, kind, tc], i) => {
@@ -1015,14 +1022,16 @@ export function drawHUD(vw, vh, depth) {
   const helpUp = helpOn && 12 + helpW > S.hotLeft - 8;      // 슬롯과 겹치면 도움말을 슬롯 위로 올리고, 안내창도 같이 올림
   const helpLift = helpUp ? 44 : 0;
   const garageHere = !S.nearItems && !S.nearCraft && !S.nearFurnace && atGarage();
-  if ((S.nearItems || S.nearCraft || S.nearFurnace || garageHere) && S.state === "play" && P.dead <= 0) {
-    const nm = S.nearItems ? (cargoCount() > 0 ? "가게 들어가기 · 광물 팔기" : "가게 들어가기") : P.mech ? "로봇에서 내리기" : P.items.robot ? "로봇 타기" : "로봇 사기 · " + won(ITEMS.robot.cost);
+  const padHere = !S.nearItems && !garageHere ? atPad() : "", padTo = padHere && P.tele[padHere === "a" ? "b" : "a"];
+  if ((S.nearItems || S.nearCraft || S.nearFurnace || garageHere || padHere) && S.state === "play" && P.dead <= 0) {
+    const nm = padHere ? (padTo ? (padHere === "a" ? "텔레포터로 이동 · 땅속 " + (padTo.r - SURF) + "m" : "텔레포터로 이동 · 지상") + " (내구도 " + P.tele.dur + ")" : (padHere === "a" ? "땅속에도 패드를 까세요" : "지상에도 패드를 까세요"))
+      : S.nearItems ? (cargoCount() > 0 ? "가게 들어가기 · 광물 팔기" : "가게 들어가기") : P.mech ? "로봇에서 내리기" : P.items.robot ? "로봇 타기" : "로봇 사기 · " + won(ITEMS.robot.cost);
     const label = S.usedTouch ? nm : "[E] " + nm;
     setFont(16);
     const pw = Math.ceil(ctx.measureText(label).width) + 56, ph = 48;
     const px = Math.floor((vw - pw) / 2), py = vh - 124 - helpLift;
     S.promptBtn = { x: px, y: py, w: pw, h: ph };
-    const cy = btnPx(px, py, pw, ph, garageHere && !P.mech && !P.items.robot && P.money < ITEMS.robot.cost ? "steel" : "green");
+    const cy = btnPx(px, py, pw, ph, (padHere && !padTo) || (garageHere && !P.mech && !P.items.robot && P.money < ITEMS.robot.cost) ? "steel" : padHere ? "blue" : "green");
     btnTxt(label, vw / 2 + 4, cy - 8, 16);
   }
 
