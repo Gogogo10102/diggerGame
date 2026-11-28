@@ -9,7 +9,7 @@ import { EQUIP_FIXED, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, SLOT_BASE, STAT, cargoCa
 import { fxNum, fxText } from "../art/buildings.ts";
 import { saveNow } from "../save/account.ts";
 import { CONS, HOT, visR } from "../data/consumables.ts";
-import { CATS, ITEMS, itemLv } from "../data/items.ts";
+import { CATS, ITEMS, catOpen, itemLv } from "../data/items.ts";
 import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { LS_PREFIX } from "../save/config.ts";
@@ -62,7 +62,7 @@ export function renderInventory(note) {
   };
   const pickCats = [];                                               // [키, 분류, 장비 칸?]
   for (const cat of CATS) {
-    if (cat.cons) continue;
+    if (cat.cons || !catOpen(cat.icon)) continue;                    // 로봇 부품 칸은 로봇을 산 뒤에만
     const key = "c:" + cat.icon, owned = cat.ids.some((id) => P.items[id] && !EQUIP_FIXED[id]);
     pickCats.push([key, cat, !!cat.slot]);
     if (cat.slot) {                                                  // 장비 칸: 낀 것 하나 (값 = 그 장비의 고유 값)
@@ -74,6 +74,7 @@ export function renderInventory(note) {
     }
   }
   for (const cat of RECIPE_CATS) {                                   // 제작 장비: 낀 것 중 가장 높은 단계 하나
+    if (cat.robot && !P.items.robot) continue;
     const key = "r:" + cat.name;
     let best = null;
     for (const id of cat.ids) if (worn(id) && (!best || CRAFT_ICON[id][1] >= CRAFT_ICON[best][1])) best = id;

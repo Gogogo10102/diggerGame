@@ -315,7 +315,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t9.ev("CATS.length") === 11, "상점 분류 11개(곡괭이·백팩 로켓·로봇 + 로봇 장비 7 + 소모품)");
   ok(t9.ev("CATS.slice(3, 9).every((c) => c.ids.length === 8)") && t9.ev("CATS[9].ids.length") === 10, "로봇 장비 분류마다 아이템 8개 · 특수(레벨 장비) 10개");
   ok(t9.ev("CATS[0].ids.length") === 5 && t9.ev("CATS[1].ids.length") === 5 && t9.ev("CATS[2].ids[0]") === "robot", "곡괭이 5 · 백팩 로켓 5 · 로봇");
-  ok(t9.ev("new Set(Object.keys(ITEMS)).size") === 58 + 32 + 8 + 11, "아이템 id 중복 없음 (특수 10 · 소모품 8 · 사람 장비 11) (" + t9.ev("Object.keys(ITEMS).length") + ")");
+  ok(t9.ev("new Set(Object.keys(ITEMS)).size") === 58 + 38 + 9 + 11, "아이템 id 중복 없음 (제작 38 = 텔레포터 6 포함 · 특수 10 · 소모품 9 · 사람 장비 11) (" + t9.ev("Object.keys(ITEMS).length") + ")");
   ok(t9.ev("Object.keys(ITEMS).every((id) => itemIcon(id) && itemIcon(id).width === 16)"), "모든 아이템에 아이콘 존재");
   const uniq = t9.ev("new Set(CATS.slice(0,7).flatMap((c) => c.ids).map((id) => itemIcon(id).toDataURL ? id : id)).size");
   t9.ev("P.x = 4 * T; P.y = SURF * T - 20; P.vx = P.vy = 0"); t9.run(5);
@@ -330,7 +330,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t9.ev("shopSel") === 4, "아래로 4칸 → 2쪽 첫 항목");
   t9.key("Enter"); await t9.tick();
   ok(t9.ev("!!P.items.sonic_drill") === false, "선행 아이템 없으면 구매 불가(잠김)");
-  t9.ev("P.items = { steel_drill: true, ti_drill: true, dia_drill: true, plasma_drill: true }; recalcStats()");
+  t9.ev("P.items = { robot: true, steel_drill: true, ti_drill: true, dia_drill: true, plasma_drill: true }; recalcStats()");
   t9.key("Digit1"); await t9.tick();
   ok(t9.ev("!!P.items.sonic_drill") === false, "숫자키 구매는 없앰 (상점 번호 표시를 뺐음)");
   t9.key("Enter"); await t9.tick();
@@ -374,7 +374,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t10.ev("LOOK.key") !== k0 && t10.ev("LOOK.drill") === 2 && t10.ev("LOOK.lamp") === 1, "장비 단계가 외형(LOOK)에 반영");
   t10.run(20);
   const hb = JSON.parse(t10.ev("JSON.stringify(hotBtns)"));
-  ok(hb.length === 8 && hb.every((b) => b.x >= 0 && b.x + b.w <= 390 && b.y + b.h <= 844), "휴대폰에서 소모품 슬롯 8개(사다리·귀환서 포함)가 화면 안에 있음");
+  ok(hb.length === 9 && hb.every((b) => b.x >= 0 && b.x + b.w <= 390 && b.y + b.h <= 844), "휴대폰에서 소모품 슬롯 9개(사다리·귀환서·구급상자 포함)가 화면 안에 있음");
   t10.ev("P.inv = { fuel_s: 2 }; P.fuel = 5");
   t10.ptr("pointerdown", hb[0].x + 5, hb[0].y + 5); t10.ptr("pointerup", 0, 0);
   ok(t10.ev("P.inv.fuel_s") === 1 && t10.ev("P.fuel") > 5, "슬롯 터치로 연료통 사용");
@@ -461,7 +461,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t20.ev("state") === "play", "손상된 rub 데이터도 무시하고 시작");
 
   console.log("[20] 지지대는 이제 팔지 않음 / 옛 지지대 / 폭파");
-  ok(!t20.ev("HOT").includes("sup_w") && !t20.ev("HOT").includes("sup_s") && t20.ev("HOT.length") === 8 && t20.ev("HOT[6]") === "ladder" && t20.ev("HOT[7]") === "recall", "단축 슬롯 8칸 (지지대 없음 · 7 = 사다리 · 8 = 귀환서)");
+  ok(!t20.ev("HOT").includes("sup_w") && !t20.ev("HOT").includes("sup_s") && t20.ev("HOT.length") === 9 && t20.ev("HOT[6]") === "ladder" && t20.ev("HOT[7]") === "recall" && t20.ev("HOT[8]") === "medkit", "단축 슬롯 9칸 (지지대 없음 · 7 = 사다리 · 8 = 귀환서 · 9 = 구급상자)");
   ok(!t20.ev("CATS[CATS.length - 1].ids").some((id) => id.startsWith("sup_")), "상점 소모품에 지지대 없음");
   t20.ev("P.dead = 0; P.x = 15 * T + 16; P.y = (SURF + 20) * T + 16; P.vx = P.vy = 0; tiles[(SURF+20)*W+15] = 14; tiles[(SURF+20)*W+14] = 1; tiles[(SURF+20)*W+16] = 1");
   ok(!t20.ev("collide(P.x, P.y)"), "옛 세이브의 지지대는 그대로 지나갈 수 있음");
@@ -611,9 +611,9 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t29.ev("state") === "menu" && t29.texts().some((x) => x.includes("장착 장비")) && t29.texts().some((x) => x.includes("에메랄드 톱날")), "인벤토리에 장착한 장비가 표시됨");
   t29.key("Escape"); await t29.tick();
   // 제작 트리
-  ok(t29.ev("RECIPE_CATS.length") === 5 && t29.ev("RECIPE_CATS.every((c) => c.nodes.length === c.ids.length && c.cols >= 2)"), "제작 분류 5개, 모두 트리 배치");
+  ok(t29.ev("RECIPE_CATS.length") === 6 && t29.ev("RECIPE_CATS.every((c) => c.nodes.length === c.ids.length && c.cols >= 2)"), "제작 분류 6개(이동 포함), 모두 트리 배치");
   ok(t29.ev("ITEMS.laser_drill.req") === "iron_bit" && t29.ev("ITEMS.dia_bit.req") === "laser_drill", "상위 장비는 하위 장비가 선행 조건");
-  t29.ev("P.items = {}; P.stash = { 9: 20, 3: 80, 6: 40, 5: 20 }; P.bars = { fe: 40 }; P.money = 1e9; recalcStats()");
+  t29.ev("P.items = { robot: true }; P.stash = { 9: 20, 3: 80, 6: 40, 5: 20 }; P.bars = { fe: 40 }; P.money = 1e9; recalcStats()");
   t29.ev("craftItem('laser_drill')");
   ok(!t29.ev("!!P.items.laser_drill") && t29.ev("msg").includes("먼저"), "선행 장비 없이는 제작 불가");
   t29.ev("craftItem('iron_bit'); craftItem('laser_drill'); craftItem('dia_bit')");
@@ -625,7 +625,7 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   t29.ev("craftTab = 0; craftSel = RECIPE_CATS[0].ids.indexOf('iron_bit')");
   t29.key("ArrowRight"); ok(t29.ev("RECIPE_CATS[0].ids[craftSel]") !== "iron_bit", "→ 키로 다음 단계로 이동");
   t29.key("ArrowLeft"); ok(t29.ev("RECIPE_CATS[0].ids[craftSel]") === "iron_bit", "← 키로 선행 장비로 이동");
-  t29.key("Digit6"); ok(t29.ev("craftTab") === 5, "숫자 키로 판매 탭 이동");
+  t29.key("Digit7"); ok(t29.ev("craftTab") === 6, "숫자 키로 판매 탭 이동");
   t29.run(5);
   t29.key("Escape"); await t29.tick();
 
@@ -1468,6 +1468,92 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   // 판매: 새 광물도 팔림 · 골드 배율 적용
   const m95 = t95.ev("P.money = 0; P.stash = { 31: 1 }; acct.stats.mined[31] = 1; sellItem(31, 1); P.money");
   ok(!t95.ev("P.stash[31]") && m95 === t95.ev("Math.round(2000000 * STAT.sell)"), "별 조각도 창고에서 팔림 (골드 배율 적용 " + m95 + "원)");
+
+  console.log("[49] 로봇 부품은 로봇을 산 뒤에만 보임");
+  const t96 = boot(path, { w: 1280, h: 760 }); t96.run(5); await login(t96, "Gate"); t96.run(5);
+  t96.ev("P.items = {}; P.mech = false; recalcStats()");
+  ok(t96.ev("shopTabs().map((i) => SHOP_TABS[i].name).join()") === "곡괭이,백팩 로켓,화물,기타,소모품", "로봇 없으면 상점 탭에 톱니·탱크·엔진·구동계가 없음");
+  ok(t96.ev("craftTabs().slice(0, -1).map((i) => RECIPE_CATS[i].name).join()") === "보조,탐사,이동", "제작도 톱날·동력·외장이 없음 (이동은 있음)");
+  t96.ev("P.x = 4 * T; P.y = SURF * T - 20; P.vx = P.vy = 0"); t96.run(3);
+  t96.key("KeyE"); await t96.tick(); t96.ev("switchTown('shop')"); await t96.tick();
+  t96.ev("shopTab = 2"); t96.run(2);
+  ok(t96.ev("shopTabs().includes(shopTab)"), "숨은 탭을 고르고 있었으면 보이는 탭으로 바뀜");
+  t96.ev("shopTab = 1"); t96.key("ArrowRight"); t96.run(2);
+  ok(t96.ev("SHOP_TABS[shopTab].name") === "화물", "→ 키는 숨은 탭을 건너뜀 (백팩 로켓 → 화물)");
+  ok(!t96.ev("shopBtn.some((b) => b.act === 'tab' && SHOP_TABS[b.arg].robot)"), "화면의 탭 버튼에도 로봇 탭 없음");
+  t96.ev("P.items.robot = true; recalcStats()"); t96.run(2);
+  ok(t96.ev("shopTabs().length") === 9 && t96.ev("craftTabs().length") === 7, "로봇을 사면 탭이 모두 열림");
+  t96.key("Escape"); await t96.tick();
+
+  console.log("[50] 체력: 낙하·폭발·가스 피해, 쓰러짐, 마을 회복, 구급상자, 저장");
+  const t97 = boot(path, { w: 1000, h: 640 }); t97.run(5); await login(t97, "Hp"); t97.run(5);
+  ok(t97.ev("P.hp") === 100 && t97.ev("maxHp()") === 100, "처음 체력 100/100");
+  // 높은 굴: 바닥 SURF+40, 위로 14칸 빈칸
+  const shaft = (top) => t97.ev("(() => { graceT = 99; ensureRect(20, SURF, 50, SURF + 50); for (let r = SURF + 20; r <= SURF + 45; r++) for (let c = 26; c <= 34; c++) tiles[r*W+c] = 1; for (let r = SURF + " + top + "; r <= SURF + 39; r++) for (let c = 29; c <= 31; c++) tiles[r*W+c] = 0; P.x = 30 * T + T / 2; P.y = (SURF + " + top + ") * T + T / 2; P.vx = P.vy = 0; P.fuel = maxFuel(); P.hp = maxHp(); hurtT = 0; fallTop = null; P.climbing = false; S.rocketOn = false; keys.ArrowUp = false; })()");
+  t97.ev("P.items = {}; P.mech = false; recalcStats()");
+  shaft(36); t97.run(90);
+  ok(t97.ev("P.hp") === 100, "사람: 3칸 낙하는 안 다침");
+  shaft(26); t97.run(150);
+  const h1 = t97.ev("P.hp");
+  ok(h1 < 100 && h1 > 0, "사람: 13칸 낙하는 다침 (" + Math.round(100 - h1) + " 피해)");
+  t97.ev("P.items.robot = true; P.mech = true; recalcStats()");
+  shaft(26); t97.run(150);
+  const h2 = t97.ev("P.hp");
+  ok(h2 < 100 && 100 - h2 < (100 - h1) * 0.6, "로봇: 같은 낙하에 장갑으로 훨씬 덜 다침 (" + Math.round(100 - h2) + ")");
+  // 폭발
+  shaft(36); t97.run(60); t97.ev("P.hp = maxHp(); P.mech = false; recalcStats(); explode({ c: 30, r: SURF + 39, rad: 1 })");
+  ok(t97.ev("P.hp") === 100 - 35, "사람: 폭발에 휘말리면 체력 -35");
+  // 가스 (사람만 체력)
+  t97.ev("P.hp = 50; P.dead = 0; gases.length = 0; gases.push({ x: P.x, y: P.y, t: 7, pt: 0 })"); t97.run(60);
+  ok(t97.ev("P.hp") < 50 && t97.ev("P.hp") > 40, "사람: 가스 속 1초에 체력 약 6 감소");
+  t97.ev("gases.length = 0; P.mech = true; P.hp = 50"); t97.ev("gases.push({ x: P.x, y: P.y, t: 7, pt: 0 })"); t97.run(60);
+  ok(t97.ev("P.hp") === 50, "로봇: 가스로는 체력 안 닳음 (연료만)");
+  t97.ev("gases.length = 0; P.mech = false; recalcStats()");
+  // 쓰러짐
+  t97.ev("P.cargo = { 2: 5 }; P.hp = 10; hurtT = 0; hurt(50, '테스트')"); t97.run(1);
+  ok(t97.ev("P.dead") > 0 && t97.ev("msg").includes("쓰러졌어요"), "체력 0 → 쓰러짐 (구조 중)");
+  t97.run(200);
+  ok(t97.ev("P.dead") <= 0 && t97.ev("P.hp") === 100 && !t97.ev("P.cargo[2]") && t97.ev("P.y") < t97.ev("SURF * T"), "구조되면 마을에서 체력 가득 · 화물은 잃음");
+  // 마을 회복
+  t97.ev("P.hp = 40"); t97.run(60);
+  ok(t97.ev("P.hp") > 60, "마을(지상)에서는 체력이 빨리 참 (" + Math.round(t97.ev("P.hp")) + ")");
+  // 구급상자
+  shaft(36); t97.run(60);
+  t97.ev("P.hp = 20; P.inv.medkit = 1"); t97.key("Digit9"); t97.run(1);
+  ok(t97.ev("P.hp") === 70 && !t97.ev("P.inv.medkit"), "9 키 구급상자: 체력 +50%");
+  ok(t97.ev("ITEMS.medkit.cost") === 3000 && t97.ev("SHOP_TABS[8].ids").includes("medkit"), "구급상자는 상점 소모품 3천원");
+  // 저장
+  t97.ev("P.hp = 33");
+  ok(t97.ev("(() => { const d = snapshot(); P.hp = 99; applyAccount(d); return P.hp; })()") === 33, "체력이 저장됨");
+  ok(t97.ev("(() => { const d = snapshot(); delete d.player.hp; applyAccount(d); return P.hp; })()") === 100, "옛 세이브(체력 없음)는 가득으로");
+
+  console.log("[51] 텔레포터 (제작 '이동'): 마을 ↔ 간 적 있는 깊이, 단계마다 최대 깊이");
+  const t98 = boot(path, { w: 1000, h: 640 }); t98.run(5); await login(t98, "Tele"); t98.run(5);
+  ok(t98.ev("RECIPE_CATS.find((c) => c.name === '이동').ids.map((id) => ITEMS[id].fx.tele).join()") === "200,500,900,1400,2000,2400", "텔레포터 6단계: 최대 200 ~ 2400m");
+  ok(t98.ev("ITEMS.tele2.req") === "tele1" && t98.ev("ITEMS.tele1.mats[20]") === 20, "앞 단계부터 · 재료는 그 깊이의 새 광물 (석영)");
+  ok(t98.ev("teleMax()") === 0 && t98.ev("S.teleBtn") === null, "없으면 HUD 텔레포트 버튼 없음");
+  t98.key("KeyT"); await t98.tick();
+  ok(t98.ev("state") === "play" && t98.ev("msg").includes("텔레포터가 없어요"), "없으면 T 키는 안내만");
+  t98.ev("P.stash = { 20: 20 }; P.bars = { cu: 20 }; P.money = 1e6; craftItem('tele1')");
+  ok(t98.ev("!!P.items.tele1") && t98.ev("teleMax()") === 200, "간이 텔레포터 제작 → 최대 200m");
+  t98.ev("acct.stats.maxDepth = 130");
+  ok(t98.ev("teleStops().join()") === "50,100", "갈 곳 = 50m 단위, 가 본 곳(130m)까지만");
+  t98.run(2);
+  ok(!!t98.ev("S.teleBtn"), "HUD 에 텔레포트 버튼");
+  t98.key("KeyT"); await t98.tick();
+  ok(t98.ev("state") === "menu" && t98.texts().some((x) => x === "100m") && !t98.texts().some((x) => x === "150m"), "T 키 → 텔레포트 창 (50m · 100m)");
+  await t98.click("100m"); t98.run(3);
+  const tr = t98.ev("Math.floor(P.y / T) - SURF");
+  ok(t98.ev("state") === "play" && tr >= 94 && tr <= 106, "100m 근처로 순간 이동 (" + tr + "m)");
+  ok(t98.ev("!collide(P.x, P.y)"), "도착 자리는 빈칸 (끼지 않음)");
+  ok(t98.ev("S.teleCD") > 25, "쓰면 30초 충전");
+  ok(t98.ev("(() => { const a = acct.stats.maxDepth; P.items.tele6 = true; acct.stats.maxDepth = 2400; const n = teleStops(); delete P.items.tele6; acct.stats.maxDepth = a; return n.length === 29 && n[9] === 500 && n[10] === 600 && n[28] === 2400; })()"), "500m 아래는 100m 단위 (2400m 까지 버튼 29개)");
+  t98.ev("teleportTo(0)");
+  ok(t98.ev("Math.floor(P.y / T)") > t98.ev("SURF") && t98.ev("msg").includes("충전 중"), "충전 중엔 못 씀");
+  t98.ev("S.teleCD = 0; teleportTo(0)"); t98.run(2);
+  ok(t98.ev("P.y") < t98.ev("SURF * T"), "충전되면 마을로 돌아옴");
+  t98.ev("S.teleCD = 0; teleportTo(500)");
+  ok(t98.ev("P.y") < t98.ev("SURF * T") && t98.ev("msg").includes("못 가요"), "최대 깊이보다 깊은 곳은 못 감");
 
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });

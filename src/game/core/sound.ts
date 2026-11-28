@@ -55,7 +55,7 @@ function hiss(a: AudioContext, kind: BiquadFilterType, f0: number, f1: number, d
 }
 
 // 같은 소리가 너무 촘촘히 겹치지 않게 하는 최소 간격(초)
-const SND_GAP: Record<string, number> = { ignite: 0.25, shutter: 0.3, dig: 0.08, step: 0.07, thrust: 0.07, tick: 0.03, click: 0.04, pickup: 0.05, land: 0.12, warn: 0.5, error: 0.15 };
+const SND_GAP: Record<string, number> = { hurt: 0.2, ignite: 0.25, shutter: 0.3, dig: 0.08, step: 0.07, thrust: 0.07, tick: 0.03, click: 0.04, pickup: 0.05, land: 0.12, warn: 0.5, error: 0.15 };
 
 export type SfxOpt = { pitch?: number; vol?: number; hard?: boolean };
 export function sfx(name: string, o: SfxOpt = {}) {
@@ -120,6 +120,12 @@ export function sfx(name: string, o: SfxOpt = {}) {
       hiss(a, "bandpass", 1500 * p, 900 * p, 0.42, 0.14 * v, 0, 1.2);
       for (let i = 0; i < 6; i++) beep(a, "square", (210 + (i % 2) * 40) * p, 150 * p, 0.025, 0.05 * v, i * 0.065);
       break;
+    case "hurt":           // 다침: 둔탁한 퍽 + 짧게 떨어지는 소리
+      beep(a, "square", 320 * p, 120 * p, 0.12, 0.12 * v); hiss(a, "lowpass", 900, 200, 0.1, 0.35 * v); break;
+    case "heal":           // 회복: 부드럽게 올라가는 소리
+      [440, 554, 659].forEach((f, i) => beep(a, "sine", f * p, f * p * 1.02, 0.14, 0.08 * v, i * 0.06)); break;
+    case "teleport":       // 텔레포트: 휘이잉 올라갔다 내려옴
+      beep(a, "sine", 300, 1800, 0.35, 0.12 * v); beep(a, "triangle", 1800, 400, 0.3, 0.08 * v, 0.3); hiss(a, "bandpass", 800, 3000, 0.5, 0.12 * v, 0, 1); break;
     case "fuse":           // 폭약 설치
       hiss(a, "highpass", 3000, 5000, 0.25, 0.1 * v); beep(a, "square", 400, 300, 0.05, 0.06 * v); break;
   }

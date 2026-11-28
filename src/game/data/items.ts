@@ -116,6 +116,9 @@ addCat("특수", "special", [
   ["eco2", "냉각 코어", { eff: 0.002 }, 200000, "eco1"],
   ["superwire", "초전도 배선", { eff: 0.002 }, 20000000, "eco2"],
 ], false);
+// 로봇이 있어야 쓰는 분류 (2026-11-28): 로봇을 사기 전엔 상점 탭·가방 장비 칸·제작 분류가 아예 안 보임
+export const ROBOT_CATS = { robot: 1, drill: 1, fuel: 1, engine: 1, tracks: 1 };
+export const catOpen = (icon) => !ROBOT_CATS[icon] || !!P.items.robot;
 export const LV_MAX = 100, LV_UP = 1.04;                          // 레벨 장비: 최대 레벨 · 다음 레벨 값 배율
 for (const id of CATS[CATS.length - 1].ids) ITEMS[id].lv = true;
 export const itemLv = (id) => (P.lv && P.lv[id]) || (P.items[id] ? 1 : 0);

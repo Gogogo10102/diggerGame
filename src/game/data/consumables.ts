@@ -3,7 +3,9 @@ import "../art/itemIcons.ts";   // 실행 순서 보장: 바로 앞 모듈을 �
 import { ITEM_ICON } from "../art/itemIcons.ts";
 import { ICON, sprite } from "../art/sprites.ts";
 import { STAT } from "../core/stats.ts";
-import { CATS, ITEMS } from "./items.ts";
+import { CATS, ITEMS, ROBOT_CATS } from "./items.ts";
+import { P } from "../core/player.ts";
+import { RECIPE_CATS } from "./recipes.ts";
 
 // ---- 소모품 (연료통 / 다이너마이트) ----
 export const jerry = (p, x, y, w, h, c1, c2, c3, gem) => {
@@ -26,6 +28,15 @@ ICON.dyn_x = sprite(16, 16, (p) => {
   p(5, 6, 6, 6, "#2b2f45"); p(4, 7, 8, 4, "#2b2f45"); p(5, 6, 2, 2, "#7a82a6");
   p(3, 9, 10, 1, "#ffd34d"); p(4, 8, 8, 1, "#c98f1a"); p(8, 2, 1, 3, "#c9a26b"); p(7, 0, 3, 2, "#ff8a1f"); p(8, 0, 1, 1, "#ffe066");
 });
+ICON.medkit = sprite(16, 16, (p) => {
+  p(2, 4, 12, 10, "#14151f"); p(3, 5, 10, 8, "#f4f4f8"); p(3, 5, 10, 2, "#ffffff"); p(3, 11, 10, 2, "#c9ccd8");
+  p(6, 2, 4, 3, "#14151f"); p(7, 3, 2, 2, "#8b93a6");
+  p(7, 6, 2, 6, "#e83a4a"); p(5, 8, 6, 2, "#e83a4a"); p(7, 6, 2, 1, "#ff7a86");
+});
+ICON.heart = sprite(16, 16, (p) => {
+  p(2, 3, 5, 6, "#14151f"); p(9, 3, 5, 6, "#14151f"); p(1, 4, 14, 5, "#14151f"); p(3, 9, 10, 2, "#14151f"); p(5, 11, 6, 2, "#14151f"); p(7, 13, 2, 1, "#14151f");
+  p(3, 4, 3, 4, "#ff4d5e"); p(10, 4, 3, 4, "#ff4d5e"); p(2, 5, 12, 3, "#ff4d5e"); p(4, 8, 8, 2, "#e8263a"); p(6, 10, 4, 2, "#c41a2e"); p(3, 5, 2, 2, "#ffb4bc");
+});
 export const CONS = {
   fuel_s: { name: "소형 연료통", kind: "fuel", frac: 0.3, cost: 400, desc: "연료 30% 즉시 충전" },
   fuel_m: { name: "중형 연료통", kind: "fuel", frac: 0.6, cost: 1000, desc: "연료 60% 즉시 충전" },
@@ -35,11 +46,12 @@ export const CONS = {
   dyn_x: { name: "초강력 폭약", kind: "bomb", rad: 3, cost: 6000, desc: "설치 2.5초 후 폭발 · 7x7" },
   ladder: { name: "사다리", kind: "ladder", len: 10, cost: 250, desc: "떨어뜨리면 아래로 10칸 펼쳐짐 · 타고 오르내림" },
   recall: { name: "마을 귀환서", kind: "recall", cost: 30000, desc: "읽으면 곧바로 마을로 · 화물은 그대로" },
+  medkit: { name: "구급상자", kind: "heal", frac: 0.5, cost: 3000, desc: "체력 50% 즉시 회복" },   // 2026-11-28 체력과 같이
   sup_w: { name: "나무 지지대", kind: "support", steel: false, cost: 150, desc: "(더 이상 팔지 않음)" },
   sup_s: { name: "강철 지지대", kind: "support", steel: true, cost: 600, desc: "(더 이상 팔지 않음)" },
 };
-// 단축 슬롯(1~8) = 상점 소모품 (7 = 사다리, 8 = 마을 귀환서). 지지대(sup_w/sup_s)는 지반 붕괴를 없애면서 뺐음 (옛 세이브 호환용으로 CONS 에만 남김)
-export const HOT = ["fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x", "ladder", "recall"];
+// 단축 슬롯(1~9) = 상점 소모품 (7 = 사다리, 8 = 마을 귀환서, 9 = 구급상자). 지지대(sup_w/sup_s)는 지반 붕괴를 없애면서 뺐음 (옛 세이브 호환용으로 CONS 에만 남김)
+export const HOT = ["fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x", "ladder", "recall", "medkit"];   // 9 = 구급상자
 {
   const ids = [];
   for (const id of HOT) {
@@ -59,8 +71,14 @@ export const SHOP_TABS = [
   ["기타", "special", ["special", "lamp"]], ["소모품", "fuelcan", ["fuelcan"]],
 ].map(([name, icon, keys]) => {
   const cs = keys.map((k) => CATS.find((c) => c.icon === k));
-  return { name, icon, cats: cs, ids: cs.flatMap((c) => c.ids), cons: !!cs[0].cons, slot: cs.length === 1 ? cs[0].slot : null };
+  return { name, icon, cats: cs, ids: cs.flatMap((c) => c.ids), cons: !!cs[0].cons, slot: cs.length === 1 ? cs[0].slot : null, robot: keys.some((k) => ROBOT_CATS[k]) };
 });
+// 보이는 탭 번호 (로봇 부품 탭은 로봇을 산 뒤에만). S.shopTab·S.craftTab 은 전체 목록의 번호 그대로 씀
+export const shopTabs = () => SHOP_TABS.map((t, i) => i).filter((i) => !SHOP_TABS[i].robot || !!P.items.robot);
+export const craftTabs = () => [...RECIPE_CATS.map((c, i) => i).filter((i) => !RECIPE_CATS[i].robot || !!P.items.robot), RECIPE_CATS.length];   // 맨 끝 = 판매
+// 지금 탭이 숨은 탭이면 첫 보이는 탭으로 · 옆 탭으로 (d = ±1)
+export const fixTab = (cur, list) => (list.includes(cur) ? cur : list[0]);
+export const stepTab = (cur, list, d) => { const k = list.indexOf(cur); return list[((k < 0 ? 0 : k + d) + list.length) % list.length]; };
 
 export const VIS_BASE = 2.5;                                     // 기본 시야 반경(타일)
 export const visR = () => VIS_BASE * STAT.light;
