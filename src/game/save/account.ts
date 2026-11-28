@@ -6,7 +6,7 @@ import { S } from "../core/state.ts";
 import { FUEL_BASE, SLOT_OF, bannerQ, bombs, flashes, floaters, maxFuel, parts, recalcStats, say } from "../core/stats.ts";
 import { fixFoundation, genWorld, legacySeen, regenT, rub, rubSet, warn } from "../core/world.ts";
 import { HOT } from "../data/consumables.ts";
-import { ITEMS } from "../data/items.ts";
+import { ITEMS, LV_MAX } from "../data/items.ts";
 import { checkQuests, initProgress } from "../data/progress.ts";
 import { SAVE_VER } from "./config.ts";
 import { decodeRLE, decodeSeen, decodeWorld, encodeRLE, encodeSeen, encodeWorld } from "./worldSave.ts";
@@ -29,7 +29,7 @@ export function snapshot() {
   return withChunksSettled(() => ({
     ver: SAVE_VER, id: S.acct.id, name: S.acct.name, created: S.acct.created, updated: Date.now(),
     seed: S.acct.seed, playTime: Math.floor(S.acct.playTime), stats: S.acct.stats,
-    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, eq: P.eq, off: P.off, grow: P.grow, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
+    player: { ts: T, x: P.x, y: P.y, fuel: P.fuel, money: P.money, cargo: P.cargo, stash: P.stash, bars: P.bars, inv: P.inv, items: P.items, eq: P.eq, off: P.off, lv: P.lv, layerMax: P.layerMax, facing: P.facing, mech: !!P.mech },
     settings: { showHelp: S.showHelp, miniOn: S.miniOn === undefined ? null : S.miniOn },
     world: encodeWorld(),
     stones: 1, worldV: 2,
@@ -79,8 +79,8 @@ export function applyAccount(d) {
   for (const k in (pl.eq || {})) { const id = pl.eq[k]; if (id === "" || (P.items[id] && SLOT_OF[id] && SLOT_OF[id].icon === k)) P.eq[k] = id; }
   P.off = {};                                                      // 빼 둔 특수·제작 장비
   for (const id in (pl.off || {})) if (P.items[id] && pl.off[id] && !SLOT_OF[id]) P.off[id] = true;
-  const gr = pl.grow || {};                                         // 성장 레벨 (예전 세이브엔 없음 → 0)
-  P.grow = { gold: Math.max(0, Math.floor(Number(gr.gold) || 0)), luck: Math.max(0, Math.floor(Number(gr.luck) || 0)) };
+  P.lv = {};                                                       // 레벨 장비의 레벨 (예전 세이브: 가진 특수 장비는 Lv.1)
+  for (const id in P.items) if (ITEMS[id].lv) P.lv[id] = Math.max(1, Math.min(LV_MAX, Math.floor(Number((pl.lv || {})[id]) || 1)));
   // 사람 광부 이전 세이브(mech 기록 없음)는 원래 로봇으로 놀던 것 → 로봇을 가진 채 타고 있는 상태로
   if (pl.mech === undefined) { P.items.robot = true; P.mech = true; }
   else P.mech = !!pl.mech && !!P.items.robot;

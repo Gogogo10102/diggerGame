@@ -1,6 +1,7 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "../core/player.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
 import { icon } from "../render/util.ts";
+import { P } from "../core/player.ts";
 
 // ---- 아이템 카탈로그 ----
 // 항목: [id, 이름, 효과, 가격, (선택) 선행 아이템 id]
@@ -101,14 +102,28 @@ addCat("조명", "lamp", [
   ["lamp7", "태양광 램프", { light: 3.7 }, 1300000000],
   ["lamp8", "초신성 램프", { light: 4.2 }, 10000000000],
 ], true, "light");
+// 특수 = 레벨 장비 (2026-11-28): 사면 Lv.1, 같은 장비를 또 사면 레벨이 오름(최대 LV_MAX). 효과(fx)는 레벨 1당 값.
+//   Lv.100 을 찍으면 같은 줄의 다음 장비가 열림 → 골드 획득량 · 행운 · 연비 세 줄. 골드는 장비끼리 곱해짐(stats.ts)
 addCat("특수", "special", [
-  ["eco1", "연비 개선기", { eff: 0.15 }, 20000],
-  ["appraiser", "감정사 고글", { sell: 0.15 }, 50000],
-  ["eco2", "냉각 코어", { eff: 0.2 }, 200000, "eco1"],
-  ["market_ana", "시장 분석기", { sell: 0.2 }, 800000, "appraiser"],
-  ["luck_ant", "행운 안테나", { lucky: 0.1 }, 3000000],
-  ["auction", "경매 계약서", { sell: 0.25 }, 12000000, "market_ana"],
-  ["superwire", "초전도 배선", { eff: 0.1 }, 50000000, "eco2"],
-  ["exchange", "황금 거래 허가증", { sell: 0.3, lucky: 0.05 }, 200000000, "auction"],
+  ["appraiser", "감정사 고글", { sell: 0.02 }, 1000, null],
+  ["market_ana", "시장 분석기", { sell: 0.03 }, 50000, "appraiser"],
+  ["auction", "경매 계약서", { sell: 0.04 }, 2000000, "market_ana"],
+  ["exchange", "황금 거래 허가증", { sell: 0.05 }, 100000000, "auction"],
+  ["luck_ant", "행운 안테나", { lucky: 0.01 }, 1500, null],
+  ["luck_ant2", "클로버 수신탑", { lucky: 0.02 }, 100000, "luck_ant"],
+  ["luck_ant3", "보석 행운탑", { lucky: 0.03 }, 5000000, "luck_ant2"],
+  ["eco1", "연비 개선기", { eff: 0.002 }, 2000, null],
+  ["eco2", "냉각 코어", { eff: 0.002 }, 200000, "eco1"],
+  ["superwire", "초전도 배선", { eff: 0.002 }, 20000000, "eco2"],
 ], false);
+export const LV_MAX = 100, LV_UP = 1.04;                          // 레벨 장비: 최대 레벨 · 다음 레벨 값 배율
+for (const id of CATS[CATS.length - 1].ids) ITEMS[id].lv = true;
+export const itemLv = (id) => (P.lv && P.lv[id]) || (P.items[id] ? 1 : 0);
+// 다음 레벨 값 (Lv.n → n+1): 산 값 × 1.04^n, 앞 두 자리로 반올림 (버튼에 짧게)
+export const lvCost = (id, lv = itemLv(id)) => {
+  const v = ITEMS[id].cost * Math.pow(LV_UP, lv), p = Math.pow(10, Math.max(2, Math.floor(Math.log10(v)) - 1));
+  return Math.round(v / p) * p;
+};
+// 열렸나: 앞 장비가 레벨 장비면 Lv.100 이어야, 아니면 갖고만 있으면
+export const reqMet = (id) => { const r = ITEMS[id].req; return !r || (!!P.items[r] && (!ITEMS[r].lv || itemLv(r) >= LV_MAX)); };
 

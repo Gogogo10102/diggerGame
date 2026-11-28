@@ -6,9 +6,9 @@ import { ICON, oreIcon } from "../art/sprites.ts";
 import { TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { EQUIP_FIXED, GROW, SLOT_OF, STAT, growCost, growFx, growLv, worn } from "../core/stats.ts";
+import { EQUIP_FIXED, SLOT_OF, STAT, worn } from "../core/stats.ts";
 import { SHOP_TABS } from "../data/consumables.ts";
-import { CATS, ITEMS } from "../data/items.ts";
+import { CATS, ITEMS, LV_MAX, itemLv, lvCost, reqMet } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { GLYPH, MT, SY, blit, btnPx, btnTxt, ctx, rivet, titleTxt, glyph, hazard, keycap, panel, pxBox, segBar, setFont, txt, well } from "./util.ts";
 import { BARS, BAR_KEYS, BAR_MULT, FURNACE_LV, ORE_PER_BAR, SKILL_COST, SKILL_STEP, barIcon, furnaceCan, matHave, matIcon, matName, smeltRate } from "../systems/furnace.ts";
@@ -363,7 +363,7 @@ export function drawShopModal(vw, vh) {
     shopBtn.push({ x, y: f.cy, w: cw, h: chh, act: "tab", arg: i });
   });
   // 가진 개수 (제목 옆)
-  if (!cat.cons && !cat.grow) {
+  if (!cat.cons) {
     const own = cat.ids.filter((id) => P.items[id]).length;
     setFont(16);
     const tw2 = Math.ceil(ctx.measureText(cat.name).width);
@@ -374,7 +374,6 @@ export function drawShopModal(vw, vh) {
   S.shopPer = per;
   const barH = 34, barY = f.ry + f.rh - barH, top = f.cy + chh + 10, ch = barY - 10 - top, gap = 10;   // 아래 띠는 판 맨 아래(안내 줄 자리까지)
   if (cat.cons) { S.shopStrip = null; shopConsGrid(f, cat, top, ch, low); shopBar(f, cat, barY, barH, 0); return; }
-  if (cat.grow) { S.shopStrip = null; S.shopPer = len; shopGrowCards(f, cat, top, ch, low); shopBar(f, cat, barY, barH, 0); return; }
   const cwid = Math.floor((f.cw - gap * (per - 1)) / per), step = cwid + gap, maxS = Math.max(0, len - per);
   shopScrollTick(maxS, per);
   const sv = S.shopScrollV;
@@ -386,9 +385,10 @@ export function drawShopModal(vw, vh) {
   ctx.beginPath(); ctx.rect(f.cx - 2, top - 2, f.cw + 4, ch + 4); ctx.clip();   // 옆으로 밀려 나간 카드는 잘라서
   for (let i = Math.max(0, Math.floor(sv)); i < Math.min(len, Math.ceil(sv) + per); i++) {
     const id = cat.ids[i], it = ITEMS[id], x = Math.round(f.cx + (i - sv) * step), mid = x + Math.floor(cwid / 2);
-    const owned = !!P.items[id], on = owned && (worn(id) || EQUIP_FIXED[id]);
-    const locked = !owned && !!it.req && !P.items[it.req];
-    const poor = !owned && !locked && P.money < it.cost, sel = i === S.shopSel;
+    const owned = !!P.items[id], on = owned && !it.lv && (worn(id) || EQUIP_FIXED[id]);
+    const locked = !owned && !reqMet(id), lv = it.lv ? itemLv(id) : 0;
+    const cost = it.lv && owned ? lvCost(id, lv) : it.cost;          // 레벨 장비: 가진 뒤엔 다음 레벨 값
+    const poor = !locked && P.money < cost, sel = i === S.shopSel;
     kit("detail", x, top, cwid, ch);
     if (sel) { ctx.fillStyle = SY.y; ctx.fillRect(x, top, cwid, 2); ctx.fillRect(x, top + ch - 2, cwid, 2); ctx.fillRect(x, top, 2, ch); ctx.fillRect(x + cwid - 2, top, 2, ch); }
     let y = top + (low ? 12 : 20);
@@ -405,14 +405,29 @@ export function drawShopModal(vw, vh) {
       if (!low) { txt(FX_NAME[sl], mid, y, SY.dim, 12, "center", SY.ink); y += 18; }
       txt(fxNum(sl, v) + (better ? "  (+" + fxNum(sl, v - cur) + ")" : ""), mid, y, better ? SY.green : on ? SY.y : SY.txt, 16, "center", SY.ink);
       y += 22;
+    } else if (it.lv) {                                              // 레벨 장비: 대충 어떤 효과인지 + 레벨 막대
+      txt(lvDesc(it), mid, y, SY.dim, 12, "center", SY.ink); y += 18;
+      if (owned) {
+        txt("Lv." + lv + " / " + LV_MAX, mid, y, lv >= LV_MAX ? SY.y : SY.green, 16, "center", SY.ink); y += 22;
+        const bw0 = cwid - 40;
+        ctx.fillStyle = SY.ink; ctx.fillRect(x + 20, y, bw0, 6);
+        ctx.fillStyle = lv >= LV_MAX ? SY.y : SY.green; ctx.fillRect(x + 21, y + 1, Math.round((bw0 - 2) * lv / LV_MAX), 4);
+        y += 14;
+      }
     } else {
       txt(fitText(fxText(it.fx), cwid - 28, 12), mid, y, SY.dim, 12, "center", SY.ink);
       y += 18;
     }
-    // 버튼 (카드 아래): 안 가진 것은 가격만 (구매·잠김 글자 없이, 못 사면 꺼진 버튼)
-    const bh = low ? 36 : 44, bx = x + 16, bw = cwid - 32, by = top + ch - bh - (low ? 12 : 16), price = money(it.cost);
-    if (locked && y + 14 <= by - 4) txt(fitText(reqText(it), cwid - 28, 12), mid, y, SY.warn, 12, "center", SY.ink);   // 자리가 있을 때만
-    if (on) uiBtn(bx, by, bw, bh, "장착 중", null, "steel", false, null);
+    // 버튼 (카드 아래): 안 가진 것은 가격만 (구매·잠김 글자 없이, 못 사면 꺼진 버튼) · 레벨 장비는 다음 레벨 값
+    const bh = low ? 36 : 44, bx = x + 16, bw = cwid - 32, by = top + ch - bh - (low ? 12 : 16), price = money(cost);
+    if (locked && y + 14 <= by - 4) {                                  // 자리가 있을 때만 · 길면 '필요:' 를 빼고 (감정사 고글 Lv.100)
+      setFont(12);
+      const rq = ctx.measureText(reqText(it)).width <= cwid - 28 || it.req === "robot" ? reqText(it) : ITEMS[it.req].name + (ITEMS[it.req].lv ? " Lv." + LV_MAX : "");
+      txt(fitText(rq, cwid - 28, 12), mid, y, SY.warn, 12, "center", SY.ink);
+    }
+    if (it.lv && lv >= LV_MAX) uiBtn(bx, by, bw, bh, "최대 레벨", null, "steel", false, null);
+    else if (it.lv && owned) uiBtn(bx, by, bw, bh, price, null, "go", !poor, "buy", id);
+    else if (on) uiBtn(bx, by, bw, bh, "장착 중", null, "steel", false, null);
     else if (owned) uiBtn(bx, by, bw, bh, "장착", null, "gold", true, "buy", id);
     else uiBtn(bx, by, bw, bh, price, null, "go", !locked && !poor, "buy", id);
     shopBtn.push({ x, y: top, w: cwid, h: by - top - 2, act: "sel", i });
@@ -430,7 +445,9 @@ export function drawShopModal(vw, vh) {
 // 상점 분류 아이콘: PixelLab 그림(ui/tab)이 있으면 그것, 없으면 예전 아이콘
 const catIcon = (k) => (CAT_IMG[k] && CAT_IMG[k].width > 1 ? CAT_IMG[k] : ICON[k] || ICON.coin);
 // 잠긴 상품의 안내: 로봇 장비는 로봇을 차고에서 사야 해서 그렇게 알려 줌
-const reqText = (it) => (it.req === "robot" ? "필요: 로봇 (차고에서 구매)" : "필요: " + ITEMS[it.req].name);
+const reqText = (it) => (it.req === "robot" ? "필요: 로봇 (차고에서 구매)" : "필요: " + ITEMS[it.req].name + (ITEMS[it.req].lv ? " Lv." + LV_MAX : ""));
+// 레벨 장비 설명은 대충 (숫자 없이)
+const lvDesc = (it) => (it.fx.sell ? "골드 획득량 증가" : it.fx.lucky ? "행운 증가" : it.fx.eff ? "연비 개선" : "");
 // 상점 가로 스크롤: S.shopScroll = 목표(카드 번호, 정수) · S.shopScrollV = 지금 그리는 자리(부드럽게 따라감)
 export function shopScrollTick(maxS, per) {
   const now = performance.now(), dt = Math.min(0.1, (now - (S.shopScrollT || now)) / 1000);
@@ -454,43 +471,11 @@ function shopEdge(x, y, h, dir) {
   g.addColorStop(0, "rgba(10,11,14,0.75)"); g.addColorStop(1, "rgba(10,11,14,0)");
   ctx.fillStyle = g; ctx.fillRect(dir > 0 ? x : x - w, y, w, h);
 }
-// ---------------------------------------------------------------------
-//  성장 탭 (2026-11-28): 골드 획득량 · 행운 레벨 카드 2장 (지금 → 다음 효과 + 가격)
-// ---------------------------------------------------------------------
-const growNum = (k, lv) => {                                        // 효과 글: 골드 ×1.33 / 행운 +12%
-  if (k === "luck") return "+" + Math.round(growFx(k, lv) * 100) + "%";
-  const v = growFx(k, lv);
-  return "×" + (v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : Math.round(v).toLocaleString("ko-KR"));
-};
-const GROW_DESC = { gold: ["광물·주괴·의뢰·보물 값이", "레벨마다 ×1.1 (곱해서 늘어남)"], luck: ["캔 광물 1개당 4%씩 더 나옴", "100%를 넘으면 2개 확정"] };
-function shopGrowCards(f, cat, top, ch, low, tall) {
-  const gap = 12, n = cat.ids.length, cw = tall ? f.cw : Math.floor((f.cw - gap * (n - 1)) / n), chh = tall ? Math.floor((ch - gap * (n - 1)) / n) : ch;
-  cat.ids.forEach((k, i) => {
-    const x = tall ? f.cx : f.cx + i * (cw + gap), lv = growLv(k), c = growCost(k), sel = i === S.shopSel, mid = x + Math.floor(cw / 2);
-    if (tall) top = f.cy + i * (chh + gap);                          // 휴대폰 세로: 카드를 위아래로
-    ch = chh;
-    kit("detail", x, top, cw, ch);
-    if (sel) { ctx.fillStyle = SY.y; ctx.fillRect(x, top, cw, 2); ctx.fillRect(x, top + ch - 2, cw, 2); ctx.fillRect(x, top, 2, ch); ctx.fillRect(x + cw - 2, top, 2, ch); }
-    let y = top + (low ? 10 : 18);
-    const ss = low ? 56 : 96, ib = low ? 32 : 64;
-    kit("slot", mid - ss / 2, y, ss, ss);
-    drawPx(catIcon("grow_" + k), mid - ib / 2, y + (ss - ib) / 2, ib);
-    y += ss + (low ? 6 : 12);
-    txt(GROW[k].name + "  Lv." + lv, mid, y, SY.txt, 16, "center", SY.ink);
-    y += 24;
-    txt(growNum(k, lv) + "  →  " + growNum(k, lv + 1), mid, y, SY.green, 16, "center", SY.ink);
-    y += 24;
-    if (!low) for (const line of GROW_DESC[k]) { txt(fitText(line, cw - 24, 12), mid, y, SY.dim, 12, "center", SY.ink); y += 16; }
-    const bh = low ? 36 : 44, bw = Math.min(220, cw - 32), by = top + ch - bh - (low ? 10 : 16);
-    uiBtn(mid - bw / 2, by, bw, bh, money(c), null, "go", P.money >= c, "buy", k);
-    shopBtn.push({ x, y: top, w: cw, h: by - top - 2, act: "sel", i });
-  });
-}
 // 상점 아래 띠: 안내(또는 방금 메시지) + 오른쪽에 스크롤 막대(옆에 더 있을 때, 누르면 한 칸씩)
 function shopBar(f, cat, by, barH, sc) {
   kit("bar", f.cx, by, f.cw, barH);
   const selIt = cat.cons && ITEMS[cat.ids[S.shopSel]];
-  const tip = S.msgT > 0 ? S.msg : selIt ? selIt.name + " · " + selIt.desc : cat.grow ? "몇 번이고 올릴 수 있어요 · 장비가 비싸서 벌이를 키워야 다음 장비에 닿아요" : cat.slot ? "한 칸에 하나만 껴요 · 가진 장비는 [장착]으로 바꿔 끼기" : cat.cats.length > 1 ? "조명은 하나만 껴요 · 특수 장비는 산 만큼 다 껴요" : "산 장비는 바로 장착 · 빼려면 인벤토리 장비 탭";
+  const tip = S.msgT > 0 ? S.msg : selIt ? selIt.name + " · " + selIt.desc : cat.slot ? "한 칸에 하나만 껴요 · 가진 장비는 [장착]으로 바꿔 끼기" : cat.cats.length > 1 ? "특수 장비는 또 사면 레벨 업 · Lv.100 이면 다음 장비가 열려요" : "산 장비는 바로 장착 · 빼려면 인벤토리 장비 탭";
   const pw = sc ? 170 : 0;
   txt(fitText(tip, f.cw - 48 - pw, 12), f.cx + 22, by + Math.floor((barH - 12) / 2), S.msgT > 0 ? SY.gold : SY.dim, 12, "left", SY.ink);
   if (sc) {
@@ -609,7 +594,6 @@ function drawShopList(vw, vh) {
     "[ ] 건물 이동 · ←→ 분류 · ↑↓ 고르기 · Enter 구매 · Esc 닫기");
   // 한 쪽에 몇 줄: 창 높이에 맞춰 3~9줄 (예전엔 4줄 고정이라 빈 자리가 남아도 쪽을 넘겨야 했음)
   const len = cat.ids.length;
-  if (cat.grow && f.ch >= 300) { S.shopPer = len; shopGrowCards(f, cat, f.cy, f.ch, f.ch < 380, true); return; }   // 성장: 휴대폰 세로는 큰 카드 2장
   const bagH = cat.cons && kitOn() ? 72 : 0, fch = f.ch - (bagH ? bagH + 8 : 0);   // 소모품: 아래에 '내 가방' 띠
   let per = Math.max(3, Math.min(9, Math.floor(fch / 52)));
   if (len > per) per = Math.max(3, Math.min(9, Math.floor((fch - 38) / 52)));
@@ -621,36 +605,28 @@ function drawShopList(vw, vh) {
   for (let k = 0; k < per; k++) {
     const i = page * per + k;
     if (i >= len) break;
-    if (cat.grow) {                                                  // 성장 줄: 아이콘 · 이름 Lv · 지금 → 다음 · 가격
-      const g = cat.ids[i], ry = f.cy + k * rh, lv = growLv(g), c = growCost(g);
-      townRow(f.cx, ry, f.cw, inner, i === S.shopSel, k);
-      const ib = inner >= 44 ? Math.min(52, inner - 4) : inner - 4;
-      iconSlot(catIcon("grow_" + g), f.cx + 6, ry + Math.floor((inner - ib) / 2), ib, 1);
-      const lx = f.cx + 6 + ib + 10, bw = f.narrow ? 104 : 120, bh = Math.min(inner - 6, 48), bx = f.cx + f.cw - 6 - bw;   // 레벨 값은 길어서(4만 6,600원) 버튼을 넓게
-      uiBtn(bx, ry + Math.floor((inner - bh) / 2), bw, bh, money(c), null, "go", P.money >= c, "buy", g);
-      rowText(lx, ry, inner, bx - 10 - lx, GROW[g].name, SY.txt, "Lv." + lv + " · " + growNum(g, lv) + " → " + growNum(g, lv + 1), SY.green);
-      shopBtn.push({ x: f.cx, y: ry, w: bx - f.cx - 4, h: inner, act: "sel", i });
-      continue;
-    }
     const id = cat.ids[i], it = ITEMS[id], ry = f.cy + k * rh;
     const owned = !it.cons && !!P.items[id];
-    const locked = !it.cons && !owned && !!it.req && !P.items[it.req];
-    const poor = !owned && !locked && P.money < it.cost;
+    const locked = !it.cons && !owned && !reqMet(id), lv = it.lv ? itemLv(id) : 0;
+    const cost = it.lv && owned ? lvCost(id, lv) : it.cost;
+    const poor = (!owned || it.lv) && !locked && P.money < cost;
     townRow(f.cx, ry, f.cw, inner, i === S.shopSel, k);
     let lx = f.cx + 6;
     const ib = inner >= 44 ? Math.min(52, inner - 4) : 36 <= inner ? 36 : inner - 4;   // 줄이 높으면 아이콘도 크게 (드릴 그림이 가로로 길어서)
     iconSlot(itemIcon(id), lx, ry + Math.floor((inner - ib) / 2), ib, locked ? 0.35 : 1); lx += ib + 10;
     if (it.cons) consAt[id] = { x: lx + 4, y: ry + Math.floor((inner - ib) / 2) + 4, s: ib - 8 };
     // 오른쪽 버튼: 구매(가격) / 장착(가진 것, 눌러서 바꿔 끼기) / 장착 중 / 잠김
-    const bw = f.narrow ? 76 : 96, bh = Math.min(inner - 6, 48), bx = f.cx + f.cw - 6 - bw, by2 = ry + Math.floor((inner - bh) / 2);
-    const price = money(it.cost), on = owned && worn(id);
-    if (on || (owned && EQUIP_FIXED[id])) uiBtn(bx, by2, bw, bh, "장착 중", null, "steel", false, null);
+    const bw = f.narrow ? 92 : 104, bh = Math.min(inner - 6, 48), bx = f.cx + f.cw - 6 - bw, by2 = ry + Math.floor((inner - bh) / 2);   // 가격(4,300원 · 120억원)이 안 잘리게
+    const price = money(cost), on = owned && !it.lv && worn(id);
+    if (it.lv && lv >= LV_MAX) uiBtn(bx, by2, bw, bh, "최대", null, "steel", false, null);
+    else if (it.lv && owned) uiBtn(bx, by2, bw, bh, price, null, "go", !poor, "buy", id);   // 레벨 장비: 다음 레벨 값
+    else if (on || (owned && EQUIP_FIXED[id])) uiBtn(bx, by2, bw, bh, "장착 중", null, "steel", false, null);
     else if (owned) uiBtn(bx, by2, bw, bh, "장착", null, "gold", true, "buy", id);
     else uiBtn(bx, by2, bw, bh, price, null, "go", !locked && !poor, "buy", id);   // 가격만 (구매·잠김 글자 없이)
     // 이름 + 설명
     const nameW = bx - 10 - lx;
     const sl = SLOT_OF[id] ? SLOT_OF[id].slot : null, cur = sl ? STAT[sl] : null;   // 장비 칸: 고유 값 + 지금 능력치 (비교)
-    const sub = locked ? reqText(it) : it.cons ? it.desc : fxText(it.fx, sl) + (sl && !on ? "  (지금 " + fxNum(sl, cur) + ")" : "");
+    const sub = locked ? reqText(it) : it.cons ? it.desc : it.lv ? lvDesc(it) + (owned ? " · Lv." + lv + "/" + LV_MAX : "") : fxText(it.fx, sl) + (sl && !on ? "  (지금 " + fxNum(sl, cur) + ")" : "");
     const cnt = it.cons && !bagH ? "  x" + (P.inv[id] || 0) : "";   // 가방 띠가 있으면 개수는 거기서
     rowText(lx, ry, inner, nameW, it.name + cnt, locked ? SY.mute : SY.txt, sub, locked ? SY.warn : poor ? SY.red : SY.dim);
     shopBtn.push({ x: f.cx, y: ry, w: bx - f.cx - 4, h: inner, act: "sel", i });
@@ -662,9 +638,9 @@ function drawShopList(vw, vh) {
     bagPanel(cat.ids, f.cx, f.cy + f.ch - bagH, f.cw, bagH, now, fly, false);
     drawFly(fly, now);
   }
-  if (!(S.msgT > 0) && !cat.grow) {
+  if (!(S.msgT > 0)) {
     const it = ITEMS[cat.ids[Math.min(S.shopSel, len - 1)]];
-    const tip = it.cons ? "소모품은 여러 개 살 수 있어요 · 아래 슬롯(1~8)으로 사용" : cat.slot ? "한 칸에 하나만 껴요 · 산 장비는 바로 장착 · 가진 장비는 [장착]으로 바꿔 끼기" : cat.ids.length && !it.cons ? "산 장비는 바로 장착 · 빼려면 인벤토리 장비 탭" : "";
+    const tip = it.cons ? "소모품은 여러 개 살 수 있어요 · 아래 슬롯(1~8)으로 사용" : cat.slot ? "한 칸에 하나만 껴요 · 산 장비는 바로 장착 · 가진 장비는 [장착]으로 바꿔 끼기" : cat.cats && cat.cats.length > 1 ? "특수 장비는 또 사면 레벨 업 · Lv.100 이면 다음 장비가 열려요" : cat.ids.length && !it.cons ? "산 장비는 바로 장착 · 빼려면 인벤토리 장비 탭" : "";
     txt(fitText(tip, f.cw, 12), f.cx, f.noteY, SY.mute, 12);
   }
 }

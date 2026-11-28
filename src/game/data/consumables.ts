@@ -56,13 +56,12 @@ export const HOT = ["fuel_s", "fuel_m", "fuel_l", "dyn_s", "dyn_l", "dyn_x", "la
 export const SHOP_TABS = [
   ["곡괭이", "pick", ["pick"]], ["백팩 로켓", "rocket", ["rocket"]], ["톱니", "drill", ["drill"]],
   ["탱크", "fuel", ["fuel"]], ["화물", "crate", ["crate"]], ["엔진", "engine", ["engine"]], ["구동계", "tracks", ["tracks"]],
-  ["기타", "special", ["lamp", "special"]], ["소모품", "fuelcan", ["fuelcan"]],
+  ["기타", "special", ["special", "lamp"]], ["소모품", "fuelcan", ["fuelcan"]],
 ].map(([name, icon, keys]) => {
   const cs = keys.map((k) => CATS.find((c) => c.icon === k));
   return { name, icon, cats: cs, ids: cs.flatMap((c) => c.ids), cons: !!cs[0].cons, slot: cs.length === 1 ? cs[0].slot : null };
 });
-// 맨 앞 '성장' 탭 (2026-11-28): 골드 획득량 · 행운 레벨을 사서 올림 (ids = stats.ts 의 GROW 키, 아이템이 아님)
-SHOP_TABS.unshift({ name: "성장", icon: "grow_gold", cats: [], ids: ["gold", "luck"], cons: false, slot: null, grow: true });
+
 export const VIS_BASE = 2.5;                                     // 기본 시야 반경(타일)
 export const visR = () => VIS_BASE * STAT.light;
 export const LOOK = { drill: 0, tracks: 0, lamp: 0, crate: 0, engine: 0, pick: 0, rocket: 0, key: "" };   // 로봇 외형(장비 단계) · 사람 곡괭이/로켓 단계

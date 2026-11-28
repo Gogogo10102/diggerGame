@@ -9,7 +9,7 @@ import { EQUIP_FIXED, FUEL_DIG, FUEL_IDLE, FUEL_THRUST, SLOT_BASE, STAT, cargoCa
 import { fxNum, fxText } from "../art/buildings.ts";
 import { saveNow } from "../save/account.ts";
 import { CONS, HOT, visR } from "../data/consumables.ts";
-import { CATS, ITEMS } from "../data/items.ts";
+import { CATS, ITEMS, itemLv } from "../data/items.ts";
 import { MAX_LV, levelOf, titleName } from "../data/progress.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { LS_PREFIX } from "../save/config.ts";
@@ -112,6 +112,7 @@ export function renderInventory(note) {
       for (const id of cat.ids) {
         if (!P.items[id] || EQUIP_FIXED[id]) continue;
         const on = worn(id);
+        if (ITEMS[id].lv) { card(itemIcon(id), ITEMS[id].name + " Lv." + itemLv(id), ITEMS[id].fx.sell ? "골드 획득량 증가" : ITEMS[id].fx.lucky ? "행운 증가" : "연비 개선", mkBtn("늘 켜짐", () => {}, "mini off")); continue; }   // 레벨 장비
         card(itemIcon(id), ITEMS[id].name, fxText(ITEMS[id].fx),
           on ? mkBtn("빼기", () => after(equipToggle(id), ITEMS[id].name + " 뺐어요"), "mini") : mkBtn("장착", () => after(equipToggle(id), ITEMS[id].name + " 장착!"), "mini"));
       }

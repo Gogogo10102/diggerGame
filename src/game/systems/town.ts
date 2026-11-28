@@ -4,8 +4,8 @@ import { sfx } from "../core/sound.ts";
 import { TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { GROW, STAT, equipNew, equipToggle, growCost, maxFuel, recalcStats, say, worn } from "../core/stats.ts";
-import { ITEMS } from "../data/items.ts";
+import { STAT, equipNew, equipToggle, maxFuel, recalcStats, say, worn } from "../core/stats.ts";
+import { CATS, ITEMS, LV_MAX, itemLv, lvCost, reqMet } from "../data/items.ts";
 import { RECIPE_CATS } from "../data/recipes.ts";
 import { saveNow } from "../save/account.ts";
 import { BARS, barValue, isBar, matHave, matName, matTake } from "./furnace.ts";
@@ -32,6 +32,7 @@ export function craftItem(id) {
   for (const m in it.mats) matTake(m, it.mats[m]);
   P.money -= it.cost;
   P.items[id] = true;
+  if (it.lv) P.lv[id] = 1;
   equipNew(id);
   recalcStats();
   if (it.fx.fuel) P.fuel = maxFuel();
@@ -83,18 +84,21 @@ export function sellStash() {
   say("창고 광물 판매 +" + won(gain)); sfx("sell");
   saveNow(true);
 }
-// 성장 레벨 사기 (골드 획득량 · 행운): 몇 번이고, 살 때마다 값이 오름
-export function buyGrow(k) {
-  const c = growCost(k);
-  if (P.money < c) return townFail("돈이 부족해요 (" + won(c) + ")");
+// 레벨 장비(특수) 레벨 올리기: 가진 장비를 또 사면 Lv +1 (최대 LV_MAX), Lv.100 이면 같은 줄의 다음 장비가 열림
+export function levelUp(id) {
+  const it = ITEMS[id], lv = itemLv(id);
+  if (lv >= LV_MAX) return townFail(it.name + " 은(는) 최대 레벨이에요");
+  const c = lvCost(id, lv);
+  if (P.money < c) return townFail("돈이 부족합니다 (" + won(c) + " 필요)");
   P.money -= c;
-  P.grow[k] = (P.grow[k] || 0) + 1;
+  P.lv[id] = lv + 1;
   recalcStats();
-  say(GROW[k].name + " Lv." + P.grow[k] + "!"); sfx("buy"); sfx("levelup", { pitch: 1.3, vol: 0.3 });
+  const nx = CATS.find((cat) => cat.ids.includes(id)).ids.find((k) => ITEMS[k].req === id);
+  if (P.lv[id] >= LV_MAX && nx) { say(it.name + " Lv." + LV_MAX + "! 다음 장비 " + ITEMS[nx].name + " 이(가) 열렸어요"); sfx("levelup"); }
+  else { say(it.name + " Lv." + P.lv[id]); sfx("buy"); }
   saveNow(true, true);
 }
 export function buyItem(id) {
-  if (GROW[id]) return buyGrow(id);                                 // 성장 탭: 레벨 사기
   const it = ITEMS[id];
   if (!it) return;
   if (it.cons) {
@@ -107,6 +111,7 @@ export function buyItem(id) {
     saveNow(true, true);
     return;
   }
+  if (it.lv && P.items[id]) return levelUp(id);     // 레벨 장비: 또 사면 레벨 업
   if (P.items[id]) {                                // 가진 장비: 장착 (상점 버튼 '장착')
     if (worn(id)) return townFail("이미 장착 중이에요");
     const err = equipToggle(id);
@@ -115,10 +120,11 @@ export function buyItem(id) {
     saveNow(true, true);
     return;
   }
-  if (it.req && !P.items[it.req]) return townFail(it.req === "robot" ? "먼저 차고에서 로봇을 사야 해요" : "먼저 " + ITEMS[it.req].name + " 구매 필요");
+  if (!reqMet(id)) return townFail(it.req === "robot" ? "먼저 차고에서 로봇을 사야 해요" : ITEMS[it.req].lv ? ITEMS[it.req].name + " 을(를) Lv." + LV_MAX + " 까지 올려야 열려요" : "먼저 " + ITEMS[it.req].name + " 구매 필요");
   if (P.money < it.cost) return townFail("돈이 부족합니다 (" + won(it.cost) + " 필요)");
   P.money -= it.cost;
   P.items[id] = true;
+  if (it.lv) P.lv[id] = 1;
   equipNew(id);
   recalcStats();
   if (it.fx.fuel) P.fuel = maxFuel();               // 연료통을 사면 가득 채움

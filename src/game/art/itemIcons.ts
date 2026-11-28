@@ -177,7 +177,7 @@ export const CRAFT_ICON = {
 export const ITEM_ICON = {};
 for (const cat of CATS) {
   const b = B[cat.icon === "fuel" ? "tank" : cat.icon === "special" ? "goggles" : cat.icon];
-  const tierOf = (i) => cat.icon === "pick" ? PICK_TIER[i] : cat.icon === "rocket" ? ROCKET_TIER[i] : i;
+  const tierOf = (i) => cat.icon === "pick" ? PICK_TIER[i] : cat.icon === "rocket" ? ROCKET_TIER[i] : Math.min(i, 7);   // (특수는 10개라 8단계 색에 맞춤)
   cat.ids.forEach((id, i) => { const t = tierOf(i); ITEM_ICON[id] = sprite(16, 16, (p) => b(p, t, PAL[t])); });
 }
 for (const id in CRAFT_ICON) {

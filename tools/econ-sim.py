@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# 경제 흐름 어림 계산 (2026-11-28): 장비 사다리 3천원~120억원 + 성장 레벨(골드 ×1.1^Lv · 행운 +4%/Lv, 값 ×1.3)
-# 가장 싼 업그레이드부터 사는 단순한 플레이어로 "몇 번 왕복하면 무엇을 사는지" 출력. 숫자는 게임 코드와 손으로 맞춰 둠(가격을 바꾸면 같이 고칠 것)
+# 경제 흐름 어림 계산 (2026-11-28): 장비 사다리 3천원~120억원 + 특수(레벨 장비, Lv.100 이면 다음 장비)
+# 가장 싼 것부터 사는 단순한 플레이어로 "몇 번 왕복하면 무엇을 사는지" 출력. 숫자는 게임 코드와 손으로 맞춰 둠(가격을 바꾸면 같이 고칠 것)
 #   python3 tools/econ-sim.py
 import math
 VAL={6:60,2:100,3:250,8:500,4:800,9:1400,5:3000,10:2000,11:6000}
@@ -23,32 +23,47 @@ CARGO=[(18,4000),(34,34000),(66,280000),(114,2400000),(184,20000000),(284,170000
 FUEL=[3000,26000,230000,2000000,18000000,160000000,1400000000,12000000000]
 DRILL=[300000,1400000,6200000,28000000,130000000,580000000,2600000000,12000000000]
 ROBOT=150000
-def gcost(l): return round(2000*1.3**l)   # 게임은 앞 두 자리로 반올림
-def lcost(l): return round(3000*1.3**l)
-st=dict(pick=0,cargo=0,fuel=0,robot=0,drill=0,g=0,l=0); money=0; trips=0; log=[]
-def depth():
-    if st['robot']: D=150+110*st['drill']
-    else: D=30+22*st['pick']
-    return min(D, 50+75*st['fuel'] if not st['robot'] else 140+120*st['fuel'])
-def income():
-    cap=10 if st['cargo']==0 else CARGO[st['cargo']-1][0]
-    return cap*avgval(depth())*1.1**st['g']*(1+0.04*st['l'])*1.3
-def options():
-    o=[]
-    if not st['robot']:
-        if st['pick']<5: o.append(('pick',PICK[st['pick']]))
-        if st['pick']>=3: o.append(('robot',ROBOT))
-    elif st['drill']<8: o.append(('drill',DRILL[st['drill']]))
-    if st['cargo']<8: o.append(('cargo',CARGO[st['cargo']][1]))
-    if st['fuel']<8: o.append(('fuel',FUEL[st['fuel']]))
-    o.append(('g',gcost(st['g']))); o.append(('l',lcost(st['l'])))
-    return o
-while trips<3000:
-    if st['drill']==8 and st['cargo']==8 and st['fuel']==8: break
-    k,c=min(options(),key=lambda x:x[1])
-    while money<c: money+=income(); trips+=1
-    money-=c
-    st[k]+=1 if k not in('robot',) else 1
-    if k in('pick','robot','drill','cargo','fuel'): log.append((trips,k,st[k],c,round(income()),depth(),st['g'],st['l']))
-for r in log: print("왕복 %4d  %-6s %d  값 %15s  한번수입 %14s  깊이 %4d  골드Lv %3d 행운Lv %3d"%(r[0],r[1],r[2],format(r[3],','),format(r[4],','),r[5],r[6],r[7]))
-print("총 왕복",trips)
+def run(R,GOLD,LUCK,verbose=False):
+    st=dict(pick=0,cargo=0,fuel=0,robot=0,drill=0); gl=[0]*len(GOLD); ll=[0]*len(LUCK); money=0; trips=0; log=[]
+    def gmul():
+        m=1
+        for (b,p),l in zip(GOLD,gl): m*=1+p*l
+        return m
+    def lsum(): return sum(p*l for (b,p),l in zip(LUCK,ll))
+    def depth():
+        if st['robot']: D=150+110*st['drill']
+        else: D=30+22*st['pick']
+        return min(D, 50+75*st['fuel'] if not st['robot'] else 140+120*st['fuel'])
+    def income():
+        cap=10 if st['cargo']==0 else CARGO[st['cargo']-1][0]
+        return cap*avgval(depth())*gmul()*(1+lsum())*1.3
+    def options():
+        o=[]
+        if not st['robot']:
+            if st['pick']<5: o.append(('pick',PICK[st['pick']]))
+            if st['pick']>=3: o.append(('robot',ROBOT))
+        elif st['drill']<8: o.append(('drill',DRILL[st['drill']]))
+        if st['cargo']<8: o.append(('cargo',CARGO[st['cargo']][1]))
+        if st['fuel']<8: o.append(('fuel',FUEL[st['fuel']]))
+        for i,(b,p) in enumerate(GOLD):
+            if gl[i]<100 and (i==0 or gl[i-1]>=100): o.append((('g',i),b*R**gl[i]))
+        for i,(b,p) in enumerate(LUCK):
+            if ll[i]<100 and (i==0 or ll[i-1]>=100): o.append((('l',i),b*R**ll[i]))
+        return o
+    while trips<9000:
+        if st['drill']==8 and st['cargo']==8 and st['fuel']==8: break
+        k,c=min(options(),key=lambda x:x[1])
+        while money<c: money+=income(); trips+=1
+        money-=c
+        if isinstance(k,tuple):
+            arr=gl if k[0]=='g' else ll; arr[k[1]]+=1
+            if arr[k[1]]==100: log.append((trips,"%s%d=100"%k,c,income()))
+        else: st[k]+=1; log.append((trips,k+str(st[k]),c,income()))
+    if verbose:
+        for r in log: print("왕복 %4d %-8s 값 %16s 수입 %15s"%(r[0],r[1],format(round(r[2]),','),format(round(r[3]),',')))
+    return trips,gmul(),lsum(),gl,ll
+if __name__=="__main__":
+    # 특수(레벨 장비): (산 값, 레벨 1당 효과) — items.ts 와 맞출 것. 골드는 곱하기, 행운은 더하기
+    G=[(1000,.02),(50000,.03),(2000000,.04),(100000000,.05)]; L=[(1500,.01),(100000,.02),(5000000,.03)]
+    t,g,l,gl,ll=run(1.04,G,L,True)
+    print("총 왕복",t,"· 골드 배율 ×%.0f · 행운 +%d%%"%(g,l*100))

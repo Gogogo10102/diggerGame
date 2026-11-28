@@ -6,7 +6,7 @@ import { P } from "./player.ts";
 import { S } from "./state.ts";
 import { LOOK } from "../data/consumables.ts";
 import { solid } from "./world.ts";
-import { CATS, ITEMS } from "../data/items.ts";
+import { CATS, ITEMS, itemLv } from "../data/items.ts";
 import { cv } from "../render/util.ts";
 import { updateDebris } from "../systems/collapseFx.ts";
 import { lsSet } from "../ui/inventory.ts";
@@ -30,7 +30,7 @@ export function slotItem(cat) {                                 // 그 칸에 �
   for (const id of cat.ids) if (P.items[id]) top = id;
   return top;
 }
-export const worn = (id) => !!P.items[id] && (SLOT_OF[id] ? slotItem(SLOT_OF[id]) === id : !(P.off && P.off[id]));
+export const worn = (id) => !!P.items[id] && (SLOT_OF[id] ? slotItem(SLOT_OF[id]) === id : !!ITEMS[id].lv || !(P.off && P.off[id]));
 //  바꾼 뒤 화물이 용량을 넘으면 되돌리고 이유를 돌려줌 (성공이면 "")
 function equipCheck(undo) {
   recalcStats();
@@ -48,7 +48,7 @@ export function equipSlot(cat, id) {
 }
 //  특수·제작 장비 하나씩 끼고 빼기 (장비 칸 장비면 그 칸에 끼기/빼기)
 export function equipToggle(id) {
-  if (!P.items[id] || EQUIP_FIXED[id]) return "";
+  if (!P.items[id] || EQUIP_FIXED[id] || ITEMS[id].lv) return "";   // 레벨 장비는 늘 켜져 있음 (끼고 뺄 수 없음)
   if (SLOT_OF[id]) return equipSlot(SLOT_OF[id], worn(id) ? null : id);
   const was = !!P.off[id];
   if (was) delete P.off[id]; else P.off[id] = true;
@@ -60,20 +60,6 @@ export function equipNew(id) {
   else delete P.off[id];
 }
 
-// ---- 성장 레벨 (2026-11-28): 몇 번이고 사서 올리는 영구 능력치 ----
-//   장비가 비싸서(마지막 단계 120억원) 이걸 키워 벌이를 늘려야 다음 장비에 닿음. 값은 Lv 마다 GROW_UP 배
-export const GROW = {
-  gold: { name: "골드 획득량", base: 2000 },   // 광물·주괴·의뢰·보물 값 ×1.1^Lv
-  luck: { name: "행운", base: 3000 },          // 캔 광물 1개당 +4%씩 더 나옴 (100% 넘으면 2개 확정 + 나머지는 확률)
-};
-export const GROW_KEYS = ["gold", "luck"];
-export const GROW_UP = 1.3, GOLD_PER = 1.1, LUCK_PER = 0.04;
-export const growLv = (k) => (P.grow && P.grow[k]) || 0;
-export const growCost = (k, lv = growLv(k)) => {                   // 앞 두 자리만 남겨 반올림 (4만 6,600 → 4만 7천: 버튼에 짧게)
-  const v = GROW[k].base * Math.pow(GROW_UP, lv), p = Math.pow(10, Math.max(2, Math.floor(Math.log10(v)) - 1));
-  return Math.round(v / p) * p;
-};
-export const growFx = (k, lv = growLv(k)) => (k === "gold" ? Math.pow(GOLD_PER, lv) : lv * LUCK_PER);
 // 캔 광물 1칸에서 나오는 개수: 행운이 1.3 이면 2개 확정 + 30% 확률로 1개 더
 export const oreYield = () => { const L = Math.max(0, STAT.lucky); return 1 + Math.floor(L) + (Math.random() < L % 1 ? 1 : 0); };
 
@@ -83,9 +69,18 @@ export function recalcStats() {
   const s = { drill: 0, fuel: 0, cargo: 0, thrust: 0, speed: 0, light: 0, eff: 0, sell: 0, lucky: 0, pick: 0, rocket: 0, robot: 0 };
   const v = { ...SLOT_BASE };
   for (const c of CATS) if (c.slot) { const id = slotItem(c); if (id) v[c.slot] = ITEMS[id].fx[c.slot]; }
+  let sellMul = 1;                                                 // 레벨 장비(골드): 장비끼리 곱함 (고글 Lv.100 ×3 · 분석기 ×4 …)
   for (const id in P.items) {
+    const it = ITEMS[id];
+    if (it.lv) {                                                     // 레벨 장비는 늘 켜져 있음, 효과 = 레벨 1당 값 × 레벨
+      const lv = itemLv(id);
+      if (it.fx.sell) sellMul *= 1 + it.fx.sell * lv;
+      if (it.fx.lucky) s.lucky += it.fx.lucky * lv;
+      if (it.fx.eff) s.eff += it.fx.eff * lv;
+      continue;
+    }
     if (SLOT_OF[id] || !worn(id)) continue;
-    for (const k in ITEMS[id].fx) s[k] += ITEMS[id].fx[k];
+    for (const k in it.fx) s[k] += it.fx[k];
   }
   STAT.drill = v.drill + s.drill + (S.MINER_LV - 1) * 0.012;
   STAT.fuel = v.fuel + s.fuel;
@@ -94,8 +89,8 @@ export function recalcStats() {
   STAT.speed = v.speed + s.speed;
   STAT.light = v.light + s.light;
   STAT.eff = Math.max(0.4, 1 - s.eff);   // 연료 소모 배율
-  STAT.sell = (1 + s.sell + (S.MINER_LV - 1) * 0.004) * growFx("gold");   // 판매가 배율 (골드 획득량 레벨을 곱함)
-  STAT.lucky = s.lucky + growFx("luck");   // 광물이 더 나올 기대값 (1 넘으면 여러 개, oreYield)
+  STAT.sell = (1 + s.sell + (S.MINER_LV - 1) * 0.004) * sellMul;   // 판매가(골드 획득량) 배율
+  STAT.lucky = s.lucky;                  // 광물이 더 나올 기대값 (1 넘으면 여러 개, oreYield)
   STAT.pick = v.pick + s.pick + (S.MINER_LV - 1) * 0.006;   // 사람: 곡괭이
   STAT.rocket = v.rocket + s.rocket;     // 사람: 백팩 로켓 추진력 (0 = 로켓 없음 → 못 낢)
   {                                      // 로봇 외형: 장비 단계에 따라 달라짐
