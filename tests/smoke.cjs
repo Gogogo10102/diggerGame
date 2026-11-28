@@ -1491,15 +1491,20 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   // 높은 굴: 바닥 SURF+40, 위로 14칸 빈칸
   const shaft = (top) => t97.ev("(() => { graceT = 99; ensureRect(20, SURF, 50, SURF + 50); for (let r = SURF + 20; r <= SURF + 45; r++) for (let c = 26; c <= 34; c++) tiles[r*W+c] = 1; for (let r = SURF + " + top + "; r <= SURF + 39; r++) for (let c = 29; c <= 31; c++) tiles[r*W+c] = 0; P.x = 30 * T + T / 2; P.y = (SURF + " + top + ") * T + T / 2; P.vx = P.vy = 0; P.fuel = maxFuel(); P.hp = maxHp(); hurtT = 0; fallTop = null; P.climbing = false; S.rocketOn = false; keys.ArrowUp = false; })()");
   t97.ev("P.items = {}; P.mech = false; recalcStats()");
-  shaft(36); t97.run(90);
-  ok(t97.ev("P.hp") === 100, "사람: 3칸 낙하는 안 다침");
+  shaft(34); t97.run(120);
+  ok(t97.ev("P.hp") === 100, "사람: 5칸 낙하는 안 다침 (6칸까지 안전)");
   shaft(26); t97.run(150);
   const h1 = t97.ev("P.hp");
-  ok(h1 < 100 && h1 > 0, "사람: 13칸 낙하는 다침 (" + Math.round(100 - h1) + " 피해)");
+  ok(h1 < 100 && h1 > 50, "사람: 13칸 낙하는 조금 다침 (" + Math.round(100 - h1) + " 피해)");
   t97.ev("P.items.robot = true; P.mech = true; recalcStats()");
-  shaft(26); t97.run(150);
+  shaft(28); t97.run(150);
+  ok(t97.ev("P.hp") === 100, "로봇: 11칸 낙하는 안 다침 (12칸까지 안전)");
+  shaft(10); t97.run(240);
   const h2 = t97.ev("P.hp");
-  ok(h2 < 100 && 100 - h2 < (100 - h1) * 0.6, "로봇: 같은 낙하에 장갑으로 훨씬 덜 다침 (" + Math.round(100 - h2) + ")");
+  ok(h2 < 100 && 100 - h2 <= 20, "로봇: 29칸 낙하도 장갑 덕에 조금만 (" + Math.round(100 - h2) + ")");
+  shaft(10); for (let i = 0; i < 400 && t97.ev("P.y < (SURF + 30) * T"); i++) t97.run(1);   // 바닥 9칸 위까지 떨어진 뒤 잠깐 추진
+  t97.ev("keys.ArrowUp = true"); t97.run(10); t97.ev("keys.ArrowUp = false"); t97.run(240);
+  ok(t97.ev("P.hp") === 100, "떨어지다 추진으로 브레이크를 잡으면 거기서 다시 잼 → 안 다침");
   // 폭발
   shaft(36); t97.run(60); t97.ev("P.hp = maxHp(); P.mech = false; recalcStats(); explode({ c: 30, r: SURF + 39, rad: 1 })");
   ok(t97.ev("P.hp") === 100 - 35, "사람: 폭발에 휘말리면 체력 -35");

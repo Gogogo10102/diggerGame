@@ -311,9 +311,11 @@ export function useConsumable(id) {
   saveNow(true, true);
 }
 // ---- 체력 (2026-11-28) ----
-// 다치는 곳: 높은 곳에서 떨어짐(사람 기준 SAFE_FALL 칸 넘게) · 폭발 · 가스(사람). 로봇에 타고 있으면 로봇 장갑이 ROBOT_ARMOR 만 받음
+// 다치는 곳: 높은 곳에서 떨어짐 · 폭발 · 가스(사람). 로봇에 타고 있으면 로봇 장갑이 ROBOT_ARMOR 만 받음
+// 낙하(2026-11-28 완화): 마지막으로 추진·점프·사다리를 놓은 높이부터 잰 칸 수. 사람은 SAFE_FALL 칸, 로봇은 SAFE_FALL_MECH 칸까지 안전,
+//   그 위로 칸당 FALL_DMG(로봇은 절반 × 장갑 40% = 칸당 1). 떨어지다 추진(로켓)을 켜면 거기서 다시 잼 → 브레이크 잡고 내리면 안 다침
 // 0 이 되면 쓰러짐 → 연료 고갈과 같은 구조(화물 잃고 마을로). 지상(마을)에선 빨리 차오름, 구급상자로도 회복
-export const SAFE_FALL = 4, FALL_DMG = 6, ROBOT_ARMOR = 0.4, BLAST_DMG = 35, GAS_HP = 6, TOWN_HEAL = 25;
+export const SAFE_FALL = 6, SAFE_FALL_MECH = 12, FALL_DMG = 5, ROBOT_ARMOR = 0.4, BLAST_DMG = 35, GAS_HP = 6, TOWN_HEAL = 25;
 S.hurtT = 0; S.hurtFlash = 0; S.fallTop = null;
 export function hurt(n, why, raw) {                              // raw: 무적 시간 없이 조금씩 (가스)
   if (P.dead > 0 || (!raw && S.hurtT > 0)) return 0;
@@ -503,12 +505,13 @@ export function update(dt) {
     P.vx = 0;
   }
   const prevFeet = P.y + HH;
-  if (P.vy <= 0 || P.climbing || S.fallTop == null) S.fallTop = P.y;   // 떨어지기 시작한 높이 (올라가는 중·사다리면 지금 자리)
+  if (P.vy <= 0 || P.climbing || thrusting || S.fallTop == null) S.fallTop = P.y;   // 떨어지기 시작한 높이 (올라가는 중·사다리·추진 중이면 지금 자리)
   P.y += P.vy * dt;
   const fallV = P.vy;
   if (collide(P.x, P.y)) {
     const fallH = fallV > 0 ? (P.y - S.fallTop) / T : 0;           // 떨어진 칸 수
-    if (fallH > SAFE_FALL + 0.5 && fallV > 250 * PX) hurt((fallH - SAFE_FALL) * FALL_DMG, "높은 곳에서 떨어져");
+    const safeH = P.mech ? SAFE_FALL_MECH : SAFE_FALL;
+    if (fallH > safeH + 0.5 && fallV > MOVE.fallMax * PX * 0.9) hurt((fallH - safeH) * FALL_DMG * (P.mech ? 0.5 : 1), "높은 곳에서 떨어져");   // 로봇은 다리 완충까지 절반 (장갑 40% 와 곱해 칸당 1)
     if (fallV > 260 * PX) sfx("land", { vol: Math.min(1, fallV / (520 * PX)) });   // 세게 떨어질수록 큰 쿵
     if (fallV > 150 * PX) S.landT = 0.12;                            // 사람: 잠깐 착지 자세(무릎 굽힘)
     if (fallV > 200 * PX) {                                          // 착지: 궤도 양 끝에서 먼지가 옆으로 퍼짐
