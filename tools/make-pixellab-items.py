@@ -23,6 +23,7 @@ CELL = 32
 
 # 시트마다 고른 칸 (2026-11-28 백팩 로켓부터)
 PICKS = {
+    "tele": {1: "tele1", 9: "tele2", 12: "tele3", 37: "tele4", 42: "tele5", 39: "tele6"},   # 텔레포터 6단계 (2026-11-28): 돌 아치 → 둥근 문 → 화면 게이트 → 뾰족 문 → 구슬 → 고리 행성
     "rocket": {2: "rocket1", 18: "rocket1b", 24: "rocket2", 33: "rocket3", 49: "rocket4"},   # 백팩 · 강화 · 터보 · 제트 · 플라즈마
     "fuel": {4: "aux_tank", 10: "big_tank", 19: "power_cell", 29: "comp_tank", 34: "plasma_cell", 49: "fusion_core", 54: "dark_tank", 64: "inf_reactor"},
     "crate": {25: "cargo1", 29: "cargo2", 40: "cargo3", 41: "cargo4", 33: "cargo5", 43: "cargo6", 49: "cargo7", 62: "cargo8"},   # 나무 상자 대신 철 상자 → 기계 큐브 (로봇 몸 안 적재함 느낌)
@@ -42,12 +43,15 @@ PICKS = {
 # 상점 분류 아이콘(탭 띠): 시트 tabs.png → ui/tab/<분류 icon 키>.png (아이템 그림과 따로, 2026-11-28)
 TAB_PICKS = {
     "tabs": {1: "pick", 10: "rocket", 23: "drill", 25: "fuel", 40: "crate", 41: "engine", 49: "tracks", 57: "special"},
+    "tele": {9: "craft_tele"},   # 제작 '이동' 분류 아이콘
     "tabs2": {1: "fuelcan",   # 소모품 = 다이너마이트 묶음 (빨간 기름통이 탱크와 헷갈려서)
               15: "craft_drill", 23: "craft_engine", 35: "craft_lamp", 47: "craft_tracks", 55: "craft_special"},   # 제작 분류: 톱날·동력·보조·외장·탐사
 }
 # 원석 아이콘 (2026-11-28): ores/icon/<광물id>.png (32) + 바닥에 떨어진 것 ores/drop/<id>.png (24, 같은 그림을 줄임)
 ORE_PICKS = {
     "ores": {8: 6, 16: 2, 21: 3, 27: 8, 38: 4, 47: 9, 49: 10, 61: 5},   # 석탄·구리·철·은·금·에메랄드·루비·다이아
+    "ores2": {1: 20, 2: 21, 3: 22, 5: 23, 6: 24, 7: 25},   # 새 광물 (2026-11-28): 석영·호박·자수정·사파이어·흑요석·화염석
+    "ores3": {1: 26, 13: 27, 18: 28, 36: 29, 54: 30, 57: 31},   # 수정 결정·오팔·아다만트·고대 호박(화석 든 것)·공허석·별 조각
 }
 # 주괴: bars/<키>.png
 BAR_PICKS = {
@@ -100,6 +104,9 @@ def main(only):
         for n, key in picks.items():
             cell(sheet, n).save(os.path.join(TAB_OUT, key + ".png"))
             print(f"{name} #{n} → ui/tab/{key}.png")
+    if not only or "tele" in only:                                     # HUD 텔레포터 버튼·이동 분류 기본 아이콘 = 텔레포터 시트 #1
+        cell(Image.open(os.path.join(SRC, "tele.png")).convert("RGBA"), 1).save(os.path.join(ROOT, "public/assets/ui/icon/tele.png"))
+        print("tele #1 → ui/icon/tele.png")
     def save_ore(oid, c):
         c.save(os.path.join(ORE_OUT, "icon", f"{oid}.png"))
         d = c.resize((24, 24), Image.BOX)                              # 떨어진 광물은 24px: 고르게 줄이고 반투명 가장자리는 잘라 또렷하게

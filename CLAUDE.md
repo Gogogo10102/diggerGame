@@ -126,7 +126,7 @@ docs/                  plan.md decisions.md
 - **텔레포터 = 한 쌍의 패드**(2026-11-28, update.ts, 제작 '이동' 6단계 `tele1~6`, 효과 `tele` = 땅속 패드 최대 m: 200·500·900·1400·2000·2400, 내구도 `TELE_DUR` 20~50): 재료는 앞 단계로 갈 수 있는 깊이의 새 광물. 로봇 없이도 씀.
   지상(광산 터 땅 위)에 하나(`a`), 땅속(최대 깊이까지)에 하나(`b`) 깔면 이어짐 → 패드 앞(`atPad()`)에서 [E]·이동 버튼(`S.promptBtn`)으로 반대쪽 패드로(`useTele`).
   깔기·옮겨 깔기는 T 키·HUD 버튼 → 창(`renderTele`, menu.ts) → `placeTele`(서 있는 칸, `teleCanPlace` 가 지상/땅속을 고름). 내구도: 깔기 `TELE_PLACE`(2) · 이동 1(`teleWear`), 0 이면 부서져 사라짐 → 다시 제작.
-  **한 번에 하나만**(`teleId()`). 상태 `P.tele = { dur, a: {c, r}|null, b: {c, r}|null }`(세이브 `player.tele`, r = 패드가 놓인 칸), 만든 적 있는 제작 장비 `P.made`(부서진 텔레포터도 다음 단계 선행 조건으로 인정). 패드 그림은 아이콘 `ICON.tele` 를 키운 임시.
+  **한 번에 하나만**(`teleId()`). 상태 `P.tele = { dur, a: {c, r}|null, b: {c, r}|null }`(세이브 `player.tele`, r = 패드가 놓인 칸), 만든 적 있는 제작 장비 `P.made`(부서진 텔레포터도 다음 단계 선행 조건으로 인정). 그림 = PixelLab 시트 `tele.png` → 단계마다 `items/tele<n>.png`(패드도 그 단계 그림을 키워 그림) · `ui/icon/tele.png`(HUD 버튼) · `ui/tab/craft_tele.png`.
 - 마을 창(상점·제작·용광로·판매)은 `render/townUI.ts` 의 공용 틀 `townFrame(…, 분류목록, 고른분류, 분류동작)` 을 씁니다.
   "왼쪽 분류 → 오른쪽 목록(줄마다 버튼)" 흐름을 지켜 주세요. 상세 칸이 필요하면 `townFooter`.
 - **움직임 숫자 = `update.ts` 의 `MOVE`**(걷기 속도·출발/멈춤 시간·걷기 한 바퀴 거리·공중 조작·중력·로켓/추진). 출발·멈춤은 '최고 속도까지 걸리는 초'로 적음. 지금 값은 2026-11-25 조절판으로 고른 것(사람 속도 80·로봇 125, 중력 560 등).
@@ -170,7 +170,7 @@ docs/                  plan.md decisions.md
   **새 광물(2026-11-28)** 20 석영 · 21 호박 · 22 자수정 · 23 사파이어 · 24 흑요석 · 25 화염석 · 26 수정 결정 · 27 오팔 · 28 아다만트 · 29 고대 호박 · 30 공허석 · 31 별 조각(지층마다 1~2개, 120원 ~ 200만원).
   표시 순서는 `ORE_ORDER`(config.ts, 값 순) → 통계 `ORE_IDS`·판매 `SELL_KEYS`·화물 칸. 분포는 world.ts `ORE_GEN` 의 `v2` 줄: 광맥은 **다른 난수**(salt 0x0e2a)로 따로 만들어 기존 광맥 배치는 그대로.
   `TILE[id].fragile`(호박·오팔·고대 호박) = 약한 광물: 로봇 톱니·폭발에 부서져 아무것도 안 남음(`shatterOre`, update.ts) → 사람 곡괭이로만.
-  그림은 아직 닮은 광물 모양(`ORE_SHAPE_OF`, sprites.ts)을 제 색으로 칠한 대체 그림 + 땅속 알갱이(make-pixellab-ores.py, `NEW_GEMS` 는 결정 모양). PixelLab 아이콘이 오면 `ores/icon/<id>.png` 로.
+  아이콘·떨어진 그림 = PixelLab 시트 `ores2.png`(석영~화염석)·`ores3.png`(수정 결정~별 조각) → make-pixellab-items.py 의 `ORE_PICKS`. 땅속 알갱이는 make-pixellab-ores.py(`NEW_GEMS` 는 결정 모양). PNG 가 없을 때의 대체 그림 = 닮은 광물 모양(`ORE_SHAPE_OF`)을 제 색으로.
 - **드릴 아이콘**(`items/<드릴 id>.png` 15개 + `ui/icon/drill.png`)은 `python3 tools/make-drill-icons.py` (확정 도안 v2, 등급 4 × 진화 4 중 고른 표는 파일 안 MAP).
 - **원석 아이콘·떨어진 광물·주괴 = PixelLab**(2026-11-28): 시트 `ores.png`(원석 8)·`bars.png`(미스릴 원석 + 주괴) → make-pixellab-items.py 의 `ORE_PICKS`·`BAR_PICKS` → `ores/icon/<id>`(32) · `ores/drop/<id>`(같은 그림을 24로 줄임) · `bars/<키>`.
   미스릴은 시트의 하늘색이 다이아와 겹쳐 게임 미스릴 색(민트 167도)으로 바꿈(`ORE_RECOLOR`·`BAR_RECOLOR`). 땅속 광물 알갱이(`ores/world`)는 그대로.

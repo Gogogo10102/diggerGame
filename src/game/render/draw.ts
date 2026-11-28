@@ -6,7 +6,7 @@ import { CLOUDS, DIRT_VAR, ICON, ORE_SPR, ORE_HI_SPARK, ORE_FLECK_SPARK, ORE_FLE
 import { AS, B_CRAFT, B_FURN, B_SHOP, BUILD_COLS, H, HH, layerOf, LAYERS, MINE_COL, ORE_COL, ORE_ORDER, PX, SURF, T, TILE, W, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, maxHp, parts, teleMax } from "../core/stats.ts";
+import { BANNER_T, SHOP_PER, STAT, bombs, cargoCap, cargoCount, curZoom, drillMult, flashes, floaters, maxFuel, maxHp, parts, teleId, teleMax } from "../core/stats.ts";
 import { baseTiles, ensureRect, hardOf, isAir, natAir, seen, tiles } from "../core/world.ts";
 import { HOT, LOOK, VIS_BASE, visR } from "../data/consumables.ts";
 import { CATS, ITEMS } from "../data/items.ts";
@@ -538,7 +538,7 @@ export function draw() {
     const px = e.c * T - camX, py = e.r * T - camY, on = P.tele.a && P.tele.b;
     if (px < -T || px > vw + T || py < -2 * T || py > innerHeight + T) continue;
     if (on) { const a = 0.22 + 0.14 * Math.sin(S.animT * 3); ctx.fillStyle = "rgba(150,120,255," + a.toFixed(3) + ")"; ctx.fillRect(px + 16, py - 24, T - 32, T + 16); }
-    ctx.globalAlpha = on ? 1 : 0.6; blit(ICON.tele, px, py, T, T); ctx.globalAlpha = 1;
+    ctx.globalAlpha = on ? 1 : 0.6; blit(itemIcon(teleId()), px, py, T, T); ctx.globalAlpha = 1;   // 패드 = 그 단계 텔레포터 그림
   }
 
   // 플레이어 (타이틀 화면에선 로고 위 로봇만 보이게 숨김)
