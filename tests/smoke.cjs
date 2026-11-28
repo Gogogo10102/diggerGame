@@ -1527,33 +1527,53 @@ function mechOn(t) { t.ev("P.items.robot = true; P.mech = true; recalcStats()");
   ok(t97.ev("(() => { const d = snapshot(); P.hp = 99; applyAccount(d); return P.hp; })()") === 33, "체력이 저장됨");
   ok(t97.ev("(() => { const d = snapshot(); delete d.player.hp; applyAccount(d); return P.hp; })()") === 100, "옛 세이브(체력 없음)는 가득으로");
 
-  console.log("[51] 텔레포터 (제작 '이동'): 마을 ↔ 간 적 있는 깊이, 단계마다 최대 깊이");
+  console.log("[51] 텔레포터: 지상에 설치 → 패드에서 땅속으로 · 내구도 · 하나만");
   const t98 = boot(path, { w: 1000, h: 640 }); t98.run(5); await login(t98, "Tele"); t98.run(5);
   ok(t98.ev("RECIPE_CATS.find((c) => c.name === '이동').ids.map((id) => ITEMS[id].fx.tele).join()") === "200,500,900,1400,2000,2400", "텔레포터 6단계: 최대 200 ~ 2400m");
-  ok(t98.ev("ITEMS.tele2.req") === "tele1" && t98.ev("ITEMS.tele1.mats[20]") === 20, "앞 단계부터 · 재료는 그 깊이의 새 광물 (석영)");
-  ok(t98.ev("teleMax()") === 0 && t98.ev("S.teleBtn") === null, "없으면 HUD 텔레포트 버튼 없음");
+  ok(t98.ev("ITEMS.tele1.dur") === 20 && t98.ev("ITEMS.tele6.dur") === 50, "내구도 20 ~ 50");
+  ok(t98.ev("teleMax()") === 0 && t98.ev("S.teleBtn") === null, "없으면 HUD 버튼 없음");
   t98.key("KeyT"); await t98.tick();
   ok(t98.ev("state") === "play" && t98.ev("msg").includes("텔레포터가 없어요"), "없으면 T 키는 안내만");
-  t98.ev("P.stash = { 20: 20 }; P.bars = { cu: 20 }; P.money = 1e6; craftItem('tele1')");
-  ok(t98.ev("!!P.items.tele1") && t98.ev("teleMax()") === 200, "간이 텔레포터 제작 → 최대 200m");
+  t98.ev("P.stash = { 20: 40, 22: 20 }; P.bars = { cu: 40, fe: 40 }; P.money = 1e9; craftItem('tele1')");
+  ok(t98.ev("!!P.items.tele1") && t98.ev("P.tele.dur") === 20 && t98.ev("P.tele.c") === -1, "제작 → 내구도 20 · 아직 설치 안 함");
+  t98.ev("craftItem('tele2')");
+  ok(!t98.ev("!!P.items.tele2") && t98.ev("msg").includes("하나만"), "하나만 가질 수 있음 (더 못 만듦)");
   t98.ev("acct.stats.maxDepth = 130");
-  ok(t98.ev("teleStops().join()") === "50,100", "갈 곳 = 50m 단위, 가 본 곳(130m)까지만");
-  t98.run(2);
-  ok(!!t98.ev("S.teleBtn"), "HUD 에 텔레포트 버튼");
+  // 마을 땅에서는 설치 안 됨
+  t98.ev("P.x = 4 * T + T / 2; P.y = SURF * T - HH - 1; P.vx = P.vy = 0"); t98.run(5);
+  ok(t98.ev("teleCanPlace()").includes("마을 땅"), "마을 땅에는 못 깜");
+  // 광산 터 지상에 설치
+  t98.ev("P.x = (MINE_COL + 5) * T + T / 2; P.y = SURF * T - HH - 1; P.vx = P.vy = 0"); t98.run(5);
   t98.key("KeyT"); await t98.tick();
-  ok(t98.ev("state") === "menu" && t98.texts().some((x) => x === "100m") && !t98.texts().some((x) => x === "150m"), "T 키 → 텔레포트 창 (50m · 100m)");
+  ok(t98.texts().some((x) => x.includes("여기에 설치")), "지상에서 T → '여기에 설치'");
+  await t98.click("여기에 설치 (내구도 -2)"); t98.run(2);
+  ok(t98.ev("P.tele.c") === t98.ev("MINE_COL + 5") && t98.ev("P.tele.dur") === 18, "설치하면 그 자리에 패드 · 내구도 -2");
+  ok(t98.ev("nearPad()") && !!t98.ev("S.teleBtn"), "패드 위 · HUD 버튼");
+  t98.key("KeyT"); await t98.tick();
+  ok(t98.texts().some((x) => x === "100m") && !t98.texts().some((x) => x === "150m"), "패드 위에서 T → 깊이 고르기 (가 본 130m 까지: 50m · 100m)");
   await t98.click("100m"); t98.run(3);
-  const tr = t98.ev("Math.floor(P.y / T) - SURF");
-  ok(t98.ev("state") === "play" && tr >= 94 && tr <= 106, "100m 근처로 순간 이동 (" + tr + "m)");
-  ok(t98.ev("!collide(P.x, P.y)"), "도착 자리는 빈칸 (끼지 않음)");
-  ok(t98.ev("S.teleCD") > 25, "쓰면 30초 충전");
-  ok(t98.ev("(() => { const a = acct.stats.maxDepth; P.items.tele6 = true; acct.stats.maxDepth = 2400; const n = teleStops(); delete P.items.tele6; acct.stats.maxDepth = a; return n.length === 29 && n[9] === 500 && n[10] === 600 && n[28] === 2400; })()"), "500m 아래는 100m 단위 (2400m 까지 버튼 29개)");
-  t98.ev("teleportTo(0)");
-  ok(t98.ev("Math.floor(P.y / T)") > t98.ev("SURF") && t98.ev("msg").includes("충전 중"), "충전 중엔 못 씀");
-  t98.ev("S.teleCD = 0; teleportTo(0)"); t98.run(2);
-  ok(t98.ev("P.y") < t98.ev("SURF * T"), "충전되면 마을로 돌아옴");
-  t98.ev("S.teleCD = 0; teleportTo(500)");
-  ok(t98.ev("P.y") < t98.ev("SURF * T") && t98.ev("msg").includes("못 가요"), "최대 깊이보다 깊은 곳은 못 감");
-
+  const tr = t98.ev("Math.floor(P.y / T) - SURF"), tc = t98.ev("Math.floor(P.x / T) - MINE_COL - 5");
+  ok(tr >= 94 && tr <= 106 && Math.abs(tc) <= 6, "패드 바로 아래 100m 근처로 (" + tr + "m, 옆으로 " + tc + "칸)");
+  ok(t98.ev("!collide(P.x, P.y)") && t98.ev("P.tele.dur") === 17, "빈칸에 도착 · 내구도 -1");
+  t98.ev("teleportTo(100)");
+  ok(t98.ev("msg").includes("패드 위에서만"), "땅속에서는 다른 깊이로 못 감 (패드로만 돌아감)");
+  t98.key("KeyT"); await t98.tick();
+  ok(t98.texts().some((x) => x.includes("패드로 돌아가기")), "땅속에서 T → '패드로 돌아가기'");
+  await t98.click("패드로 돌아가기 (내구도 -1)"); t98.run(2);
+  ok(t98.ev("nearPad()") && t98.ev("P.tele.dur") === 16, "패드로 귀환 · 내구도 -1");
+  // 옮겨 설치
+  t98.ev("P.x = (MINE_COL + 12) * T + T / 2; P.y = SURF * T - HH - 1; P.vx = P.vy = 0"); t98.run(5);
+  t98.ev("placeTele()");
+  ok(t98.ev("P.tele.c") === t98.ev("MINE_COL + 12") && t98.ev("P.tele.dur") === 14, "옮겨 설치하면 내구도 -2");
+  // 저장
+  ok(t98.ev("(() => { const d = snapshot(); P.tele = null; applyAccount(d); return P.tele.dur === 14 && P.tele.c === MINE_COL + 12; })()"), "내구도·설치 자리가 저장됨");
+  // 다 쓰면 사라짐 → 다시 만들 수 있음 (앞 단계를 만든 적 있으면 다음 단계도)
+  t98.ev("P.tele.dur = 1"); t98.run(2);
+  t98.ev("teleportTo(50)"); t98.run(2);
+  ok(!t98.ev("!!P.items.tele1") && t98.ev("P.tele") === null && t98.ev("teleMax()") === 0, "내구도를 다 쓰면 부서져 사라짐");
+  t98.ev("craftItem('tele2')");
+  ok(t98.ev("!!P.items.tele2") && t98.ev("P.tele.dur") === 25, "부서진 뒤엔 새로 제작 (만든 적 있는 앞 단계로 다음 단계도)");
+  t98.ev("P.x = 4 * T + T / 2; P.y = SURF * T - HH - 1"); t98.run(2);
+  ok(t98.ev("(() => { P.items.tele6 = true; acct.stats.maxDepth = 2400; const n = teleStops(); delete P.items.tele6; return n.length === 29 && n[9] === 500 && n[10] === 600 && n[28] === 2400; })()"), "500m 아래는 100m 단위 (2400m 까지 버튼 29개)");
   console.log("ALL_OK");
 })().catch((e) => { console.log("FAIL", e.stack || e.message); process.exit(1); });

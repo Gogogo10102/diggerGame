@@ -1,9 +1,9 @@
 // @ts-nocheck — 원래 한 파일이던 코드를 옮겨 온 상태. 타입을 붙이면서 이 줄을 하나씩 지워 나가세요.
 import "./overlay.ts";   // 실행 순서 보장: 바로 앞 모듈을 먼저 실행 (docs/decisions.md 참고)
-import { HH, SURF, T, TILE, won } from "../core/config.ts";
+import { HH, MINE_COL, SURF, T, TILE, won } from "../core/config.ts";
 import { P } from "../core/player.ts";
 import { S } from "../core/state.ts";
-import { ZOOMS, maxFuel, say, teleMax, zoomName } from "../core/stats.ts";
+import { ZOOMS, maxFuel, say, teleId, teleMax, zoomName } from "../core/stats.ts";
 import { genWorld } from "../core/world.ts";
 import { ITEMS } from "../data/items.ts";
 import { levelOf, titleName } from "../data/progress.ts";
@@ -12,7 +12,7 @@ import { ORE_IDS } from "../save/config.ts";
 import { exportCode } from "../save/transfer.ts";
 import { chunks } from "../systems/floating.ts";
 import { SENS_NAME } from "../systems/input.ts";
-import { respawn, teleStops, teleportTo } from "../systems/update.ts";
+import { TELE_PLACE, nearPad, placeTele, respawn, teleCanPlace, teleDurMax, telePlaced, teleStops, teleportTo } from "../systems/update.ts";
 import { charFooter, charTabs } from "./dom.ts";
 import { sfx } from "../core/sound.ts";
 import { lsGet, lsSet, renderInventory } from "./inventory.ts";
@@ -31,27 +31,36 @@ export function openInventory() {
   S.state = "menu"; keysReset();
   renderInventory();
 }
-// ---- 텔레포트 창 (2026-11-28): 갈 곳 고르기. 마을 + 50m 단위 (텔레포터 최대 깊이 · 가 본 가장 깊은 곳까지) ----
+// ---- 텔레포트 창 (2026-11-28): 지상 = 설치·옮기기 / 패드 위 = 내려갈 깊이 고르기 / 땅속 = 패드로 돌아가기 ----
 export function openTele() {
   if (S.state !== "play" || !S.acct || P.dead > 0) return;
-  if (!(teleMax() > 0)) return say("텔레포터가 없어요 · 제작소 '이동'에서 만들어요");
+  if (!teleId()) return say("텔레포터가 없어요 · 제작소 '이동'에서 만들어요");
   S.state = "menu"; keysReset();
   renderTele();
 }
 export function renderTele() {
   S.invOpen = false;
+  const id = teleId(), mx = teleDurMax(id), dur = P.tele ? P.tele.dur : mx;
   const root = el("div");
-  root.appendChild(el("h2", null, "텔레포트"));
-  const deep = Math.floor(S.acct.stats.maxDepth), lim = Math.min(teleMax(), deep);
-  root.appendChild(el("p", "dim", "텔레포터 최대 " + teleMax() + "m · 가 본 가장 깊은 곳 " + deep + "m → " + lim + "m 까지"));
-  if (S.teleCD > 0) root.appendChild(el("p", "msg", "충전 중… " + Math.ceil(S.teleCD) + "초 뒤에 쓸 수 있어요"));
-  const go = (d) => { closeMenu(); teleportTo(d); };
-  const bs = el("div", "btns");
-  const inTown = Math.floor(P.y / T) < SURF;
-  bs.appendChild(mkBtn("마을로", () => go(0), inTown || S.teleCD > 0 ? "off" : "pri"));
-  const stops = teleStops();
-  if (!stops.length) root.appendChild(el("p", "dim", "아직 갈 수 있는 깊이가 없어요 · 50m 아래까지 먼저 내려가 보세요"));
-  for (const d of stops) bs.appendChild(mkBtn(d + "m", () => go(d), S.teleCD > 0 ? "off" : "info"));
+  root.appendChild(el("h2", null, ITEMS[id].name));
+  root.appendChild(el("p", "dim", "내구도 " + dur + " / " + mx + " · 설치·옮기기 -" + TELE_PLACE + " · 한 번 넘어갈 때 -1 · 다 쓰면 사라져요"));
+  const bs = el("div", "btns"), act = (fn) => () => { closeMenu(); fn(); };
+  const under = Math.floor(P.y / T) >= SURF;
+  if (under) {
+    if (telePlaced()) bs.appendChild(mkBtn("패드로 돌아가기 (내구도 -1)", act(() => teleportTo(0)), "pri"));
+    else root.appendChild(el("p", "msg", "아직 설치하지 않았어요 · 지상에서 설치하면 돌아올 수 있어요"));
+  } else if (nearPad()) {
+    const deep = Math.floor(S.acct.stats.maxDepth), lim = Math.min(teleMax(), deep);
+    root.appendChild(el("p", "dim", "최대 " + teleMax() + "m · 가 본 가장 깊은 곳 " + deep + "m → " + lim + "m 까지 내려갈 수 있어요 (내구도 -1)"));
+    const stops = teleStops();
+    if (!stops.length) root.appendChild(el("p", "msg", "아직 갈 수 있는 깊이가 없어요 · 50m 아래까지 먼저 내려가 보세요"));
+    for (const d of stops) bs.appendChild(mkBtn(d + "m", act(() => teleportTo(d)), "info"));
+  } else {
+    const why = teleCanPlace();
+    if (telePlaced()) root.appendChild(el("p", "dim", "패드는 지상 " + (P.tele.c - MINE_COL) + "번째 칸에 있어요 · 패드 위에서 T 로 내려가요"));
+    if (why) root.appendChild(el("p", "msg", why));
+    else bs.appendChild(mkBtn((telePlaced() ? "여기로 옮기기" : "여기에 설치") + " (내구도 -" + TELE_PLACE + ")", act(placeTele), "pri"));
+  }
   root.appendChild(bs);
   const bb = el("div", "btns");
   bb.appendChild(mkBtn("닫기", closeMenu, "back"));
@@ -68,7 +77,7 @@ export function renderMenu(note) {
   bs.appendChild(mkBtn("계속하기", closeMenu, "pri"));
   bs.appendChild(mkBtn("지금 저장", async () => { const ok = await saveNow(true); renderMenu(ok ? "저장했어요" : "저장에 실패했어요"); }, "info"));
   bs.appendChild(mkBtn("캐릭터 정보 (장비·업적·통계)", () => renderInventory()));
-  if (teleMax() > 0) bs.appendChild(mkBtn("텔레포트", () => renderTele(), "info"));
+  if (teleId()) bs.appendChild(mkBtn("텔레포터", () => renderTele(), "info"));
   if (Math.floor(P.y / T) >= SURF && P.dead <= 0) bs.appendChild(mkBtn("구조 요청 (지상으로)", renderRescue, "del"));
   bs.appendChild(mkBtn("새 광산 찾기", renderNewMine));
   bs.appendChild(mkBtn("설정", () => renderSettings()));

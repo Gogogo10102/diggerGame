@@ -533,6 +533,15 @@ export function draw() {
 
   // 차고: 상점과 제작소 사이 바닥 판 + (로봇을 샀는데 안 타고 있으면) 세워 둔 로봇
   drawGarage(camX, camY, vw);
+  if (P.tele && P.tele.c >= 0 && teleMax() > 0) {                 // 설치한 텔레포터 패드: 땅 위 한 칸, 위로 보랏빛이 일렁임
+    const px = P.tele.c * T - camX, py = (SURF - 1) * T - camY;
+    if (px > -T && px < vw + T) {
+      const a = 0.25 + 0.15 * Math.sin(S.animT * 3);
+      ctx.fillStyle = "rgba(150,120,255," + a.toFixed(3) + ")"; ctx.fillRect(px + 16, py - 24, T - 32, T + 16);
+      blit(ICON.tele, px, py, T, T);
+      if (Math.abs(P.x - (P.tele.c + 0.5) * T) < T * 1.2 && Math.floor(P.y / T) < SURF && S.state === "play") txt(S.usedTouch ? "텔레포터 버튼" : "T 텔레포트", px + T / 2, py - 44, "#d8ccff", 12, "center", SY.ink);
+    }
+  }
 
   // 플레이어 (타이틀 화면에선 로고 위 로봇만 보이게 숨김)
   if (P.dead <= 0 && S.state !== "title" && !P.mech) drawHuman(Math.round(P.x - camX), Math.round(P.y - camY));
@@ -932,11 +941,11 @@ export function drawHUD(vw, vh, depth) {
     glyph(GLYPH.map, tx + Math.floor((bs - 21) / 2), Math.round(cy - 10.5), mapOn ? "#1668b8" : "#5a6478", 3);
     if (!mapOn) { ctx.fillStyle = "#c42a3a"; for (let k = 0; k < 6; k++) ctx.fillRect(tx + 8 + k * 5, ty + 8 + k * 4, 4, 4); }   // 꺼짐: 빨간 사선
     S.mapToggleBtn = { x: tx - 3, y: ty - 3, w: bs + 6, h: bs + 6 };
-    if (teleMax() > 0) {                                           // 텔레포트 버튼: 지도 버튼 왼쪽. 충전 중이면 어둡게 + 남은 초
-      const qx = tx - bs - bg, cd = Math.max(0, S.teleCD || 0);
-      const qy = btnPx(qx, ty, bs, bs, cd > 0 ? "steel" : "blue");
-      ctx.globalAlpha = cd > 0 ? 0.45 : 1; blit(ICON.tele, qx + ((bs - 32) >> 1), Math.round(qy - 16), 32, 32); ctx.globalAlpha = 1;
-      if (cd > 0) txt(String(Math.ceil(cd)), qx + bs / 2, ty + bs - 18, "#fff", 12, "center", SY.ink);
+    if (teleMax() > 0) {                                           // 텔레포터 버튼: 지도 버튼 왼쪽. 아래에 남은 내구도
+      const qx = tx - bs - bg, dur = P.tele ? P.tele.dur : 0;
+      const qy = btnPx(qx, ty, bs, bs, "blue");
+      blit(ICON.tele, qx + ((bs - 32) >> 1), Math.round(qy - 16), 32, 32);
+      txt(String(dur), qx + bs - 4, ty + bs - 16, dur <= 3 ? SY.red : "#fff", 12, "right", SY.ink);
       S.teleBtn = { x: qx - 3, y: ty - 3, w: bs + 6, h: bs + 6 };
     }
     [["green", GLYPH.bag, "bag", "#2a8a1e"], ["blue", GLYPH.trophy, "quest", "#1668b8"], ["orange", GLYPH.menu, "menu", "#d0600a"]].forEach(([col, g, kind, tc], i) => {
